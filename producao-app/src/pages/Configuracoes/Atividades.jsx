@@ -1,13 +1,13 @@
 import TabelaCRUD from '../../components/TabelaCRUD'
 
 const COLUNAS = [
+  { nome: 'codigo_op',              label: 'Código OP',        tipo: 'texto',
+    ajuda: 'Código da ordem de produção (exibido entre colchetes no lançamento)' },
+  { nome: 'DESCRICAO_BASICA_SISTEMA', label: 'Descrição',       tipo: 'texto',    obrigatorio: true,
+    ajuda: 'Nome da atividade exibido no lançamento de produção' },
   { nome: 'contrato_id',            label: 'Contrato',         tipo: 'select',   obrigatorio: false,
     tabela_ref: 'd_contratos', coluna_valor: 'id', coluna_label: 'descricao', pesquisavel: true,
     ajuda: 'Contrato ao qual a atividade pertence. Deixe vazio para aparecer em todos os contratos.' },
-  { nome: 'DESCRICAO_BASICA_SISTEMA', label: 'Descrição',       tipo: 'texto',    obrigatorio: true,
-    ajuda: 'Nome da atividade exibido no lançamento de produção' },
-  { nome: 'codigo_op',              label: 'Código OP',        tipo: 'texto',
-    ajuda: 'Código da ordem de produção (exibido entre colchetes no lançamento)' },
   { nome: 'unidade',                label: 'Unidade',          tipo: 'texto',
     ajuda: 'Unidade de medida da quantidade (ex: m, un, m²)' },
   { nome: 'tipo_upe_fixa',          label: 'Tipo UPE',         tipo: 'select',
