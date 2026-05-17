@@ -3,7 +3,7 @@ import { useAuth } from '../../hooks/useAuth'
 
 const SECOES = [
   { caminho: '/configuracoes/contratos',               icone: '📄', titulo: 'Contratos',             descricao: 'Cadastro de contratos e obras',                   superAdmin: true },
-  { caminho: '/configuracoes/tipos-equipe',             icone: '🏷️', titulo: 'Tipos de Equipe',       descricao: 'Categorias de equipes de produção' },
+  { caminho: '/configuracoes/tipos-equipe',             icone: '🏷️', titulo: 'Tipos de Equipe',       descricao: 'Categorias de equipes de produção',              superAdmin: true },
   { caminho: '/configuracoes/equipes',                  icone: '👷', titulo: 'Equipes',               descricao: 'Equipes e suas vinculações' },
   { caminho: '/configuracoes/colaboradores',            icone: '👤', titulo: 'Colaboradores',         descricao: 'Cadastro de colaboradores' },
   { caminho: '/configuracoes/config-campos',            icone: '🔧', titulo: 'Campos',                descricao: 'Definição dos campos dinâmicos',             superAdmin: true },
