@@ -19,6 +19,7 @@ export default function JustificativasObservacoes() {
   const [mes, setMes]               = useState(String(hoje.getMonth() + 1).padStart(2, '0'))
   const [ano, setAno]               = useState(String(hoje.getFullYear()))
   const [filtroContratoId, setFiltroContratoId] = useState('')
+  const [filtroEquipe, setFiltroEquipe]         = useState('')
   const [contratos, setContratos]   = useState([])
   const [dados, setDados]           = useState([])
   const [carregando, setCarregando] = useState(false)
@@ -60,21 +61,32 @@ export default function JustificativasObservacoes() {
 
       const { data } = await q
       setDados(data || [])
+      setFiltroEquipe('')
       setCarregando(false)
     }
     buscar()
   }, [mes, ano, filtroContratoId])
 
+  const equipesDisponiveis = useMemo(() => {
+    const nomes = [...new Set(dados.map(r => r.desc_equipe).filter(Boolean))].sort()
+    return nomes
+  }, [dados])
+
+  const dadosFiltrados = useMemo(
+    () => filtroEquipe ? dados.filter(r => r.desc_equipe === filtroEquipe) : dados,
+    [dados, filtroEquipe]
+  )
+
   // Justificativas: linhas onde justificativa é verdadeiro
   const justificativas = useMemo(
-    () => dados.filter(r => r.justificativa),
-    [dados]
+    () => dadosFiltrados.filter(r => r.justificativa),
+    [dadosFiltrados]
   )
 
   // Observações: uma linha por registro, apenas os que têm observação
   const observacoes = useMemo(() => {
     const map = {}
-    dados.forEach(r => {
+    dadosFiltrados.forEach(r => {
       if (!r.registro_id || map[r.registro_id]) return
       const obs = r.metadata_registro?.observacoes
       if (obs && String(obs).trim()) {
@@ -88,7 +100,7 @@ export default function JustificativasObservacoes() {
       }
     })
     return Object.values(map).sort((a, b) => (b.data_producao || '').localeCompare(a.data_producao || ''))
-  }, [dados])
+  }, [dadosFiltrados])
 
   const estiloAba = (ativo) => ({
     padding: '8px 18px', fontSize: 13, fontWeight: 600, cursor: 'pointer',
@@ -121,6 +133,13 @@ export default function JustificativasObservacoes() {
             <select className="campo-select" value={filtroContratoId} onChange={e => setFiltroContratoId(e.target.value)}>
               <option value="">Todos</option>
               {contratos.map(c => <option key={c.id} value={c.id}>{c.descricao}</option>)}
+            </select>
+          </div>
+          <div className="campo-grupo" style={{ marginBottom: 0, minWidth: 200 }}>
+            <label className="campo-label">Equipe</label>
+            <select className="campo-select" value={filtroEquipe} onChange={e => setFiltroEquipe(e.target.value)}>
+              <option value="">Todas</option>
+              {equipesDisponiveis.map(e => <option key={e} value={e}>{e}</option>)}
             </select>
           </div>
         </div>
