@@ -1,6 +1,7 @@
 import TabelaCRUD from '../../components/TabelaCRUD'
 
 const COLUNAS = [
+  { nome: 'id',                label: 'ID',                tipo: 'numero',   somenteLeitura: true },
   { nome: 'num_contrato',      label: 'Nº Contrato',       tipo: 'texto',    obrigatorio: true,
     ajuda: 'Número identificador do contrato (ex: CT-2024-001)' },
   { nome: 'descricao',         label: 'Descrição',          tipo: 'texto',    obrigatorio: true,
