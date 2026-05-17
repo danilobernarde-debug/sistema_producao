@@ -34,7 +34,7 @@ function TooltipEquipe({ active, payload }) {
   return (
     <div style={{ background: 'white', border: '1px solid #e5e7eb', borderRadius: 8, padding: '10px 14px', fontSize: 13, boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }}>
       <div style={{ fontWeight: 600, marginBottom: 4, color: '#1e2a3b', maxWidth: 200 }}>{d.equipe}</div>
-      <div style={{ color: '#000000' }}>Valor: <strong>{fmtBRL(d.valor)}</strong></div>
+      <div style={{ color: '#7e3af2' }}>Valor: <strong>{fmtBRL(d.valor)}</strong></div>
       <div style={{ color: '#6b7280' }}>Registros: <strong>{d.quantidade}</strong></div>
     </div>
   )
@@ -229,8 +229,8 @@ export default function Dashboard() {
                 <Bar dataKey="valor" radius={[0, 4, 4, 0]} onClick={handleClickEquipe} cursor="pointer">
                   {top10.map((d, i) => (
                     <Cell key={i} fill={
-                      equipeFiltrada === null ? '#000000'
-                      : equipeFiltrada === d.equipe ? '#000000'
+                      equipeFiltrada === null ? '#7e3af2'
+                      : equipeFiltrada === d.equipe ? '#7e3af2'
                       : '#9ca3af'
                     } />
                   ))}
