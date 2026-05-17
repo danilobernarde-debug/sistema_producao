@@ -2,8 +2,14 @@ import { NavLink, useNavigate } from 'react-router-dom'
 import { useAuth } from '../hooks/useAuth'
 
 const itensMenu = [
-  { caminho: '/',          icone: '📊', label: 'Dashboard' },
-  { caminho: '/producao',  icone: '📋', label: 'Produção' },
+  { secao: 'MENU' },
+  { caminho: '/',                           icone: '📊', label: 'Dashboard' },
+  { caminho: '/producao',                   icone: '📋', label: 'Produção' },
+  { secao: 'RELATÓRIOS' },
+  { caminho: '/relatorios/producao',        icone: '📈', label: 'Prod. Mensal' },
+  { caminho: '/relatorios/justificativas',  icone: '📝', label: 'Justificativas' },
+  { secao: 'CONFIGURAÇÕES' },
+  { caminho: '/configuracoes',              icone: '⚙️', label: 'Configurações' },
 ]
 
 export default function Sidebar() {
@@ -28,21 +34,24 @@ export default function Sidebar() {
 
       {/* Menu */}
       <nav style={estilos.nav}>
-        <div style={estilos.secao}>MENU</div>
-        {itensMenu.map(item => (
-          <NavLink
-            key={item.caminho}
-            to={item.caminho}
-            end={item.caminho === '/'}
-            style={({ isActive }) => ({
-              ...estilos.item,
-              ...(isActive ? estilos.itemAtivo : {}),
-            })}
-          >
-            <span style={estilos.icone}>{item.icone}</span>
-            {item.label}
-          </NavLink>
-        ))}
+        {itensMenu.map((item, i) =>
+          item.secao ? (
+            <div key={i} style={{ ...estilos.secao, marginTop: i === 0 ? 0 : 12 }}>{item.secao}</div>
+          ) : (
+            <NavLink
+              key={item.caminho}
+              to={item.caminho}
+              end={item.caminho === '/'}
+              style={({ isActive }) => ({
+                ...estilos.item,
+                ...(isActive ? estilos.itemAtivo : {}),
+              })}
+            >
+              <span style={estilos.icone}>{item.icone}</span>
+              {item.label}
+            </NavLink>
+          )
+        )}
       </nav>
 
       {/* Rodapé: usuário + sair */}

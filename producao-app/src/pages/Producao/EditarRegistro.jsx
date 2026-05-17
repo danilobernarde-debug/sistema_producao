@@ -22,6 +22,7 @@ export default function EditarRegistro() {
   const [colaboradores, setColaboradores] = useState([])
   const [equipesContrato, setEquipesContrato] = useState([])
   const [regionais, setRegionais] = useState([])
+  const [precosUpe, setPrecosUpe] = useState([])
 
   const [contratoId, setContratoId] = useState('')
   const [tipoEquipeId, setTipoEquipeId] = useState('')
@@ -73,22 +74,30 @@ export default function EditarRegistro() {
     setEncarregadoId(reg.encarregado_id ? String(reg.encarregado_id) : '')
     setRegionalId(reg.regional_id ? String(reg.regional_id) : '')
 
-    // Obras do contrato
+    // Obras e preços UPE do contrato
     supabase.from('d_obras').select('obra, localidade')
       .eq('contrato_id', reg.contrato_id).order('obra')
       .then(({ data }) => setObras(data || []))
+
+    supabase.from('d_contratos_preco_upe').select('upe_lm, upe_lv, vigencia_inicio, vigencia_fim')
+      .eq('contrato_id', reg.contrato_id)
+      .then(({ data }) => setPrecosUpe(data || []))
     setDataProducao(reg.data_producao)
     setMetaRegistro(reg.metadata_registro || {})
 
     // Atividades do registro
     const { data: ats } = await supabase.from('f_prod_atividades').select('*').eq('registro_id', id)
-    setItens((ats || []).map(a => ({
-      id: a.id,
-      atividade_id: String(a.atividade_id),
-      quantidade: String(a.quantidade),
-      adicional: String(a.adicional || ''),
-      meta: a.metadata_atividades || {},
-    })))
+    setItens((ats || []).map(a => {
+      const meta = a.metadata_atividades || {}
+      return {
+        id: a.id,
+        atividade_id: String(a.atividade_id),
+        quantidade: String(a.quantidade),
+        largura: meta.largura != null ? String(meta.largura) : '',
+        comprimento: meta.comprimento != null ? String(meta.comprimento) : '',
+        meta,
+      }
+    }))
 
     // f_prod_colaboradores com equipe_id
     const { data: fpc } = await supabase
@@ -106,16 +115,21 @@ export default function EditarRegistro() {
       .filter(e => { if (vistos.has(e.tipo_equipe_id)) return false; vistos.add(e.tipo_equipe_id); return true })
       .map(e => e.d_tipo_equipe).filter(Boolean))
 
-    setEquipes((eqs || [])
+    let equipesFiltradas = (eqs || [])
       .filter(e => String(e.tipo_equipe_id) === String(reg.tipo_equipe_id))
-      .map(e => ({ id: e.id, equipe: e.equipe })))
+      .map(e => ({ id: e.id, equipe: e.equipe }))
+    if (reg.equipe_id && !equipesFiltradas.some(e => String(e.id) === String(reg.equipe_id))) {
+      const { data: eqSalva } = await supabase.from('d_equipes').select('id, equipe').eq('id', reg.equipe_id).single()
+      if (eqSalva) equipesFiltradas = [eqSalva, ...equipesFiltradas]
+    }
+    setEquipes(equipesFiltradas)
 
     // Atividades com dois níveis de filtro
     const { data: te } = await supabase
       .from('d_tipo_equipe').select('grupo_atividades').eq('id', reg.tipo_equipe_id).single()
     const grupoAtiv = te?.grupo_atividades
     const referenciaContrato = reg.d_contratos?.referencia_codigo
-    const campos = 'id, codigo_op, DESCRICAO_BASICA_SISTEMA, unidade'
+    const campos = 'id, codigo_op, DESCRICAO_BASICA_SISTEMA, unidade, tipo_upe_fixa, UPE, tipo_lm_lv, comprimento_lagura'
 
     const qJustif = supabase.from('d_atividades').select(campos)
       .eq('referencia_codigo', 'justificativa').order('DESCRICAO_BASICA_SISTEMA')
@@ -206,7 +220,7 @@ export default function EditarRegistro() {
   }
 
   function adicionarAtividade() {
-    setItens(prev => [...prev, { atividade_id: '', quantidade: '', adicional: '', meta: {} }])
+    setItens(prev => [...prev, { atividade_id: '', quantidade: '', meta: {} }])
   }
 
   function removerAtividade(idx) {
@@ -275,13 +289,28 @@ export default function EditarRegistro() {
   function validar() {
     const erros = {}
     if (!dataProducao) erros.data = 'Obrigatório'
-    if (!contrato?.logica_contrato && camposRegistro.some(c => c.config_campos.nome === 'equipe') && !equipeId) erros.equipe = 'Obrigatório'
+    if (!contrato?.logica_contrato && !equipeId) erros.equipe = 'Obrigatório'
+    const _intercept = ['equipe', 'obra_id', 'encarregado_id', 'regional_id']
     camposRegistro.forEach(c => {
-      if (c.obrigatorio && !metaRegistro[c.config_campos.nome]) erros[`reg_${c.config_campos.nome}`] = 'Obrigatório'
+      const nome = c.config_campos.nome
+      if (_intercept.includes(nome)) return
+      if (c.obrigatorio && !metaRegistro[nome]) erros[`reg_${nome}`] = 'Obrigatório'
     })
+    const campoObra = camposRegistro.find(c => c.config_campos.nome === 'obra_id')
+    if (campoObra?.obrigatorio && !obraId) erros.obra_id = 'Obrigatório'
+    const campoEnc = camposRegistro.find(c => c.config_campos.nome === 'encarregado_id')
+    if (campoEnc?.obrigatorio && !encarregadoId) erros.encarregado_id = 'Obrigatório'
+    const campoReg = camposRegistro.find(c => c.config_campos.nome === 'regional_id')
+    if (campoReg?.obrigatorio && !regionalId) erros.regional_id = 'Obrigatório'
     itens.forEach((it, idx) => {
       if (!it.atividade_id) erros[`at_${idx}_atividade`] = 'Obrigatório'
-      if (!it.quantidade || Number(it.quantidade) <= 0) erros[`at_${idx}_qtd`] = 'Informe a quantidade'
+      const atv = atividades.find(a => String(a.id) === String(it.atividade_id))
+      if (atv?.comprimento_lagura) {
+        const qtd = Number(it.largura || 0) * Number(it.comprimento || 0)
+        if (qtd <= 0) erros[`at_${idx}_qtd`] = 'Informe largura e comprimento'
+      } else {
+        if (!it.quantidade || Number(it.quantidade) <= 0) erros[`at_${idx}_qtd`] = 'Informe a quantidade'
+      }
       camposAtividade.forEach(c => {
         if (c.obrigatorio && !it.meta[c.config_campos.nome]) erros[`at_${idx}_${c.config_campos.nome}`] = 'Obrigatório'
       })
@@ -307,13 +336,25 @@ export default function EditarRegistro() {
       }).eq('id', id)
 
       await supabase.from('f_prod_atividades').delete().eq('registro_id', id)
-      await supabase.from('f_prod_atividades').insert(itens.map(it => ({
-        registro_id: Number(id),
-        atividade_id: Number(it.atividade_id),
-        quantidade: Number(it.quantidade),
-        adicional: it.adicional ? Number(it.adicional) : 0,
-        metadata_atividades: it.meta,
-      })))
+      await supabase.from('f_prod_atividades').insert(itens.map(it => {
+        const atv = atividades.find(a => String(a.id) === String(it.atividade_id))
+        const usaLC = atv?.comprimento_lagura
+        const qtd = usaLC
+          ? Number(it.largura || 0) * Number(it.comprimento || 0)
+          : Number(it.quantidade)
+        const meta = usaLC
+          ? { ...it.meta, largura: Number(it.largura) || null, comprimento: Number(it.comprimento) || null }
+          : it.meta
+        const vals = calcularValores(it)
+        return {
+          registro_id: Number(id),
+          atividade_id: Number(it.atividade_id),
+          quantidade: qtd,
+          upe: vals ? vals.upe : null,
+          preco_upe: vals ? vals.precoUpe : null,
+          metadata_atividades: meta,
+        }
+      }))
 
       await supabase.from('f_prod_colaboradores').delete().eq('registro_id', id)
 
@@ -330,7 +371,10 @@ export default function EditarRegistro() {
           ...adicionados.map(c => ({ registro_id: Number(id), colaborador_id: Number(c.id), equipe_id: c.equipe_id ? Number(c.equipe_id) : null })),
         ]
       }
-      if (presenca.length > 0) await supabase.from('f_prod_colaboradores').insert(presenca)
+      if (presenca.length > 0) {
+        const { error: erColabs } = await supabase.from('f_prod_colaboradores').insert(presenca)
+        if (erColabs) throw erColabs
+      }
 
       navegar('/producao')
     } catch (e) {
@@ -346,6 +390,43 @@ export default function EditarRegistro() {
   }
 
   const logicaContrato = contrato?.logica_contrato
+
+  function pickPrecoVigente(dataAlvo) {
+    if (!precosUpe?.length) return null
+    const norm = precosUpe
+      .map(r => ({ ...r, _ini: r.vigencia_inicio ? new Date(r.vigencia_inicio) : null, _fim: r.vigencia_fim ? new Date(r.vigencia_fim) : null }))
+      .filter(r => r._ini && !isNaN(r._ini))
+    const d = dataAlvo ? new Date(dataAlvo) : null
+    if (d && !isNaN(d)) {
+      const match = norm.find(r => r._ini <= d && (r._fim === null || d <= r._fim))
+      if (match) return match
+      const anteriores = norm.filter(r => r._ini <= d).sort((a, b) => b._ini - a._ini)
+      if (anteriores.length) return anteriores[0]
+    }
+    return norm.sort((a, b) => b._ini - a._ini)[0] || null
+  }
+
+  function calcularValores(item) {
+    if (!item.atividade_id) return null
+    const atv = atividades.find(a => String(a.id) === String(item.atividade_id))
+    if (!atv) return null
+    const qtd = atv.comprimento_lagura
+      ? Number(item.largura || 0) * Number(item.comprimento || 0)
+      : Number(item.quantidade || 0)
+    if (qtd <= 0) return null
+    const upe = Number(atv.UPE) || 0
+    let precoUpe = null
+    if (atv.tipo_upe_fixa === 'FIXA') precoUpe = 1
+    else if (atv.tipo_upe_fixa === 'UPE') {
+      const vigente = pickPrecoVigente(dataProducao)
+      if (!vigente) return null
+      if (atv.tipo_lm_lv === 'LM') precoUpe = Number(vigente.upe_lm) || null
+      else if (atv.tipo_lm_lv === 'LV') precoUpe = Number(vigente.upe_lv) || null
+    }
+    if (precoUpe === null) return null
+    return { upe, precoUpe, qtd, total: upe * precoUpe * qtd }
+  }
+
   const opcoesObras = obras.map(o => ({ valor: o.obra, label: o.localidade ? `${o.obra} — ${o.localidade}` : String(o.obra) }))
   const opcoesEquipes = equipes.map(e => ({ valor: e.id, label: e.equipe }))
   const opcoesEncarregados = colaboradores.map(c => ({
@@ -413,6 +494,15 @@ export default function EditarRegistro() {
                 style={{ background: '#f9fafb', cursor: 'not-allowed' }} />
             </div>
 
+            {!logicaContrato && (
+              <div className="campo-grupo">
+                <label className="campo-label">Equipe <span className="obrigatorio">*</span></label>
+                <SelectPesquisavel opcoes={opcoesEquipes} valor={equipeId}
+                  onChange={handleEquipeChange} placeholder="Pesquise a equipe..."
+                  disabled={opcoesEquipes.length === 0} erro={errosCampos.equipe} />
+              </div>
+            )}
+
           </div>
 
           {camposRegistro.length > 0 && (
@@ -421,35 +511,29 @@ export default function EditarRegistro() {
               <div className="campos-grid">
                 {camposRegistro.map(c => {
                   const nome = c.config_campos.nome
-                  if (nome === 'equipe' && !logicaContrato) return (
-                    <div key={c.id} className="campo-grupo">
-                      <label className="campo-label">Equipe <span className="obrigatorio">*</span></label>
-                      <SelectPesquisavel opcoes={opcoesEquipes} valor={equipeId}
-                        onChange={handleEquipeChange} placeholder="Pesquise a equipe..."
-                        erro={errosCampos.equipe} />
-                    </div>
-                  )
-                  if (nome === 'equipe') return null
+                  if (nome === 'equipe' || nome === 'equipe_id') return null
                   if (nome === 'obra_id') return (
                     <div key={c.id} className="campo-grupo">
-                      <label className="campo-label">Obra</label>
+                      <label className="campo-label">Obra {c.obrigatorio && <span className="obrigatorio">*</span>}</label>
                       <SelectPesquisavel opcoes={opcoesObras} valor={obraId}
                         onChange={v => setObraId(v)} placeholder="Pesquise a obra..."
-                        disabled={opcoesObras.length === 0} />
+                        disabled={opcoesObras.length === 0} erro={errosCampos.obra_id} />
                     </div>
                   )
                   if (nome === 'encarregado_id') return (
                     <div key={c.id} className="campo-grupo">
-                      <label className="campo-label">Encarregado</label>
+                      <label className="campo-label">Encarregado {c.obrigatorio && <span className="obrigatorio">*</span>}</label>
                       <SelectPesquisavel opcoes={opcoesEncarregados} valor={encarregadoId}
-                        onChange={v => setEncarregadoId(v)} placeholder="Pesquise o encarregado..." />
+                        onChange={v => setEncarregadoId(v)} placeholder="Pesquise o encarregado..."
+                        erro={errosCampos.encarregado_id} />
                     </div>
                   )
                   if (nome === 'regional_id') return (
                     <div key={c.id} className="campo-grupo">
-                      <label className="campo-label">Regional</label>
+                      <label className="campo-label">Regional {c.obrigatorio && <span className="obrigatorio">*</span>}</label>
                       <SelectPesquisavel opcoes={opcoesRegionais} valor={regionalId}
-                        onChange={v => setRegionalId(v)} placeholder="Pesquise a regional..." />
+                        onChange={v => setRegionalId(v)} placeholder="Pesquise a regional..."
+                        erro={errosCampos.regional_id} />
                     </div>
                   )
                   return (
@@ -470,6 +554,8 @@ export default function EditarRegistro() {
               valor: a.id,
               label: a.codigo_op ? `[${a.codigo_op}] ${a.DESCRICAO_BASICA_SISTEMA}` : a.DESCRICAO_BASICA_SISTEMA,
             }))
+            const atvSel = atividades.find(a => String(a.id) === String(item.atividade_id))
+            const usaLC = atvSel?.comprimento_lagura
             return (
               <div key={idx} className="atividade-item">
                 <div className="atividade-item-header">
@@ -488,24 +574,54 @@ export default function EditarRegistro() {
                       placeholder="Pesquise a atividade..."
                       erro={errosCampos[`at_${idx}_atividade`]} />
                   </div>
-                  <div className="campo-grupo">
-                    <label className="campo-label">Quantidade <span className="obrigatorio">*</span></label>
-                    <input type="number" step="0.000001" min="0"
-                      className={`campo-input${errosCampos[`at_${idx}_qtd`] ? ' erro' : ''}`}
-                      value={item.quantidade} onChange={e => alterarItemAtividade(idx, 'quantidade', e.target.value)} />
-                    {errosCampos[`at_${idx}_qtd`] && <div className="campo-erro-msg">{errosCampos[`at_${idx}_qtd`]}</div>}
-                  </div>
-                  <div className="campo-grupo">
-                    <label className="campo-label">Adicional (R$)</label>
-                    <input type="number" step="0.01" min="0" className="campo-input"
-                      value={item.adicional} onChange={e => alterarItemAtividade(idx, 'adicional', e.target.value)} />
-                  </div>
-                  {camposAtividade.map(c => (
+                  {usaLC ? (
+                    <>
+                      <div className="campo-grupo">
+                        <label className="campo-label">Largura (m) <span className="obrigatorio">*</span></label>
+                        <input type="number" step="0.000001" min="0"
+                          className={`campo-input${errosCampos[`at_${idx}_qtd`] ? ' erro' : ''}`}
+                          value={item.largura}
+                          onChange={e => alterarItemAtividade(idx, 'largura', e.target.value)} placeholder="0" />
+                      </div>
+                      <div className="campo-grupo">
+                        <label className="campo-label">Comprimento (m) <span className="obrigatorio">*</span></label>
+                        <input type="number" step="0.000001" min="0"
+                          className={`campo-input${errosCampos[`at_${idx}_qtd`] ? ' erro' : ''}`}
+                          value={item.comprimento}
+                          onChange={e => alterarItemAtividade(idx, 'comprimento', e.target.value)} placeholder="0" />
+                      </div>
+                      <div className="campo-grupo">
+                        <label className="campo-label">Quantidade (m²)</label>
+                        <input type="number" className="campo-input" readOnly
+                          value={(Number(item.largura || 0) * Number(item.comprimento || 0)) || ''} />
+                      </div>
+                      {errosCampos[`at_${idx}_qtd`] && <div className="campo-erro-msg" style={{ gridColumn: 'span 2' }}>{errosCampos[`at_${idx}_qtd`]}</div>}
+                    </>
+                  ) : (
+                    <div className="campo-grupo">
+                      <label className="campo-label">Quantidade <span className="obrigatorio">*</span></label>
+                      <input type="number" step="0.000001" min="0"
+                        className={`campo-input${errosCampos[`at_${idx}_qtd`] ? ' erro' : ''}`}
+                        value={item.quantidade} onChange={e => alterarItemAtividade(idx, 'quantidade', e.target.value)} />
+                      {errosCampos[`at_${idx}_qtd`] && <div className="campo-erro-msg">{errosCampos[`at_${idx}_qtd`]}</div>}
+                    </div>
+                  )}
+                  {camposAtividade.filter(c => !['comprimento', 'largura'].includes(c.config_campos.nome)).map(c => (
                     <CampoDinamico key={c.id} campo={c} valor={item.meta[c.config_campos.nome]}
                       onChange={(nome, valor) => alterarMetaAtividade(idx, nome, valor)}
                       erro={errosCampos[`at_${idx}_${c.config_campos.nome}`]} />
                   ))}
                 </div>
+                {(() => {
+                  const vals = calcularValores(item)
+                  return vals !== null ? (
+                    <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 20, fontSize: 13, color: '#374151', marginTop: 6, paddingTop: 6, borderTop: '1px solid #e5e7eb' }}>
+                      <span>UPE: <strong>{vals.upe.toLocaleString('pt-BR', { minimumFractionDigits: 4, maximumFractionDigits: 4 })}</strong></span>
+                      <span>Preço UPE: <strong>R$ {vals.precoUpe.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</strong></span>
+                      <span>Valor estimado: <strong>R$ {vals.total.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</strong></span>
+                    </div>
+                  ) : null
+                })()}
               </div>
             )
           })}
@@ -513,13 +629,13 @@ export default function EditarRegistro() {
         </div>
 
         {/* Colaboradores */}
-        {colaboradores.length > 0 && (logicaContrato || equipeId) && (
+        {((logicaContrato && tipoEquipeId) || (colaboradores.length > 0 && equipeId)) && (
           <div className="card">
             <div className="card-titulo">Colaboradores Presentes</div>
 
             {logicaContrato ? (
               <>
-                <div style={{ display: 'flex', gap: 8, marginBottom: 10, alignItems: 'flex-end' }}>
+                <div style={{ display: 'flex', gap: 8, marginBottom: 12, alignItems: 'flex-end' }}>
                   <div style={{ flex: 1 }}>
                     <label className="campo-label">Adicionar equipe completa</label>
                     <SelectPesquisavel
@@ -535,26 +651,10 @@ export default function EditarRegistro() {
                   </button>
                 </div>
 
-                <div style={{ display: 'flex', gap: 8, marginBottom: 16, alignItems: 'flex-end' }}>
-                  <div style={{ flex: 1 }}>
-                    <label className="campo-label">Adicionar colaborador individual</label>
-                    <SelectPesquisavel
-                      opcoes={colaboradoresNaoAdicionados.map(c => ({ valor: c.id, label: c.matricula_nome, sublabel: c.equipeNome }))}
-                      valor={selectExternoId}
-                      onChange={setSelectExternoId}
-                      placeholder="Pesquise o colaborador..."
-                    />
-                  </div>
-                  <button type="button" className="btn btn-secundario" style={{ flexShrink: 0 }}
-                    onClick={adicionarIndividual} disabled={!selectExternoId}>
-                    + Adicionar
-                  </button>
-                </div>
-
                 {adicionados.length === 0 ? (
-                  <p style={{ color: '#6b7280', fontSize: 13 }}>Nenhum colaborador adicionado.</p>
+                  <p style={{ color: '#6b7280', fontSize: 13, marginBottom: 12 }}>Nenhum colaborador adicionado.</p>
                 ) : (
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginBottom: 12 }}>
                     {adicionados.map(c => (
                       <div key={c.id} style={{ padding: '8px 12px', borderRadius: 6, background: '#f0f9ff', display: 'flex', alignItems: 'center', gap: 8 }}>
                         <span style={{ flex: 1, minWidth: 0, fontSize: 13, fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{c.matricula_nome}</span>
@@ -574,6 +674,22 @@ export default function EditarRegistro() {
                     ))}
                   </div>
                 )}
+
+                <div style={{ display: 'flex', gap: 8, alignItems: 'flex-end' }}>
+                  <div style={{ flex: 1 }}>
+                    <label className="campo-label">Adicionar colaborador individual</label>
+                    <SelectPesquisavel
+                      opcoes={colaboradoresNaoAdicionados.map(c => ({ valor: c.id, label: c.matricula_nome, sublabel: c.equipeNome }))}
+                      valor={selectExternoId}
+                      onChange={setSelectExternoId}
+                      placeholder="Pesquise o colaborador..."
+                    />
+                  </div>
+                  <button type="button" className="btn btn-secundario" style={{ flexShrink: 0 }}
+                    onClick={adicionarIndividual} disabled={!selectExternoId}>
+                    + Adicionar
+                  </button>
+                </div>
               </>
             ) : (
               <>
@@ -581,55 +697,41 @@ export default function EditarRegistro() {
                   Equipe: {equipes.find(e => String(e.id) === equipeId)?.equipe || ''}
                 </div>
 
-                {presentesList.length === 0 ? (
-                  <p style={{ color: '#6b7280', fontSize: 13, marginBottom: 12 }}>Nenhum colaborador ativo nesta equipe.</p>
-                ) : (
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginBottom: 12 }}>
-                    {presentesList.map(c => (
-                      <div key={c.id} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '6px 10px', background: '#f0f9ff', borderRadius: 6 }}>
-                        <span style={{ flex: 1, fontSize: 13 }}>{c.matricula_nome}</span>
-                        <button type="button" className="btn btn-secundario"
-                          style={{ padding: '3px 10px', fontSize: 12 }}
-                          onClick={() => removerPresente(c.id)}>× Remover</button>
-                      </div>
-                    ))}
-                  </div>
-                )}
-
-                {adicionados.length > 0 && (
-                  <>
-                    <div className="secao-titulo">Colaboradores de Outras Equipes</div>
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginBottom: 12 }}>
-                      {adicionados.map(c => (
-                        <div key={c.id} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '6px 10px', background: '#f9fafb', borderRadius: 6 }}>
-                          <span style={{ flex: 1, fontSize: 13 }}>{c.matricula_nome}</span>
-                          <span className="badge badge-cinza">{c.equipeNome}</span>
-                          <button type="button" className="btn btn-secundario"
-                            style={{ padding: '3px 10px', fontSize: 12 }}
-                            onClick={() => removerAdicionado(c.id)}>× Remover</button>
-                        </div>
-                      ))}
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginBottom: 12 }}>
+                  {presentesList.map(c => (
+                    <div key={c.id} style={{ padding: '8px 12px', borderRadius: 6, background: '#f0f9ff', display: 'flex', alignItems: 'center', gap: 8 }}>
+                      <span style={{ flex: 1, minWidth: 0, fontSize: 13, fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{c.matricula_nome}</span>
+                      <button type="button" className="btn btn-secundario"
+                        style={{ padding: '3px 10px', fontSize: 12 }}
+                        onClick={() => removerPresente(c.id)}>× Remover</button>
                     </div>
-                  </>
-                )}
-
-                {colaboradoresDisponiveis.length > 0 && (
-                  <div style={{ display: 'flex', gap: 8, alignItems: 'flex-end' }}>
-                    <div style={{ flex: 1 }}>
-                      <label className="campo-label">Adicionar de outra equipe</label>
-                      <SelectPesquisavel
-                        opcoes={colaboradoresDisponiveis.map(c => ({ valor: c.id, label: c.matricula_nome, sublabel: c.equipeNome }))}
-                        valor={selectExternoId}
-                        onChange={setSelectExternoId}
-                        placeholder="Pesquise colaborador..."
-                      />
+                  ))}
+                  {adicionados.map(c => (
+                    <div key={c.id} style={{ padding: '8px 12px', borderRadius: 6, background: '#f9fafb', display: 'flex', alignItems: 'center', gap: 8 }}>
+                      <span style={{ flex: 1, minWidth: 0, fontSize: 13, fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{c.matricula_nome}</span>
+                      <span className="badge badge-cinza">{c.equipeNome}</span>
+                      <button type="button" className="btn btn-secundario"
+                        style={{ padding: '3px 10px', fontSize: 12 }}
+                        onClick={() => removerAdicionado(c.id)}>× Remover</button>
                     </div>
-                    <button type="button" className="btn btn-secundario" style={{ flexShrink: 0 }}
-                      onClick={adicionarExterno} disabled={!selectExternoId}>
-                      + Adicionar
-                    </button>
+                  ))}
+                </div>
+
+                <div style={{ display: 'flex', gap: 8, alignItems: 'flex-end' }}>
+                  <div style={{ flex: 1 }}>
+                    <label className="campo-label">Adicionar colaborador</label>
+                    <SelectPesquisavel
+                      opcoes={colaboradoresDisponiveis.map(c => ({ valor: c.id, label: c.matricula_nome, sublabel: c.equipeNome }))}
+                      valor={selectExternoId}
+                      onChange={setSelectExternoId}
+                      placeholder="Pesquise colaborador..."
+                    />
                   </div>
-                )}
+                  <button type="button" className="btn btn-secundario" style={{ flexShrink: 0 }}
+                    onClick={adicionarExterno} disabled={!selectExternoId}>
+                    + Adicionar
+                  </button>
+                </div>
               </>
             )}
           </div>
