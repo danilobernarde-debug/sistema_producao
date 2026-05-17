@@ -46,10 +46,13 @@ export default function Sidebar() {
     <aside style={estilos.sidebar}>
       {/* Logo */}
       <div style={estilos.logoArea}>
-        <span style={estilos.logoIcone}>⚡</span>
-        <div>
-          <div style={estilos.logoNome}>Produção</div>
-          <div style={estilos.logoSub}>D B Machado</div>
+        <img
+          src="/Logo, Sem nome, Transparente.PNG"
+          alt="Rede Forte"
+          style={{ height: 36, width: 'auto', objectFit: 'contain', flexShrink: 0 }}
+        />
+        <div style={{ fontSize: 15, fontWeight: 700, color: 'white', letterSpacing: '0.03em' }}>
+          REDE FORTE
         </div>
       </div>
 
