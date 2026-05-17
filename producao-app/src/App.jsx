@@ -103,7 +103,7 @@ export default function App() {
         } />
 
         <Route path="/configuracoes" element={<RotaProtegida><Configuracoes /></RotaProtegida>} />
-        <Route path="/configuracoes/contratos" element={<RotaProtegida><Contratos /></RotaProtegida>} />
+        <Route path="/configuracoes/contratos" element={<RotaProtegida><RotaSuperAdmin><Contratos /></RotaSuperAdmin></RotaProtegida>} />
         <Route path="/configuracoes/tipos-equipe" element={<RotaProtegida><TiposEquipe /></RotaProtegida>} />
         <Route path="/configuracoes/equipes" element={<RotaProtegida><Equipes /></RotaProtegida>} />
         <Route path="/configuracoes/colaboradores" element={<RotaProtegida><Colaboradores /></RotaProtegida>} />

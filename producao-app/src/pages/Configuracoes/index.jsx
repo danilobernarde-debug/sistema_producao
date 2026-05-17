@@ -2,7 +2,7 @@ import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../../hooks/useAuth'
 
 const SECOES = [
-  { caminho: '/configuracoes/contratos',               icone: '📄', titulo: 'Contratos',             descricao: 'Cadastro de contratos e obras' },
+  { caminho: '/configuracoes/contratos',               icone: '📄', titulo: 'Contratos',             descricao: 'Cadastro de contratos e obras',                   superAdmin: true },
   { caminho: '/configuracoes/tipos-equipe',             icone: '🏷️', titulo: 'Tipos de Equipe',       descricao: 'Categorias de equipes de produção' },
   { caminho: '/configuracoes/equipes',                  icone: '👷', titulo: 'Equipes',               descricao: 'Equipes e suas vinculações' },
   { caminho: '/configuracoes/colaboradores',            icone: '👤', titulo: 'Colaboradores',         descricao: 'Cadastro de colaboradores' },
