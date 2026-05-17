@@ -113,28 +113,16 @@ export default function NovoRegistro() {
 
       const campos = 'id, codigo_op, DESCRICAO_BASICA_SISTEMA, unidade, tipo_upe_fixa, UPE, tipo_lm_lv, comprimento_lagura'
 
-      // Atividades de justificativa aparecem sempre
-      const qJustif = supabase.from('d_atividades').select(campos)
-        .eq('referencia_codigo', 'justificativa').order('DESCRICAO_BASICA_SISTEMA')
-
-      // Atividades normais: filtro por contrato_id + tipo_equipe_id
-      const qNormais = (() => {
-        if (!contratoId) return Promise.resolve({ data: [] })
-        let q = supabase.from('d_atividades').select(campos)
-          .eq('contrato_id', Number(contratoId))
-          .order('DESCRICAO_BASICA_SISTEMA')
-        q = grupoAtiv != null
-          ? q.or(`tipo_equipe_id.eq.0,tipo_equipe_id.eq.${grupoAtiv}`)
-          : q.eq('tipo_equipe_id', 0)
-        return q
-      })()
-
-      const [{ data: justif }, { data: normais }] = await Promise.all([qJustif, qNormais])
-      const todos = [...(justif || []), ...(normais || [])]
-      const vistos = new Set()
-      const unicos = todos.filter(a => { if (vistos.has(a.id)) return false; vistos.add(a.id); return true })
-      unicos.sort((a, b) => a.DESCRICAO_BASICA_SISTEMA.localeCompare(b.DESCRICAO_BASICA_SISTEMA, 'pt-BR'))
-      setAtividades(unicos)
+      // contrato_id = contratoId  OU  contrato_id IS NULL (aparecem para todos)
+      if (!contratoId) { setAtividades([]); return }
+      let q = supabase.from('d_atividades').select(campos)
+        .or(`contrato_id.eq.${Number(contratoId)},contrato_id.is.null`)
+        .order('DESCRICAO_BASICA_SISTEMA')
+      q = grupoAtiv != null
+        ? q.or(`tipo_equipe_id.eq.0,tipo_equipe_id.eq.${grupoAtiv}`)
+        : q.eq('tipo_equipe_id', 0)
+      const { data } = await q
+      setAtividades(data || [])
     }
     carregarAtividades()
   }, [tipoEquipeId, contratoId])
