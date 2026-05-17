@@ -186,7 +186,7 @@ export default function Dashboard() {
                 <Tooltip content={<TooltipEquipe />} />
                 <Bar dataKey="valor" radius={[0, 4, 4, 0]}>
                   {top10.map((_, i) => (
-                    <Cell key={i} fill="#f97316" />
+                    <Cell key={i} fill="#000000" />
                   ))}
                 </Bar>
               </BarChart>
