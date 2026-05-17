@@ -13,23 +13,62 @@ const SUGESTOES = [
 
 async function buscarContexto() {
   const hoje = new Date()
-  const inicio = new Date(hoje.getFullYear(), hoje.getMonth() - 1, 1).toISOString().split('T')[0]
+  const inicio = new Date(hoje.getFullYear(), 0, 1).toISOString().split('T')[0] // 1 jan do ano atual
   const fim    = new Date(hoje.getFullYear(), hoje.getMonth() + 1, 1).toISOString().split('T')[0]
 
+  // Produção
   const { data, error } = await supabase
     .from('view_powerbi_producao')
     .select('data_producao, contrato_id, desc_equipe, desc_atividade, unidade, quantidade, valor_producao, justificativa')
     .gte('data_producao', inicio)
     .lt('data_producao', fim)
-    .limit(5000)
+    .limit(8000)
 
   if (error) return `Erro ao buscar dados: ${error.message}`
   const registros = (data || []).filter(r => !r.justificativa)
   if (!registros.length) return `Nenhum dado de produção encontrado entre ${inicio} e ${fim}.`
 
-  // Agrega por equipe
+  // Colaboradores — busca registros do período e depois a presença
+  const { data: regIds } = await supabase
+    .from('f_prod_registro')
+    .select('id')
+    .gte('data_producao', inicio)
+    .lt('data_producao', fim)
+    .limit(2000)
+
+  let contextoColabs = ''
+  if (regIds?.length) {
+    const ids = regIds.map(r => r.id)
+    const { data: presenca } = await supabase
+      .from('f_prod_colaboradores')
+      .select('colaborador_id, registro_id, d_colaboradores(matricula_nome)')
+      .in('registro_id', ids)
+      .limit(5000)
+
+    if (presenca?.length) {
+      const diasPorColab = {}
+      presenca.forEach(p => {
+        const nome = p.d_colaboradores?.matricula_nome || `ID ${p.colaborador_id}`
+        diasPorColab[nome] = (diasPorColab[nome] || new Set()).add(p.registro_id)
+      })
+      const rankingColabs = Object.entries(diasPorColab)
+        .map(([nome, set]) => ({ nome, dias: set.size }))
+        .sort((a, b) => b.dias - a.dias)
+        .slice(0, 15)
+        .map(c => `  - ${c.nome}: ${c.dias} registro${c.dias !== 1 ? 's' : ''}`)
+        .join('\n')
+
+      contextoColabs = `\nTotal de colaboradores com presença: ${Object.keys(diasPorColab).length}
+
+Top 15 colaboradores por número de registros:
+${rankingColabs}`
+    }
+  }
+
+  // Agrega produção
   const porEquipe = {}
   const porAtividade = {}
+  const porMes = {}
   const porDia = {}
   let totalGeral = 0
 
@@ -37,16 +76,18 @@ async function buscarContexto() {
     const eq  = r.desc_equipe    || 'Sem equipe'
     const at  = r.desc_atividade || 'Sem atividade'
     const dia = r.data_producao  || ''
+    const mes = dia.slice(0, 7)
     const val = Number(r.valor_producao) || 0
 
     porEquipe[eq]    = (porEquipe[eq]    || 0) + val
     porAtividade[at] = (porAtividade[at] || 0) + val
+    porMes[mes]      = (porMes[mes]      || 0) + val
     porDia[dia]      = (porDia[dia]      || 0) + val
     totalGeral += val
   })
 
   const topEquipes = Object.entries(porEquipe)
-    .sort((a, b) => b[1] - a[1]).slice(0, 10)
+    .sort((a, b) => b[1] - a[1]).slice(0, 15)
     .map(([eq, v]) => `  - ${eq}: R$ ${v.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`)
     .join('\n')
 
@@ -55,28 +96,39 @@ async function buscarContexto() {
     .map(([at, v]) => `  - ${at}: R$ ${v.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`)
     .join('\n')
 
+  const porMesStr = Object.entries(porMes)
+    .sort((a, b) => a[0].localeCompare(b[0]))
+    .map(([m, v]) => `  - ${m}: R$ ${v.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`)
+    .join('\n')
+
   const ultimosDias = Object.entries(porDia)
-    .sort((a, b) => b[0].localeCompare(a[0])).slice(0, 7)
+    .sort((a, b) => b[0].localeCompare(a[0])).slice(0, 10)
     .map(([d, v]) => `  - ${d.split('-').reverse().join('/')}: R$ ${v.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`)
     .join('\n')
 
   const nEquipes   = Object.keys(porEquipe).length
   const nRegistros = new Set(registros.map(r => r.data_producao + r.desc_equipe)).size
+  const mesAtual   = hoje.toLocaleString('pt-BR', { month: 'long', year: 'numeric' })
 
-  return `DADOS DE PRODUÇÃO (últimos 2 meses — ${inicio} a ${fim}):
+  return `DADOS DE PRODUÇÃO — ${inicio} a ${fim} (ano atual):
 
-Total geral: R$ ${totalGeral.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-Equipes ativas: ${nEquipes}
-Registros estimados: ${nRegistros}
+Resumo geral:
+  Total produzido: R$ ${totalGeral.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+  Equipes ativas: ${nEquipes}
+  Registros: ${nRegistros}
 
-Top 10 equipes por valor:
+Produção por mês:
+${porMesStr}
+
+Top 15 equipes por valor:
 ${topEquipes}
 
 Top 10 atividades por valor:
 ${topAtividades}
 
-Últimos 7 dias com produção:
-${ultimosDias}`
+Últimos 10 dias com produção:
+${ultimosDias}
+${contextoColabs}`
 }
 
 function systemPrompt(contexto) {
