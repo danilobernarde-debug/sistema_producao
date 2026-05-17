@@ -52,7 +52,7 @@ export default function JustificativasObservacoes() {
         : `${ano}-${String(Number(mes) + 1).padStart(2, '0')}-01`
 
       let q = supabase.from('view_powerbi_producao')
-        .select('registro_id, data_producao, nr_obra, desc_equipe, desc_atividade, justificativa, metadata_registro')
+        .select('registro_id, data_producao, contrato_id, desc_equipe, desc_atividade, justificativa, metadata_registro')
         .gte('data_producao', inicio)
         .lt('data_producao', fim)
         .limit(5000)
@@ -93,7 +93,7 @@ export default function JustificativasObservacoes() {
         map[r.registro_id] = {
           registro_id: r.registro_id,
           data_producao: r.data_producao,
-          nr_obra: r.nr_obra,
+          contrato_id: r.contrato_id,
           desc_equipe: r.desc_equipe,
           observacoes: String(obs).trim(),
         }
@@ -189,7 +189,7 @@ export default function JustificativasObservacoes() {
                   {justificativas.map((r, i) => (
                     <tr key={`${r.registro_id}-${i}`}>
                       <td style={{ whiteSpace: 'nowrap' }}>{formatarData(r.data_producao)}</td>
-                      <td style={{ whiteSpace: 'nowrap' }}>{r.nr_obra || '-'}</td>
+                      <td style={{ whiteSpace: 'nowrap' }}>{contratos.find(c => c.id === r.contrato_id)?.descricao || '-'}</td>
                       <td>{r.desc_equipe || '-'}</td>
                       <td>{r.desc_atividade || '-'}</td>
                     </tr>
@@ -219,7 +219,7 @@ export default function JustificativasObservacoes() {
                   {observacoes.map(r => (
                     <tr key={r.registro_id}>
                       <td style={{ whiteSpace: 'nowrap' }}>{formatarData(r.data_producao)}</td>
-                      <td style={{ whiteSpace: 'nowrap' }}>{r.nr_obra || '-'}</td>
+                      <td style={{ whiteSpace: 'nowrap' }}>{contratos.find(c => c.id === r.contrato_id)?.descricao || '-'}</td>
                       <td>{r.desc_equipe || '-'}</td>
                       <td style={{ whiteSpace: 'pre-wrap' }}>{r.observacoes}</td>
                     </tr>
