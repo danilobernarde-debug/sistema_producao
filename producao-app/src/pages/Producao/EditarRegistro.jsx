@@ -135,8 +135,8 @@ export default function EditarRegistro() {
       .or(`contrato_id.eq.${reg.contrato_id},contrato_id.is.null`)
       .order('DESCRICAO_BASICA_SISTEMA')
     qAtiv = grupoAtiv != null
-      ? qAtiv.or(`tipo_equipe_id.eq.0,tipo_equipe_id.eq.${grupoAtiv}`)
-      : qAtiv.eq('tipo_equipe_id', 0)
+      ? qAtiv.or(`tipo_equipe_id.is.null,tipo_equipe_id.eq.0,tipo_equipe_id.eq.${grupoAtiv}`)
+      : qAtiv.or(`tipo_equipe_id.is.null,tipo_equipe_id.eq.0`)
     const { data: ativsData } = await qAtiv
     setAtividades(ativsData || [])
 

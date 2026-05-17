@@ -119,8 +119,8 @@ export default function NovoRegistro() {
         .or(`contrato_id.eq.${Number(contratoId)},contrato_id.is.null`)
         .order('DESCRICAO_BASICA_SISTEMA')
       q = grupoAtiv != null
-        ? q.or(`tipo_equipe_id.eq.0,tipo_equipe_id.eq.${grupoAtiv}`)
-        : q.eq('tipo_equipe_id', 0)
+        ? q.or(`tipo_equipe_id.is.null,tipo_equipe_id.eq.0,tipo_equipe_id.eq.${grupoAtiv}`)
+        : q.or(`tipo_equipe_id.is.null,tipo_equipe_id.eq.0`)
       const { data } = await q
       setAtividades(data || [])
     }
