@@ -34,6 +34,7 @@ export default function TabelaCRUD({
   buscaPor,
   voltarPara,
   filtros = [], // nomes de colunas tipo 'select' que viram dropdowns de filtro
+  botoesExtra = null,
 }) {
   const navegar = useNavigate()
   const [registros, setRegistros]         = useState([])
@@ -223,7 +224,10 @@ export default function TabelaCRUD({
           )}
           <h1 className="pagina-titulo" style={{ margin: 0 }}>{titulo}</h1>
         </div>
-        <button className="btn btn-primario" onClick={abrirNovo}>+ Novo</button>
+        <div style={{ display: 'flex', gap: 8 }}>
+          {botoesExtra}
+          <button className="btn btn-primario" onClick={abrirNovo}>+ Novo</button>
+        </div>
       </div>
 
       {(buscaPor || filtros.length > 0) && (
