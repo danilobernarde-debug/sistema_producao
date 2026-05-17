@@ -265,11 +265,19 @@ export default function EditarRegistro() {
   async function confirmarTrocaEquipe(permanente) {
     if (!dialogTroca) return
     const { colabId, novaEquipeId } = dialogTroca
-    atualizarOverride(colabId, novaEquipeId)
+    const inPresentes = presentesList.some(c => String(c.id) === String(colabId))
+    if (inPresentes) {
+      setPresentesList(prev => prev.map(c =>
+        String(c.id) === String(colabId) ? { ...c, overrideEquipeId: novaEquipeId } : c
+      ))
+    } else {
+      atualizarOverride(colabId, novaEquipeId)
+    }
     if (permanente) {
       await supabase.from('d_colaboradores').update({ equipe_id: Number(novaEquipeId) }).eq('id', Number(colabId))
       setColaboradores(prev => prev.map(c => String(c.id) === String(colabId) ? { ...c, equipe_id: Number(novaEquipeId) } : c))
-      setAdicionados(prev => prev.map(c => String(c.id) === String(colabId) ? { ...c, equipe_id: Number(novaEquipeId) } : c))
+      setPresentesList(prev => prev.map(c => String(c.id) === String(colabId) ? { ...c, equipe_id: Number(novaEquipeId), overrideEquipeId: null } : c))
+      setAdicionados(prev => prev.map(c => String(c.id) === String(colabId) ? { ...c, equipe_id: Number(novaEquipeId), overrideEquipeId: null } : c))
     }
     setDialogTroca(null)
   }
@@ -359,8 +367,8 @@ export default function EditarRegistro() {
         }))
       } else {
         presenca = [
-          ...presentesList.map(c => ({ registro_id: Number(id), colaborador_id: Number(c.id), equipe_id: c.equipe_id ? Number(c.equipe_id) : null })),
-          ...adicionados.map(c => ({ registro_id: Number(id), colaborador_id: Number(c.id), equipe_id: c.equipe_id ? Number(c.equipe_id) : null })),
+          ...presentesList.map(c => ({ registro_id: Number(id), colaborador_id: Number(c.id), equipe_id: c.overrideEquipeId ? Number(c.overrideEquipeId) : (c.equipe_id ? Number(c.equipe_id) : null) })),
+          ...adicionados.map(c => ({ registro_id: Number(id), colaborador_id: Number(c.id), equipe_id: c.overrideEquipeId ? Number(c.overrideEquipeId) : (c.equipe_id ? Number(c.equipe_id) : null) })),
         ]
       }
       if (presenca.length > 0) {
@@ -694,6 +702,15 @@ export default function EditarRegistro() {
                   {presentesList.map(c => (
                     <div key={c.id} style={{ padding: '8px 12px', borderRadius: 6, background: '#f0f9ff', display: 'flex', alignItems: 'center', gap: 8 }}>
                       <span style={{ flex: 1, minWidth: 0, fontSize: 13, fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{c.matricula_nome}</span>
+                      <span style={{ fontSize: 12, color: '#6b7280', whiteSpace: 'nowrap', flexShrink: 0 }}>Equipe no dia:</span>
+                      <select
+                        className="campo-select"
+                        style={{ fontSize: 12, padding: '4px 8px', width: 160, flexShrink: 0 }}
+                        value={c.overrideEquipeId ?? String(c.equipe_id ?? '')}
+                        onChange={e => solicitarTrocaEquipe(c, e.target.value)}
+                      >
+                        {equipesContrato.map(e => <option key={e.id} value={e.id}>{e.equipe}</option>)}
+                      </select>
                       <button type="button" className="btn btn-secundario"
                         style={{ padding: '3px 10px', fontSize: 12 }}
                         onClick={() => removerPresente(c.id)}>× Remover</button>
@@ -702,7 +719,15 @@ export default function EditarRegistro() {
                   {adicionados.map(c => (
                     <div key={c.id} style={{ padding: '8px 12px', borderRadius: 6, background: '#f9fafb', display: 'flex', alignItems: 'center', gap: 8 }}>
                       <span style={{ flex: 1, minWidth: 0, fontSize: 13, fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{c.matricula_nome}</span>
-                      <span className="badge badge-cinza">{c.equipeNome}</span>
+                      <span style={{ fontSize: 12, color: '#6b7280', whiteSpace: 'nowrap', flexShrink: 0 }}>Equipe no dia:</span>
+                      <select
+                        className="campo-select"
+                        style={{ fontSize: 12, padding: '4px 8px', width: 160, flexShrink: 0 }}
+                        value={c.overrideEquipeId ?? String(c.equipe_id ?? '')}
+                        onChange={e => solicitarTrocaEquipe(c, e.target.value)}
+                      >
+                        {equipesContrato.map(e => <option key={e.id} value={e.id}>{e.equipe}</option>)}
+                      </select>
                       <button type="button" className="btn btn-secundario"
                         style={{ padding: '3px 10px', fontSize: 12 }}
                         onClick={() => removerAdicionado(c.id)}>× Remover</button>
