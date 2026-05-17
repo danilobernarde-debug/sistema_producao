@@ -34,8 +34,9 @@ export default function ProducaoMensal() {
   const [resumoContratos, setResumoContratos] = useState([]) // { contrato_id, total }
   const [dados, setDados]               = useState([])
   const [carregando, setCarregando]     = useState(false)
-  const [equipeAtiva, setEquipeAtiva]   = useState('')
-  const [diaAtivo, setDiaAtivo]         = useState('')
+  const [equipeAtiva, setEquipeAtiva]     = useState('')
+  const [diaAtivo, setDiaAtivo]           = useState('')
+  const [atividadeAtiva, setAtividadeAtiva] = useState('')
 
   const anos = useMemo(() => {
     const r = []
@@ -77,6 +78,7 @@ export default function ProducaoMensal() {
   useEffect(() => {
     setEquipeAtiva('')
     setDiaAtivo('')
+    setAtividadeAtiva('')
     async function buscar() {
       setCarregando(true)
       const inicio = `${ano}-${mes}-01`
@@ -108,23 +110,27 @@ export default function ProducaoMensal() {
     [contratos, resumoContratos]
   )
 
-  // Evolução diária: só filtra por equipe (dia selecionado não altera o gráfico de linha)
-  const dadosPorEquipe = useMemo(
-    () => equipeAtiva ? dados.filter(r => r.desc_equipe === equipeAtiva) : dados,
-    [dados, equipeAtiva]
-  )
+  // Evolução diária: filtra por equipe + atividade (dia selecionado não altera este gráfico)
+  const dadosPorEquipe = useMemo(() => {
+    let d = dados
+    if (equipeAtiva)   d = d.filter(r => r.desc_equipe    === equipeAtiva)
+    if (atividadeAtiva) d = d.filter(r => r.desc_atividade === atividadeAtiva)
+    return d
+  }, [dados, equipeAtiva, atividadeAtiva])
 
-  // Ranking de equipes: só filtra por dia (equipe selecionada não se auto-exclui)
-  const dadosPorDia = useMemo(
-    () => diaAtivo ? dados.filter(r => r.data_producao === diaAtivo) : dados,
-    [dados, diaAtivo]
-  )
+  // Ranking de equipes: filtra por dia + atividade (equipe selecionada não se auto-exclui)
+  const dadosPorDia = useMemo(() => {
+    let d = dados
+    if (diaAtivo)       d = d.filter(r => r.data_producao  === diaAtivo)
+    if (atividadeAtiva) d = d.filter(r => r.desc_atividade === atividadeAtiva)
+    return d
+  }, [dados, diaAtivo, atividadeAtiva])
 
-  // Cards e atividades: filtram por equipe e dia simultaneamente
+  // Top atividades: filtra por equipe e dia (atividade não se auto-exclui)
   const dadosFiltrados = useMemo(() => {
     let d = dados
-    if (equipeAtiva) d = d.filter(r => r.desc_equipe === equipeAtiva)
-    if (diaAtivo)    d = d.filter(r => r.data_producao === diaAtivo)
+    if (equipeAtiva) d = d.filter(r => r.desc_equipe    === equipeAtiva)
+    if (diaAtivo)    d = d.filter(r => r.data_producao  === diaAtivo)
     return d
   }, [dados, equipeAtiva, diaAtivo])
 
@@ -237,17 +243,34 @@ export default function ProducaoMensal() {
         <div className="loading"><div className="spinner" /> Carregando...</div>
       ) : (
         <>
-          {equipeAtiva && (
+          {(equipeAtiva || atividadeAtiva) && (
             <div style={{
               marginBottom: 12, padding: '8px 14px', background: '#eff6ff',
               border: '1px solid #bfdbfe', borderRadius: 6,
-              display: 'flex', alignItems: 'center', gap: 10, fontSize: 13,
+              display: 'flex', alignItems: 'center', gap: 16, fontSize: 13, flexWrap: 'wrap',
             }}>
-              <span style={{ color: COR_PRINCIPAL, fontWeight: 600 }}>Equipe:</span>
-              <span style={{ color: '#1e40af' }}>{equipeAtiva}</span>
-              <button onClick={() => setEquipeAtiva('')}
-                style={{ marginLeft: 'auto', background: 'none', border: 'none', cursor: 'pointer', color: '#6b7280', fontSize: 16, lineHeight: 1 }}
-              >×</button>
+              {equipeAtiva && (
+                <span>
+                  <span style={{ color: COR_PRINCIPAL, fontWeight: 600 }}>Equipe: </span>
+                  <span style={{ color: '#1e40af' }}>{equipeAtiva}</span>
+                  <button onClick={() => setEquipeAtiva('')}
+                    style={{ marginLeft: 6, background: 'none', border: 'none', cursor: 'pointer', color: '#6b7280', fontSize: 14 }}>×</button>
+                </span>
+              )}
+              {atividadeAtiva && (
+                <span>
+                  <span style={{ color: COR_ATIVIDADE, fontWeight: 600 }}>Atividade: </span>
+                  <span style={{ color: '#5b21b6' }}>{atividadeAtiva}</span>
+                  <button onClick={() => setAtividadeAtiva('')}
+                    style={{ marginLeft: 6, background: 'none', border: 'none', cursor: 'pointer', color: '#6b7280', fontSize: 14 }}>×</button>
+                </span>
+              )}
+              {equipeAtiva && atividadeAtiva && (
+                <button onClick={() => { setEquipeAtiva(''); setAtividadeAtiva('') }}
+                  style={{ marginLeft: 'auto', background: 'none', border: 'none', cursor: 'pointer', color: '#6b7280', fontSize: 12 }}>
+                  Limpar tudo
+                </button>
+              )}
             </div>
           )}
 
@@ -339,10 +362,10 @@ export default function ProducaoMensal() {
             </div>
 
             <div className="card">
-              <h3 style={{ margin: '0 0 16px', fontSize: 15, fontWeight: 600, color: '#1e2a3b' }}>
+              <h3 style={{ margin: '0 0 4px', fontSize: 15, fontWeight: 600, color: '#1e2a3b' }}>
                 Top 10 Atividades
-                {equipeAtiva && <span style={{ fontWeight: 400, color: '#6b7280', fontSize: 13, marginLeft: 8 }}>({equipeAtiva})</span>}
               </h3>
+              <p style={{ margin: '0 0 12px', fontSize: 11, color: '#9ca3af' }}>Clique para filtrar os demais gráficos</p>
               {topAtividades.length === 0 ? (
                 <div style={{ padding: 32, textAlign: 'center', color: '#6b7280' }}>Nenhum dado.</div>
               ) : (
@@ -352,7 +375,16 @@ export default function ProducaoMensal() {
                     <XAxis type="number" tickFormatter={fmtK} tick={{ fontSize: 10 }} />
                     <YAxis type="category" dataKey="atividade" width={170} tick={{ fontSize: 10 }} />
                     <Tooltip content={<TooltipAtividade />} />
-                    <Bar dataKey="valor" fill={COR_ATIVIDADE} radius={[0, 3, 3, 0]} />
+                    <Bar dataKey="valor" radius={[0, 3, 3, 0]} cursor="pointer"
+                      onClick={entry => setAtividadeAtiva(prev => prev === entry.atividade ? '' : entry.atividade)}>
+                      {topAtividades.map(entry => (
+                        <Cell key={entry.atividade} fill={
+                          !atividadeAtiva ? COR_ATIVIDADE
+                          : atividadeAtiva === entry.atividade ? COR_ATIVIDADE
+                          : COR_INATIVO
+                        } />
+                      ))}
+                    </Bar>
                   </BarChart>
                 </ResponsiveContainer>
               )}
