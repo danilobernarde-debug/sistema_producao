@@ -109,7 +109,6 @@ export default function Dashboard() {
     const ranking = Object.values(porEquipe)
       .sort((a, b) => b.valor - a.valor)
       .slice(0, 10)
-      .reverse() // menor em cima no gráfico horizontal
     setTop10(ranking)
 
     setCarregando(false)
