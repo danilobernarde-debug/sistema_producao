@@ -20,6 +20,7 @@ import Obras from './pages/Configuracoes/Obras'
 import ContratosPrecoUpe from './pages/Configuracoes/ContratosPrecoUpe'
 import GerenciarUsuarios from './pages/Configuracoes/GerenciarUsuarios'
 import Atividades from './pages/Configuracoes/Atividades'
+import Chat from './pages/Chat'
 
 function RotaProtegida({ children }) {
   const { usuario, carregando } = useAuth()
@@ -101,6 +102,8 @@ export default function App() {
             <Exportacao />
           </RotaProtegida>
         } />
+
+        <Route path="/chat" element={<RotaProtegida><Chat /></RotaProtegida>} />
 
         <Route path="/configuracoes" element={<RotaProtegida><Configuracoes /></RotaProtegida>} />
         <Route path="/configuracoes/contratos" element={<RotaProtegida><RotaSuperAdmin><Contratos /></RotaSuperAdmin></RotaProtegida>} />
