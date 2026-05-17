@@ -7,7 +7,6 @@ import {
   ResponsiveContainer, Cell,
 } from 'recharts'
 
-const MESES_LABEL = ['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez']
 
 function fmtBRL(v) {
   return `R$ ${Number(v || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
@@ -60,10 +59,9 @@ export default function Dashboard() {
     iniciSemana.setDate(agora.getDate() - 7)
     const dataIniSemana = iniciSemana.toISOString().split('T')[0]
 
-    const inicio12 = new Date(agora)
-    inicio12.setMonth(agora.getMonth() - 11)
-    inicio12.setDate(1)
-    const dataInicio12 = inicio12.toISOString().split('T')[0]
+    const inicio30 = new Date(agora)
+    inicio30.setDate(agora.getDate() - 29)
+    const dataInicio30 = inicio30.toISOString().split('T')[0]
 
     const [{ count: total }, { count: hoje }, { count: semana }, { data: raw }] = await Promise.all([
       supabase.from('f_prod_registro').select('*', { count: 'exact', head: true }),
@@ -71,35 +69,34 @@ export default function Dashboard() {
       supabase.from('f_prod_registro').select('*', { count: 'exact', head: true }).gte('data_producao', dataIniSemana),
       supabase.from('view_f_prod_id_editar')
         .select('data_producao, valor_total, descricao_equipe')
-        .gte('data_producao', dataInicio12)
+        .gte('data_producao', dataInicio30)
         .limit(5000),
     ])
 
     setStats({ total: total || 0, hoje: hoje || 0, semana: semana || 0 })
 
-    // Agrupa por mês
-    const porMes = {}
+    // Agrupa por dia
+    const porDia = {}
     ;(raw || []).forEach(r => {
-      const [ano, mes] = r.data_producao.split('-')
-      const chave = `${ano}-${mes}`
-      if (!porMes[chave]) porMes[chave] = { valor: 0, quantidade: 0 }
-      porMes[chave].valor     += Number(r.valor_total || 0)
-      porMes[chave].quantidade += 1
+      const chave = r.data_producao
+      if (!porDia[chave]) porDia[chave] = { valor: 0, quantidade: 0 }
+      porDia[chave].valor      += Number(r.valor_total || 0)
+      porDia[chave].quantidade += 1
     })
 
-    const meses = []
-    for (let i = 11; i >= 0; i--) {
+    const dias = []
+    for (let i = 29; i >= 0; i--) {
       const d = new Date(agora)
-      d.setDate(1)
-      d.setMonth(agora.getMonth() - i)
-      const chave = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
-      meses.push({
-        label: `${MESES_LABEL[d.getMonth()]}/${String(d.getFullYear()).slice(2)}`,
-        valor:     porMes[chave]?.valor     || 0,
-        quantidade: porMes[chave]?.quantidade || 0,
+      d.setDate(agora.getDate() - i)
+      const chave = d.toISOString().split('T')[0]
+      const [, mes, dia] = chave.split('-')
+      dias.push({
+        label: `${dia}/${mes}`,
+        valor:      porDia[chave]?.valor      || 0,
+        quantidade: porDia[chave]?.quantidade || 0,
       })
     }
-    setDadosMes(meses)
+    setDadosMes(dias)
 
     // Agrupa por equipe — top 10
     const porEquipe = {}
@@ -149,7 +146,7 @@ export default function Dashboard() {
         {/* Gráfico 1 — Valor por mês */}
         <div className="card">
           <div style={{ fontWeight: 600, fontSize: 15, color: '#1e2a3b', marginBottom: 16 }}>
-            Valor por Mês — últimos 12 meses
+            Valor por Dia — últimos 30 dias
           </div>
           {dadosMes.every(d => d.valor === 0) ? (
             <div className="vazio" style={{ padding: 32 }}>Sem dados no período.</div>
@@ -173,7 +170,7 @@ export default function Dashboard() {
         {/* Gráfico 2 — Top 10 equipes */}
         <div className="card">
           <div style={{ fontWeight: 600, fontSize: 15, color: '#1e2a3b', marginBottom: 16 }}>
-            Top 10 Equipes — últimos 12 meses
+            Top 10 Equipes — últimos 30 dias
           </div>
           {top10.length === 0 ? (
             <div className="vazio" style={{ padding: 32 }}>Sem dados no período.</div>
