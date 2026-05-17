@@ -16,15 +16,16 @@ async function buscarContexto() {
   const inicio = new Date(hoje.getFullYear(), hoje.getMonth() - 1, 1).toISOString().split('T')[0]
   const fim    = new Date(hoje.getFullYear(), hoje.getMonth() + 1, 1).toISOString().split('T')[0]
 
-  const { data } = await supabase
+  const { data, error } = await supabase
     .from('view_powerbi_producao')
-    .select('data_producao, desc_contrato, desc_equipe, desc_atividade, unidade, quantidade, valor_producao, justificativa')
+    .select('data_producao, contrato_id, desc_equipe, desc_atividade, unidade, quantidade, valor_producao, justificativa')
     .gte('data_producao', inicio)
     .lt('data_producao', fim)
-    .eq('justificativa', false)
     .limit(5000)
 
-  if (!data?.length) return 'Nenhum dado encontrado no período.'
+  if (error) return `Erro ao buscar dados: ${error.message}`
+  const registros = (data || []).filter(r => !r.justificativa)
+  if (!registros.length) return `Nenhum dado de produção encontrado entre ${inicio} e ${fim}.`
 
   // Agrega por equipe
   const porEquipe = {}
@@ -32,7 +33,7 @@ async function buscarContexto() {
   const porDia = {}
   let totalGeral = 0
 
-  data.forEach(r => {
+  registros.forEach(r => {
     const eq  = r.desc_equipe    || 'Sem equipe'
     const at  = r.desc_atividade || 'Sem atividade'
     const dia = r.data_producao  || ''
@@ -60,7 +61,7 @@ async function buscarContexto() {
     .join('\n')
 
   const nEquipes   = Object.keys(porEquipe).length
-  const nRegistros = new Set(data.map(r => r.data_producao + r.desc_equipe)).size
+  const nRegistros = new Set(registros.map(r => r.data_producao + r.desc_equipe)).size
 
   return `DADOS DE PRODUÇÃO (últimos 2 meses — ${inicio} a ${fim}):
 
