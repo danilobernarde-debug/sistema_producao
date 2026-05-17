@@ -265,6 +265,10 @@ export default function NovoRegistro() {
     if (campoEnc?.obrigatorio && !encarregadoId) erros.encarregado_id = 'Obrigatório'
     const campoReg = camposRegistro.find(c => c.config_campos.nome === 'regional_id')
     if (campoReg?.obrigatorio && !regionalId) erros.regional_id = 'Obrigatório'
+    const secaoColabVisivel = (contrato?.logica_contrato && tipoEquipeId) || (colaboradores.length > 0 && equipeId)
+    const totalColabs = contrato?.logica_contrato ? adicionados.length : (presentesList.length + adicionados.length)
+    if (secaoColabVisivel && totalColabs === 0) erros.colaboradores = 'Adicione pelo menos um colaborador'
+
     itens.forEach((it, idx) => {
       if (!it.atividade_id) erros[`at_${idx}_atividade`] = 'Obrigatório'
       const atv = atividades.find(a => String(a.id) === String(it.atividade_id))
@@ -601,6 +605,7 @@ export default function NovoRegistro() {
         {((logicaContrato && tipoEquipeId) || (colaboradores.length > 0 && equipeId)) && (
           <div className="card">
             <div className="card-titulo">Colaboradores Presentes</div>
+            {errosCampos.colaboradores && <div className="campo-erro-msg" style={{ marginBottom: 10 }}>{errosCampos.colaboradores}</div>}
 
             {logicaContrato ? (
               <>
