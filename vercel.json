@@ -1,0 +1,8 @@
+{
+  "buildCommand": "cd producao-app && npm install && npm run build",
+  "outputDirectory": "producao-app/dist",
+  "routes": [
+    { "handle": "filesystem" },
+    { "src": "/.*", "dest": "/index.html" }
+  ]
+}
