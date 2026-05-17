@@ -46,8 +46,12 @@ export function AuthProvider({ children }) {
     await supabase.auth.signOut()
   }
 
+  function atualizarPerfil(dados) {
+    setPerfil(prev => ({ ...prev, ...dados }))
+  }
+
   return (
-    <AuthContext.Provider value={{ usuario, perfil, carregando, entrar, sair }}>
+    <AuthContext.Provider value={{ usuario, perfil, carregando, entrar, sair, atualizarPerfil }}>
       {children}
     </AuthContext.Provider>
   )

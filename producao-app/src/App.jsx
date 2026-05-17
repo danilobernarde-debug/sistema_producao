@@ -8,6 +8,7 @@ import NovoRegistro from './pages/Producao/NovoRegistro'
 import EditarRegistro from './pages/Producao/EditarRegistro'
 import ProducaoMensal from './pages/Relatorios/ProducaoMensal'
 import JustificativasObservacoes from './pages/Relatorios/JustificativasObservacoes'
+import Exportacao from './pages/Relatorios/Exportacao'
 import Configuracoes from './pages/Configuracoes/index'
 import Contratos from './pages/Configuracoes/Contratos'
 import TiposEquipe from './pages/Configuracoes/TiposEquipe'
@@ -15,6 +16,9 @@ import Equipes from './pages/Configuracoes/Equipes'
 import Colaboradores from './pages/Configuracoes/Colaboradores'
 import ConfigCampos from './pages/Configuracoes/ConfigCampos'
 import ConfigCamposContrato from './pages/Configuracoes/ConfigCamposContrato'
+import Obras from './pages/Configuracoes/Obras'
+import ContratosPrecoUpe from './pages/Configuracoes/ContratosPrecoUpe'
+import GerenciarUsuarios from './pages/Configuracoes/GerenciarUsuarios'
 
 function RotaProtegida({ children }) {
   const { usuario, carregando } = useAuth()
@@ -40,6 +44,13 @@ function RotaProtegida({ children }) {
       </div>
     </div>
   )
+}
+
+function RotaSuperAdmin({ children }) {
+  const { perfil, carregando } = useAuth()
+  if (carregando) return null
+  if (perfil?.d_auth_roles?.name !== 'Super Admin') return <Navigate to="/configuracoes" replace />
+  return children
 }
 
 export default function App() {
@@ -84,13 +95,22 @@ export default function App() {
           </RotaProtegida>
         } />
 
+        <Route path="/relatorios/exportacao" element={
+          <RotaProtegida>
+            <Exportacao />
+          </RotaProtegida>
+        } />
+
         <Route path="/configuracoes" element={<RotaProtegida><Configuracoes /></RotaProtegida>} />
         <Route path="/configuracoes/contratos" element={<RotaProtegida><Contratos /></RotaProtegida>} />
         <Route path="/configuracoes/tipos-equipe" element={<RotaProtegida><TiposEquipe /></RotaProtegida>} />
         <Route path="/configuracoes/equipes" element={<RotaProtegida><Equipes /></RotaProtegida>} />
         <Route path="/configuracoes/colaboradores" element={<RotaProtegida><Colaboradores /></RotaProtegida>} />
-        <Route path="/configuracoes/config-campos" element={<RotaProtegida><ConfigCampos /></RotaProtegida>} />
-        <Route path="/configuracoes/config-campos-contrato" element={<RotaProtegida><ConfigCamposContrato /></RotaProtegida>} />
+        <Route path="/configuracoes/config-campos" element={<RotaProtegida><RotaSuperAdmin><ConfigCampos /></RotaSuperAdmin></RotaProtegida>} />
+        <Route path="/configuracoes/config-campos-contrato" element={<RotaProtegida><RotaSuperAdmin><ConfigCamposContrato /></RotaSuperAdmin></RotaProtegida>} />
+        <Route path="/configuracoes/obras" element={<RotaProtegida><Obras /></RotaProtegida>} />
+        <Route path="/configuracoes/contratos-preco-upe" element={<RotaProtegida><RotaSuperAdmin><ContratosPrecoUpe /></RotaSuperAdmin></RotaProtegida>} />
+        <Route path="/configuracoes/usuarios" element={<RotaProtegida><RotaSuperAdmin><GerenciarUsuarios /></RotaSuperAdmin></RotaProtegida>} />
 
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>

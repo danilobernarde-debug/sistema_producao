@@ -59,7 +59,7 @@ export default function NovoRegistro() {
     .filter(c => !adicionados.some(a => String(a.id) === String(c.id)))
 
   useEffect(() => {
-    supabase.from('d_contratos').select('*').order('descricao').then(({ data }) => setContratos(data || []))
+    supabase.from('d_contratos').select('*').eq('ativo', true).order('descricao').then(({ data }) => setContratos(data || []))
     supabase.from('d_regional').select('*').order('regional').then(({ data }) => setRegionais(data || []))
   }, [])
 
@@ -472,21 +472,20 @@ export default function NovoRegistro() {
                 disabled={!contratoId} erro={errosCampos.tipoEquipe} />
             </div>
 
-            {!logicaContrato && tipoEquipeId && (
-              <div className="campo-grupo">
-                <label className="campo-label">Equipe <span className="obrigatorio">*</span></label>
-                <SelectPesquisavel opcoes={opcoesEquipes} valor={equipeId}
-                  onChange={handleEquipeChange} placeholder="Pesquise a equipe..."
-                  disabled={opcoesEquipes.length === 0} erro={errosCampos.equipe} />
-              </div>
-            )}
-
           </div>
 
-          {camposRegistro.length > 0 && (
+          {(!logicaContrato && tipoEquipeId || camposRegistro.length > 0) && (
             <>
               <div className="secao-titulo">Dados Adicionais do Registro</div>
               <div className="campos-grid">
+                {!logicaContrato && tipoEquipeId && (
+                  <div className="campo-grupo">
+                    <label className="campo-label">Equipe <span className="obrigatorio">*</span></label>
+                    <SelectPesquisavel opcoes={opcoesEquipes} valor={equipeId}
+                      onChange={handleEquipeChange} placeholder="Pesquise a equipe..."
+                      disabled={opcoesEquipes.length === 0} erro={errosCampos.equipe} />
+                  </div>
+                )}
                 {camposRegistro.map(c => {
                   const nome = c.config_campos.nome
                   if (nome === 'equipe' || nome === 'equipe_id') return null

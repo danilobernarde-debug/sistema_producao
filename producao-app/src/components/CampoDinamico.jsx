@@ -2,6 +2,46 @@ import { useState, useEffect } from 'react'
 import { supabase } from '../supabaseClient'
 import SelectPesquisavel from './SelectPesquisavel'
 
+// 9 = dígito, a/A = letra, * = letra ou número, demais = literal
+function aplicarMascara(entrada, mascara) {
+  const chars = entrada.replace(/[^a-zA-Z0-9]/g, '')
+  let resultado = ''
+  let ci = 0
+  for (let mi = 0; mi < mascara.length; mi++) {
+    if (ci >= chars.length) break
+    const m = mascara[mi]
+    const c = chars[ci]
+    if (m === '9') {
+      if (/\d/.test(c)) { resultado += c; ci++ } else break
+    } else if (m === 'a' || m === 'A') {
+      if (/[a-zA-Z]/.test(c)) { resultado += c.toUpperCase(); ci++ } else break
+    } else if (m === '*') {
+      resultado += c.toUpperCase(); ci++
+    } else {
+      resultado += m
+      if (c === m) ci++
+    }
+  }
+  return resultado
+}
+
+function InputComMascara({ mascara, valor, onChange, className, placeholder, required }) {
+  function handleChange(e) {
+    onChange(aplicarMascara(e.target.value, mascara))
+  }
+  return (
+    <input
+      type="text"
+      value={valor ?? ''}
+      onChange={handleChange}
+      className={className}
+      placeholder={placeholder || mascara}
+      required={required}
+      maxLength={mascara.length}
+    />
+  )
+}
+
 /**
  * Renderiza um campo do formulário baseado no tipo definido em config_campos.
  * Props:
@@ -12,6 +52,7 @@ import SelectPesquisavel from './SelectPesquisavel'
  */
 export default function CampoDinamico({ campo, valor, onChange, erro }) {
   const cfg = campo.config_campos
+  if (!cfg) return null
   const { nome, label, tipo, mascara, tabela_ref, coluna_valor, coluna_label, placeholder } = cfg
   const obrigatorio = campo.obrigatorio
 
@@ -74,31 +115,43 @@ export default function CampoDinamico({ campo, valor, onChange, erro }) {
     )
   }
 
-  const tipoHtml = {
+  // quando há máscara, usa sempre type=text (masks não funcionam com type=number/date)
+  const tipoHtml = mascara ? 'text' : ({
     numero: 'number',
     decimal: 'number',
     data: 'date',
     hora: 'time',
     texto: 'text',
     alfanumerico: 'text',
-  }[tipo] || 'text'
+  }[tipo] || 'text')
 
-  const step = tipo === 'decimal' ? '0.000001' : undefined
+  const step = !mascara && tipo === 'decimal' ? '0.000001' : undefined
 
   return (
     <div className="campo-grupo">
       <label className="campo-label">
         {label} {obrigatorio && <span className="obrigatorio">*</span>}
       </label>
-      <input
-        type={tipoHtml}
-        step={step}
-        className={classeInput}
-        value={valor ?? ''}
-        onChange={e => emitir(e.target.value)}
-        placeholder={placeholder || mascara || ''}
-        required={obrigatorio}
-      />
+      {mascara ? (
+        <InputComMascara
+          mascara={mascara}
+          valor={valor ?? ''}
+          onChange={emitir}
+          className={classeInput}
+          placeholder={placeholder || mascara}
+          required={obrigatorio}
+        />
+      ) : (
+        <input
+          type={tipoHtml}
+          step={step}
+          className={classeInput}
+          value={valor ?? ''}
+          onChange={e => emitir(e.target.value)}
+          placeholder={placeholder || ''}
+          required={obrigatorio}
+        />
+      )}
       {erro && <div className="campo-erro-msg">{erro}</div>}
     </div>
   )

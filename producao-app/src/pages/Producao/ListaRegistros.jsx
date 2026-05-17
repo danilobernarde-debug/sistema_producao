@@ -73,6 +73,14 @@ export default function ListaRegistros() {
     else setPagina(1)
   }
 
+  async function excluir(id) {
+    if (!window.confirm(`Excluir o registro #${id}? Esta ação não pode ser desfeita.`)) return
+    const { error } = await supabase.from('f_prod_registro').delete().eq('id', id)
+    if (error) { alert(`Erro ao excluir: ${error.message}`); return }
+    setRegistros(prev => prev.filter(r => r.id !== id))
+    setTotal(prev => prev - 1)
+  }
+
   function limpar() {
     setFiltroContrato('')
     setFiltroData('')
@@ -179,10 +187,17 @@ export default function ListaRegistros() {
                           : '-'}
                       </td>
                       <td>
-                        <button className="btn btn-secundario" style={{ padding: '4px 10px', fontSize: 12 }}
-                          onClick={() => navegar(`/producao/${r.id}/editar`)}>
-                          Editar
-                        </button>
+                        <div style={{ display: 'flex', gap: 6 }}>
+                          <button className="btn btn-secundario" style={{ padding: '4px 10px', fontSize: 12 }}
+                            onClick={() => navegar(`/producao/${r.id}/editar`)}>
+                            Editar
+                          </button>
+                          <button
+                            onClick={() => excluir(r.id)}
+                            style={{ padding: '4px 10px', fontSize: 12, background: 'none', border: '1px solid #fca5a5', color: '#dc2626', borderRadius: 6, cursor: 'pointer' }}>
+                            Excluir
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   ))}

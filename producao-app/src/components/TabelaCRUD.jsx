@@ -4,16 +4,27 @@ import { supabase } from '../supabaseClient'
 
 const POR_PAGINA = 30
 
-/**
- * Props:
- *   titulo        — título da página
- *   tabela        — nome da tabela no Supabase
- *   colunas       — array de { nome, label, tipo, obrigatorio, ocultarLista, tabela_ref, coluna_valor, coluna_label, opcoes }
- *   ordenarPor    — coluna para ordenação padrão
- *   chavePrimaria — nome da PK (padrão: 'id')
- *   buscaPor      — campo para filtro de busca textual (opcional)
- *   voltarPara    — rota para o botão Voltar (opcional)
- */
+function traduzirErro(mensagem, colunas) {
+  const nullMatch = mensagem.match(/null value in column "([^"]+)"/)
+  if (nullMatch) {
+    const col = colunas.find(c => c.nome === nullMatch[1])
+    return `O campo "${col?.label || nullMatch[1]}" é obrigatório e não pode ficar vazio.`
+  }
+  if (mensagem.includes('duplicate key value')) {
+    return 'Já existe um registro com esses dados (valor duplicado).'
+  }
+  if (mensagem.includes('foreign key constraint') && mensagem.includes('delete')) {
+    return 'Não é possível excluir: existem outros registros vinculados a este.'
+  }
+  if (mensagem.includes('foreign key constraint')) {
+    return 'O valor informado não existe na tabela relacionada.'
+  }
+  if (mensagem.includes('violates check constraint')) {
+    return 'O valor informado não é permitido para este campo.'
+  }
+  return mensagem
+}
+
 export default function TabelaCRUD({
   titulo,
   tabela,
@@ -22,6 +33,7 @@ export default function TabelaCRUD({
   chavePrimaria = 'id',
   buscaPor,
   voltarPara,
+  filtros = [], // nomes de colunas tipo 'select' que viram dropdowns de filtro
 }) {
   const navegar = useNavigate()
   const [registros, setRegistros]         = useState([])
@@ -35,15 +47,19 @@ export default function TabelaCRUD({
   const [salvando, setSalvando]           = useState(false)
   const [confirmarExcluir, setConfirmarExcluir] = useState(null)
   const [opcoesSelect, setOpcoesSelect]   = useState({})
+  const [filtrosAtivos, setFiltrosAtivos] = useState({})
+  const reqId           = useRef(0)
+  const filtroTimer     = useRef(null)
+  const filtrosPend     = useRef({})
 
   // Carrega opções de selects relacionais
   useEffect(() => {
-    colunas.filter(c => c.tipo === 'select' && c.tabela_ref).forEach(c => {
+    colunas.filter(c => c.tabela_ref && (c.tipo === 'select' || c.pesquisavel)).forEach(c => {
       supabase.from(c.tabela_ref).select(`${c.coluna_valor}, ${c.coluna_label}`).order(c.coluna_label)
         .then(({ data }) => {
           setOpcoesSelect(prev => ({
             ...prev,
-            [c.nome]: (data || []).map(op => ({ valor: op[c.coluna_valor], label: op[c.coluna_label] })),
+            [c.nome]: (data || []).map(op => ({ valor: op[c.coluna_valor], label: String(op[c.coluna_label]) })),
           }))
         })
     })
@@ -53,15 +69,40 @@ export default function TabelaCRUD({
     })
   }, []) // eslint-disable-line
 
-  async function buscar(pag = 1) {
+  async function buscar(pag = 1, filtrosOverride = null, buscaOverride = null) {
     setCarregando(true)
+    const meuReq = ++reqId.current
     const from = (pag - 1) * POR_PAGINA
     const to   = from + POR_PAGINA - 1
 
-    let q = supabase.from(tabela).select('*', { count: 'exact' }).order(ordenarPor).range(from, to)
-    if (buscaPor && busca.trim()) q = q.ilike(buscaPor, `%${busca.trim()}%`)
+    const ordens = Array.isArray(ordenarPor) ? ordenarPor : [ordenarPor]
+    let q = supabase.from(tabela).select('*', { count: 'exact' }).range(from, to)
+    ordens.forEach(col => { q = q.order(col) })
+    const buscaVal = buscaOverride ?? busca
+    if (buscaPor && buscaVal.trim()) {
+      const colBusca = colunas.find(c => c.nome === buscaPor)
+      if (colBusca?.tipo === 'numero') {
+        const num = Number(buscaVal)
+        if (!isNaN(num)) q = q.eq(buscaPor, num)
+      } else {
+        q = q.ilike(buscaPor, `%${buscaVal.trim()}%`)
+      }
+    }
+
+    const fa = filtrosOverride ?? filtrosAtivos
+    filtros.forEach(nome => {
+      const val = fa[nome]
+      if (val === '' || val === null || val === undefined) return
+      const col = colunas.find(c => c.nome === nome)
+      if (col?.tipo === 'checkbox') q = q.eq(nome, val === 'true')
+      else if (col?.filtroTexto) q = q.filter(`${nome}::text`, 'ilike', `%${val}%`)
+      else if (col?.tipo === 'texto' || col?.tipo === 'alfanumerico') q = q.ilike(nome, `%${val}%`)
+      else if (col?.tipo === 'numero') { const n = Number(val); if (!isNaN(n)) q = q.eq(nome, n) }
+      else q = q.eq(nome, val)
+    })
 
     const { data, count } = await q
+    if (meuReq !== reqId.current) return  // resposta antiga, descarta
     setRegistros(data || [])
     setTotal(count || 0)
     setCarregando(false)
@@ -69,14 +110,41 @@ export default function TabelaCRUD({
 
   useEffect(() => { buscar(pagina) }, [pagina])  // eslint-disable-line
 
-  function filtrar() {
-    if (pagina === 1) buscar(1)
-    else setPagina(1)
+  useEffect(() => {
+    const buscaAtual = busca
+    const t = setTimeout(() => {
+      if (pagina === 1) buscar(1, null, buscaAtual)
+      else setPagina(1)
+    }, 400)
+    return () => clearTimeout(t)
+  }, [busca])  // eslint-disable-line
+
+  function mudarFiltro(nome, valor) {
+    const novos = { ...filtrosAtivos, [nome]: valor }
+    setFiltrosAtivos(novos)
+    filtrosPend.current = novos
+    setPagina(1)
+    buscar(1, novos)
+  }
+
+  function mudarFiltroTexto(nome, valor) {
+    const novos = { ...filtrosPend.current, [nome]: valor }
+    setFiltrosAtivos(novos)
+    filtrosPend.current = novos
+    if (filtroTimer.current) clearTimeout(filtroTimer.current)
+    filtroTimer.current = setTimeout(() => {
+      setPagina(1)
+      buscar(1, filtrosPend.current)
+    }, 400)
   }
 
   function abrirNovo() {
     const inicial = {}
-    colunas.forEach(c => { inicial[c.nome] = c.tipo === 'checkbox' ? false : '' })
+    colunas.forEach(c => {
+      if (c.tipo === 'checkbox') inicial[c.nome] = false
+      else if (c.padrao !== undefined) inicial[c.nome] = c.padrao
+      else inicial[c.nome] = ''
+    })
     setForm(inicial)
     setErros({})
     setModal({ modo: 'novo' })
@@ -117,7 +185,7 @@ export default function TabelaCRUD({
     }
 
     setSalvando(false)
-    if (error) { setErros({ _geral: error.message }); return }
+    if (error) { setErros({ _geral: traduzirErro(error.message, colunas) }); return }
 
     setModal(null)
     if (modal.modo === 'novo') { setPagina(1); buscar(1) } else buscar(pagina)
@@ -125,7 +193,7 @@ export default function TabelaCRUD({
 
   async function excluir(id) {
     const { error } = await supabase.from(tabela).delete().eq(chavePrimaria, id)
-    if (error) { alert(error.message); return }
+    if (error) { alert(traduzirErro(error.message, colunas)); return }
     setConfirmarExcluir(null)
     buscar(pagina)
   }
@@ -158,18 +226,73 @@ export default function TabelaCRUD({
         <button className="btn btn-primario" onClick={abrirNovo}>+ Novo</button>
       </div>
 
-      {buscaPor && (
+      {(buscaPor || filtros.length > 0) && (
         <div className="card" style={{ marginBottom: 16 }}>
-          <div style={{ display: 'flex', gap: 8 }}>
-            <input
-              className="campo-input" style={{ flex: 1 }}
-              placeholder="Buscar..."
-              value={busca}
-              onChange={e => setBusca(e.target.value)}
-              onKeyDown={e => e.key === 'Enter' && filtrar()}
-            />
-            <button className="btn btn-primario" onClick={filtrar}>Buscar</button>
-            {busca && <button className="btn btn-secundario" onClick={() => { setBusca(''); if (pagina === 1) buscar(1); else setPagina(1) }}>Limpar</button>}
+          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+            {buscaPor && (
+              <input
+                className="campo-input" style={{ flex: 2, minWidth: 160 }}
+                placeholder={colunas.find(c => c.nome === buscaPor)?.label || 'Buscar...'}
+                value={busca}
+                onChange={e => setBusca(e.target.value)}
+              />
+            )}
+            {filtros.map(nome => {
+              const col  = colunas.find(c => c.nome === nome)
+              const opts = opcoesSelect[nome] || []
+              if (col?.pesquisavel) {
+                return (
+                  <div key={nome} style={{ flex: 1, minWidth: 160 }}>
+                    <SelectPesquisavel
+                      opcoes={opts}
+                      valor={filtrosAtivos[nome] || ''}
+                      onChange={v => mudarFiltro(nome, v)}
+                      placeholderVazio={`Todos — ${col?.label}`}
+                    />
+                  </div>
+                )
+              }
+              if (col?.tipo === 'texto' || col?.tipo === 'alfanumerico' || col?.tipo === 'numero') {
+                return (
+                  <input
+                    key={nome}
+                    type="text"
+                    className="campo-input"
+                    style={{ flex: 1, minWidth: 140 }}
+                    placeholder={col?.label || col?.ajuda}
+                    value={filtrosAtivos[nome] || ''}
+                    onChange={e => mudarFiltroTexto(nome, e.target.value)}
+                  />
+                )
+              }
+              if (col?.tipo === 'checkbox') {
+                return (
+                  <select
+                    key={nome}
+                    className="campo-select"
+                    style={{ flex: 1, minWidth: 160 }}
+                    value={filtrosAtivos[nome] || ''}
+                    onChange={e => mudarFiltro(nome, e.target.value)}
+                  >
+                    <option value="">Todos — {col?.label}</option>
+                    <option value="true">Sim</option>
+                    <option value="false">Não</option>
+                  </select>
+                )
+              }
+              return (
+                <select
+                  key={nome}
+                  className="campo-select"
+                  style={{ flex: 1, minWidth: 160 }}
+                  value={filtrosAtivos[nome] || ''}
+                  onChange={e => mudarFiltro(nome, e.target.value)}
+                >
+                  <option value="">Todos — {col?.label}</option>
+                  {opts.map(o => <option key={o.valor} value={o.valor}>{o.label}</option>)}
+                </select>
+              )
+            })}
           </div>
         </div>
       )}
@@ -328,6 +451,55 @@ function LabelCampo({ campo }) {
   )
 }
 
+function SelectPesquisavel({ opcoes, valor, onChange, erro, placeholderVazio = 'Selecione...' }) {
+  const [busca, setBusca]   = useState('')
+  const [aberto, setAberto] = useState(false)
+  const labelAtual = opcoes.find(o => String(o.valor) === String(valor))?.label ?? ''
+  const filtradas  = opcoes.filter(o => o.label.toLowerCase().includes(busca.toLowerCase()))
+
+  return (
+    <div style={{ position: 'relative' }}>
+      <input
+        className={`campo-input${erro ? ' erro' : ''}`}
+        value={aberto ? busca : labelAtual}
+        placeholder={aberto ? 'Pesquisar...' : placeholderVazio}
+        onChange={e => { setBusca(e.target.value); setAberto(true) }}
+        onFocus={() => { setBusca(''); setAberto(true) }}
+        onBlur={() => setTimeout(() => setAberto(false), 150)}
+      />
+      {aberto && (
+        <div style={{
+          position: 'absolute', top: 'calc(100% + 2px)', left: 0, right: 0,
+          background: 'white', border: '1px solid #d1d5db', borderRadius: 6,
+          boxShadow: '0 4px 12px rgba(0,0,0,0.12)', zIndex: 500,
+          maxHeight: 220, overflowY: 'auto',
+        }}>
+          <div
+            style={{ padding: '7px 12px', cursor: 'pointer', color: '#9ca3af', fontSize: 13 }}
+            onMouseDown={() => { onChange(''); setAberto(false) }}
+          >{placeholderVazio}</div>
+          {filtradas.length === 0 && (
+            <div style={{ padding: '7px 12px', color: '#9ca3af', fontSize: 13 }}>Nenhum resultado</div>
+          )}
+          {filtradas.map(o => (
+            <div
+              key={o.valor}
+              onMouseDown={() => { onChange(o.valor); setAberto(false) }}
+              style={{
+                padding: '7px 12px', cursor: 'pointer', fontSize: 13,
+                background: String(o.valor) === String(valor) ? '#eff6ff' : 'white',
+                color:      String(o.valor) === String(valor) ? '#2563eb' : '#374151',
+              }}
+              onMouseEnter={e => { if (String(o.valor) !== String(valor)) e.currentTarget.style.background = '#f9fafb' }}
+              onMouseLeave={e => { e.currentTarget.style.background = String(o.valor) === String(valor) ? '#eff6ff' : 'white' }}
+            >{o.label}</div>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
 function CampoForm({ campo, valor, erro, opcoes, onChange }) {
   const classeInput  = `campo-input${erro ? ' erro' : ''}`
   const classeSelect = `campo-select${erro ? ' erro' : ''}`
@@ -336,10 +508,15 @@ function CampoForm({ campo, valor, erro, opcoes, onChange }) {
     return (
       <div className="campo-grupo">
         <LabelCampo campo={campo} />
-        <select className={classeSelect} value={valor ?? ''} onChange={e => onChange(e.target.value)}>
-          <option value="">Selecione...</option>
-          {opcoes.map(o => <option key={o.valor} value={o.valor}>{o.label}</option>)}
-        </select>
+        {campo.pesquisavel
+          ? <SelectPesquisavel opcoes={opcoes} valor={valor ?? ''} onChange={onChange} erro={erro} />
+          : (
+            <select className={classeSelect} value={valor ?? ''} onChange={e => onChange(e.target.value)}>
+              <option value="">Selecione...</option>
+              {opcoes.map(o => <option key={o.valor} value={o.valor}>{o.label}</option>)}
+            </select>
+          )
+        }
         {erro && <div className="campo-erro-msg">{erro}</div>}
       </div>
     )

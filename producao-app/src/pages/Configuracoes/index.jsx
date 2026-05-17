@@ -1,23 +1,31 @@
 import { useNavigate } from 'react-router-dom'
+import { useAuth } from '../../hooks/useAuth'
 
 const SECOES = [
-  { caminho: '/configuracoes/contratos',          icone: '📄', titulo: 'Contratos',             descricao: 'Cadastro de contratos e obras' },
-  { caminho: '/configuracoes/tipos-equipe',        icone: '🏷️', titulo: 'Tipos de Equipe',       descricao: 'Categorias de equipes de produção' },
-  { caminho: '/configuracoes/equipes',             icone: '👷', titulo: 'Equipes',               descricao: 'Equipes e suas vinculações' },
-  { caminho: '/configuracoes/colaboradores',       icone: '👤', titulo: 'Colaboradores',         descricao: 'Cadastro de colaboradores' },
-  { caminho: '/configuracoes/config-campos',       icone: '🔧', titulo: 'Campos',                descricao: 'Definição dos campos dinâmicos' },
-  { caminho: '/configuracoes/config-campos-contrato', icone: '⚙️', titulo: 'Campos por Contrato', descricao: 'Quais campos aparecem em cada contrato/equipe' },
+  { caminho: '/configuracoes/contratos',               icone: '📄', titulo: 'Contratos',             descricao: 'Cadastro de contratos e obras' },
+  { caminho: '/configuracoes/tipos-equipe',             icone: '🏷️', titulo: 'Tipos de Equipe',       descricao: 'Categorias de equipes de produção' },
+  { caminho: '/configuracoes/equipes',                  icone: '👷', titulo: 'Equipes',               descricao: 'Equipes e suas vinculações' },
+  { caminho: '/configuracoes/colaboradores',            icone: '👤', titulo: 'Colaboradores',         descricao: 'Cadastro de colaboradores' },
+  { caminho: '/configuracoes/config-campos',            icone: '🔧', titulo: 'Campos',                descricao: 'Definição dos campos dinâmicos',             superAdmin: true },
+  { caminho: '/configuracoes/config-campos-contrato',   icone: '⚙️', titulo: 'Campos por Contrato',   descricao: 'Quais campos aparecem em cada contrato/equipe', superAdmin: true },
+  { caminho: '/configuracoes/obras',                    icone: '🏗️', titulo: 'Obras',                 descricao: 'Obras vinculadas aos contratos' },
+  { caminho: '/configuracoes/contratos-preco-upe',      icone: '💰', titulo: 'Preço UPE',              descricao: 'Preço da UPE por contrato e período',        superAdmin: true },
+  { caminho: '/configuracoes/usuarios',                 icone: '🔐', titulo: 'Usuários',               descricao: 'Criar usuários, perfis e acessos por contrato', superAdmin: true },
 ]
 
 export default function Configuracoes() {
   const navegar = useNavigate()
+  const { perfil } = useAuth()
+  const isSuperAdmin = perfil?.d_auth_roles?.name === 'Super Admin'
+  const secoesFiltradas = SECOES.filter(s => !s.superAdmin || isSuperAdmin)
+
   return (
     <div className="pagina">
       <div className="pagina-header">
         <h1 className="pagina-titulo">Configurações</h1>
       </div>
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))', gap: 16 }}>
-        {SECOES.map(s => (
+        {secoesFiltradas.map(s => (
           <div
             key={s.caminho}
             className="card"

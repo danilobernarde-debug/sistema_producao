@@ -7,7 +7,7 @@ const COLUNAS = [
     ajuda: 'Nome exibido nos relatórios e registros de produção' },
   { nome: 'tipo_equipe_id',   label: 'Tipo de Equipe',   tipo: 'select',  tabela_ref: 'd_tipo_equipe', coluna_valor: 'id', coluna_label: 'descricao',
     ajuda: 'Categoria da equipe (ex: Elétrica, Civil). Define as atividades disponíveis' },
-  { nome: 'contrato_id',      label: 'Contrato',         tipo: 'select',  tabela_ref: 'd_contratos', coluna_valor: 'id', coluna_label: 'descricao', ocultarLista: true,
+  { nome: 'contrato_id',      label: 'Contrato',         tipo: 'select',  tabela_ref: 'd_contratos', coluna_valor: 'id', coluna_label: 'descricao',
     ajuda: 'Contrato ao qual esta equipe está vinculada (deixe vazio para equipe global)' },
   { nome: 'sistema_uau',      label: 'Sistema UAU',      tipo: 'texto',   ocultarLista: true,
     ajuda: 'Código ou referência da equipe no sistema UAU de gestão' },
@@ -18,5 +18,5 @@ const COLUNAS = [
 ]
 
 export default function Equipes() {
-  return <TabelaCRUD titulo="Equipes" tabela="d_equipes" colunas={COLUNAS} ordenarPor="sistema_producao" buscaPor="equipe" voltarPara="/configuracoes" />
+  return <TabelaCRUD titulo="Equipes" tabela="d_equipes" colunas={COLUNAS} ordenarPor="sistema_producao" voltarPara="/configuracoes" filtros={['equipe', 'tipo_equipe_id', 'contrato_id']} />
 }

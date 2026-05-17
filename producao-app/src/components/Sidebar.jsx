@@ -1,5 +1,7 @@
 import { NavLink, useNavigate } from 'react-router-dom'
+import { useState, useRef } from 'react'
 import { useAuth } from '../hooks/useAuth'
+import { supabase } from '../supabaseClient'
 
 const itensMenu = [
   { secao: 'MENU' },
@@ -8,17 +10,36 @@ const itensMenu = [
   { secao: 'RELATÓRIOS' },
   { caminho: '/relatorios/producao',        icone: '📈', label: 'Prod. Mensal' },
   { caminho: '/relatorios/justificativas',  icone: '📝', label: 'Justificativas' },
+  { caminho: '/relatorios/exportacao',      icone: '⬇️', label: 'Exportação' },
   { secao: 'CONFIGURAÇÕES' },
   { caminho: '/configuracoes',              icone: '⚙️', label: 'Configurações' },
 ]
 
 export default function Sidebar() {
-  const { perfil, sair } = useAuth()
+  const { usuario, perfil, sair, atualizarPerfil } = useAuth()
   const navegar = useNavigate()
+  const fileInputRef = useRef(null)
+  const [subindo, setSubindo] = useState(false)
 
   async function handleSair() {
     await sair()
     navegar('/login')
+  }
+
+  async function handleFotoChange(e) {
+    const file = e.target.files[0]
+    if (!file || !usuario) return
+    e.target.value = ''
+    if (file.size > 3 * 1024 * 1024) return
+    setSubindo(true)
+    const ext = file.name.split('.').pop()
+    const path = `${usuario.id}.${ext}`
+    await supabase.storage.from('user_photos').upload(path, file, { upsert: true })
+    const { data: urlData } = supabase.storage.from('user_photos').getPublicUrl(path)
+    const foto_url = urlData.publicUrl
+    await supabase.from('d_auth_user').update({ foto_url }).eq('uuid', usuario.id)
+    atualizarPerfil({ foto_url })
+    setSubindo(false)
   }
 
   return (
@@ -57,9 +78,25 @@ export default function Sidebar() {
       {/* Rodapé: usuário + sair */}
       <div style={estilos.rodape}>
         <div style={estilos.usuario}>
-          <div style={estilos.usuarioAvatar}>
-            {(perfil?.nome || 'U')[0].toUpperCase()}
+          <div
+            onClick={() => fileInputRef.current.click()}
+            title="Alterar foto de perfil"
+            style={{ ...estilos.usuarioAvatar, cursor: 'pointer', position: 'relative', overflow: 'hidden' }}
+          >
+            {perfil?.foto_url ? (
+              <img src={perfil.foto_url} alt="avatar"
+                style={{ width: '100%', height: '100%', borderRadius: '50%', objectFit: 'cover' }} />
+            ) : (
+              (perfil?.nome || 'U')[0].toUpperCase()
+            )}
+            {subindo && (
+              <div style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.55)',
+                display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 10 }}>
+                ⏳
+              </div>
+            )}
           </div>
+          <input ref={fileInputRef} type="file" accept="image/*" style={{ display: 'none' }} onChange={handleFotoChange} />
           <div style={{ overflow: 'hidden' }}>
             <div style={estilos.usuarioNome}>{perfil?.nome || 'Usuário'}</div>
             <div style={estilos.usuarioRole}>{perfil?.d_auth_roles?.name || ''}</div>

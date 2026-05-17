@@ -20,7 +20,7 @@ export function useCamposDinamicos(contrato_id, tipo_equipe_id, secao) {
       .eq('secao', secao)
       .order('ordem')
       .then(({ data }) => {
-        setCampos(data || [])
+        setCampos((data || []).filter(c => c.config_campos != null))
         setCarregando(false)
       })
   }, [contrato_id, tipo_equipe_id, secao])

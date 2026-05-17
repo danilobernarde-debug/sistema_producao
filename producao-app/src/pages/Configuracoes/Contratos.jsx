@@ -11,8 +11,8 @@ const COLUNAS = [
     ajuda: 'Código de referência externo ou identificador em outro sistema' },
   { nome: 'logica_contrato',   label: 'Lógica Contrato',   tipo: 'checkbox',
     ajuda: 'Ativo: equipes definidas pelos colaboradores presentes no dia. Inativo: equipe fixa no registro' },
-  { nome: 'update',            label: 'Atualização',        tipo: 'data',     ocultarLista: true,
-    ajuda: 'Data da última atualização das informações do contrato' },
+  { nome: 'ativo',             label: 'Ativo',              tipo: 'checkbox',
+    ajuda: 'Contratos inativos não aparecem para lançamento de produção' },
 ]
 
 export default function Contratos() {
