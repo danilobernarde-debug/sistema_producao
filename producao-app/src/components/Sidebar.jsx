@@ -1,5 +1,5 @@
 import { NavLink, useNavigate } from 'react-router-dom'
-import { useState, useRef } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import { useAuth } from '../hooks/useAuth'
 import { supabase } from '../supabaseClient'
 
@@ -19,11 +19,47 @@ export default function Sidebar() {
   const { usuario, perfil, sair, atualizarPerfil } = useAuth()
   const navegar = useNavigate()
   const fileInputRef = useRef(null)
-  const [subindo, setSubindo] = useState(false)
+  const menuRef = useRef(null)
+  const [subindo, setSubindo]       = useState(false)
+  const [menuAberto, setMenuAberto] = useState(false)
+  const [modalSenha, setModalSenha] = useState(false)
+  const [novaSenha, setNovaSenha]   = useState('')
+  const [confSenha, setConfSenha]   = useState('')
+  const [erroSenha, setErroSenha]   = useState('')
+  const [senhaOk, setSenhaOk]       = useState(false)
+  const [salvandoSenha, setSalvandoSenha] = useState(false)
+
+  useEffect(() => {
+    function handleClickFora(e) {
+      if (menuRef.current && !menuRef.current.contains(e.target)) setMenuAberto(false)
+    }
+    if (menuAberto) document.addEventListener('mousedown', handleClickFora)
+    return () => document.removeEventListener('mousedown', handleClickFora)
+  }, [menuAberto])
 
   async function handleSair() {
     await sair()
     navegar('/login')
+  }
+
+  function abrirModalSenha() {
+    setMenuAberto(false)
+    setNovaSenha('')
+    setConfSenha('')
+    setErroSenha('')
+    setSenhaOk(false)
+    setModalSenha(true)
+  }
+
+  async function handleAlterarSenha() {
+    if (novaSenha.length < 6) { setErroSenha('A senha deve ter pelo menos 6 caracteres.'); return }
+    if (novaSenha !== confSenha) { setErroSenha('As senhas não coincidem.'); return }
+    setSalvandoSenha(true)
+    setErroSenha('')
+    const { error } = await supabase.auth.updateUser({ password: novaSenha })
+    setSalvandoSenha(false)
+    if (error) { setErroSenha(error.message); return }
+    setSenhaOk(true)
   }
 
   async function handleFotoChange(e) {
@@ -78,37 +114,108 @@ export default function Sidebar() {
         )}
       </nav>
 
-      {/* Rodapé: usuário + sair */}
-      <div style={estilos.rodape}>
-        <div style={estilos.usuario}>
-          <div
-            onClick={() => fileInputRef.current.click()}
-            title="Alterar foto de perfil"
-            style={{ ...estilos.usuarioAvatar, cursor: 'pointer', position: 'relative', overflow: 'hidden' }}
-          >
-            {perfil?.foto_url ? (
-              <img src={perfil.foto_url} alt="avatar"
-                style={{ width: '100%', height: '100%', borderRadius: '50%', objectFit: 'cover' }} />
-            ) : (
-              (perfil?.nome || 'U')[0].toUpperCase()
-            )}
-            {subindo && (
-              <div style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.55)',
-                display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 10 }}>
-                ⏳
-              </div>
-            )}
+      {/* Rodapé: usuário + menu */}
+      <div style={{ position: 'relative' }} ref={menuRef}>
+
+        {/* Dropdown menu */}
+        {menuAberto && (
+          <div style={{
+            position: 'absolute', bottom: '100%', left: 8, right: 8, marginBottom: 6,
+            background: '#1e2a3b', border: '1px solid rgba(255,255,255,0.12)',
+            borderRadius: 8, overflow: 'hidden', boxShadow: '0 -4px 16px rgba(0,0,0,0.3)',
+          }}>
+            <button onClick={() => { setMenuAberto(false); fileInputRef.current.click() }}
+              style={estilos.itemMenu}>
+              📷 Trocar foto de perfil
+            </button>
+            <button onClick={abrirModalSenha} style={estilos.itemMenu}>
+              🔑 Alterar senha
+            </button>
+            <div style={{ borderTop: '1px solid rgba(255,255,255,0.08)' }} />
+            <button onClick={handleSair} style={{ ...estilos.itemMenu, color: '#f87171' }}>
+              🚪 Sair
+            </button>
           </div>
-          <input ref={fileInputRef} type="file" accept="image/*" style={{ display: 'none' }} onChange={handleFotoChange} />
-          <div style={{ overflow: 'hidden' }}>
-            <div style={estilos.usuarioNome}>{perfil?.nome || 'Usuário'}</div>
-            <div style={estilos.usuarioRole}>{perfil?.d_auth_roles?.name || ''}</div>
+        )}
+
+        <div style={estilos.rodape}>
+          <div
+            style={{ ...estilos.usuario, cursor: 'pointer' }}
+            onClick={() => setMenuAberto(a => !a)}
+            title="Menu do perfil"
+          >
+            <div style={{ ...estilos.usuarioAvatar, position: 'relative', overflow: 'hidden' }}>
+              {perfil?.foto_url ? (
+                <img src={perfil.foto_url} alt="avatar"
+                  style={{ width: '100%', height: '100%', borderRadius: '50%', objectFit: 'cover' }} />
+              ) : (
+                (perfil?.nome || 'U')[0].toUpperCase()
+              )}
+              {subindo && (
+                <div style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.55)',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 10 }}>
+                  ⏳
+                </div>
+              )}
+            </div>
+            <div style={{ overflow: 'hidden', flex: 1 }}>
+              <div style={estilos.usuarioNome}>{perfil?.nome || 'Usuário'}</div>
+              <div style={estilos.usuarioRole}>{perfil?.d_auth_roles?.name || ''}</div>
+            </div>
+            <span style={{ color: '#475569', fontSize: 12, flexShrink: 0 }}>
+              {menuAberto ? '▲' : '▼'}
+            </span>
           </div>
         </div>
-        <button onClick={handleSair} style={estilos.btnSair} title="Sair">
-          🚪
-        </button>
+
+        <input ref={fileInputRef} type="file" accept="image/*" style={{ display: 'none' }} onChange={handleFotoChange} />
       </div>
+
+      {/* Modal alterar senha */}
+      {modalSenha && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 2000,
+          display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <div style={{ background: 'white', borderRadius: 10, padding: 28, width: 340,
+            boxShadow: '0 8px 32px rgba(0,0,0,0.2)' }}>
+            <div style={{ fontSize: 16, fontWeight: 600, marginBottom: 18, color: '#1e2a3b' }}>
+              Alterar senha
+            </div>
+            {senhaOk ? (
+              <>
+                <div style={{ color: '#16a34a', fontSize: 14, marginBottom: 16 }}>
+                  ✓ Senha alterada com sucesso!
+                </div>
+                <button className="btn btn-primario" style={{ width: '100%' }}
+                  onClick={() => setModalSenha(false)}>
+                  Fechar
+                </button>
+              </>
+            ) : (
+              <>
+                <div className="campo-grupo">
+                  <label className="campo-label">Nova senha</label>
+                  <input type="password" className="campo-input" value={novaSenha}
+                    onChange={e => setNovaSenha(e.target.value)} placeholder="Mínimo 6 caracteres" />
+                </div>
+                <div className="campo-grupo">
+                  <label className="campo-label">Confirmar nova senha</label>
+                  <input type="password" className="campo-input" value={confSenha}
+                    onChange={e => setConfSenha(e.target.value)} placeholder="Repita a senha" />
+                </div>
+                {erroSenha && <div className="campo-erro-msg" style={{ marginBottom: 12 }}>{erroSenha}</div>}
+                <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', marginTop: 8 }}>
+                  <button className="btn btn-secundario" onClick={() => setModalSenha(false)}>
+                    Cancelar
+                  </button>
+                  <button className="btn btn-primario" onClick={handleAlterarSenha} disabled={salvandoSenha}>
+                    {salvandoSenha ? 'Salvando...' : 'Salvar'}
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
+        </div>
+      )}
     </aside>
   )
 }
@@ -205,13 +312,16 @@ const estilos = {
     fontSize: 11,
     color: '#64748b',
   },
-  btnSair: {
+  itemMenu: {
+    display: 'block',
+    width: '100%',
     background: 'none',
     border: 'none',
     cursor: 'pointer',
-    fontSize: 18,
-    padding: 4,
-    borderRadius: 4,
-    flexShrink: 0,
+    fontSize: 13,
+    color: '#cbd5e1',
+    padding: '10px 14px',
+    textAlign: 'left',
+    transition: 'background 0.1s',
   },
 }
