@@ -189,7 +189,7 @@ export default function JustificativasObservacoes() {
                   {justificativas.map((r, i) => (
                     <tr key={`${r.registro_id}-${i}`}>
                       <td style={{ whiteSpace: 'nowrap' }}>{formatarData(r.data_producao)}</td>
-                      <td style={{ whiteSpace: 'nowrap' }}>{contratos.find(c => c.id === r.contrato_id)?.descricao || '-'}</td>
+                      <td style={{ whiteSpace: 'nowrap' }}>{contratos.find(c => String(c.id) === String(r.contrato_id))?.descricao || '-'}</td>
                       <td>{r.desc_equipe || '-'}</td>
                       <td>{r.desc_atividade || '-'}</td>
                     </tr>
@@ -219,7 +219,7 @@ export default function JustificativasObservacoes() {
                   {observacoes.map(r => (
                     <tr key={r.registro_id}>
                       <td style={{ whiteSpace: 'nowrap' }}>{formatarData(r.data_producao)}</td>
-                      <td style={{ whiteSpace: 'nowrap' }}>{contratos.find(c => c.id === r.contrato_id)?.descricao || '-'}</td>
+                      <td style={{ whiteSpace: 'nowrap' }}>{contratos.find(c => String(c.id) === String(r.contrato_id))?.descricao || '-'}</td>
                       <td>{r.desc_equipe || '-'}</td>
                       <td style={{ whiteSpace: 'pre-wrap' }}>{r.observacoes}</td>
                     </tr>
