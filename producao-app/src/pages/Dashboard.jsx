@@ -60,7 +60,7 @@ export default function Dashboard() {
     const dataIniSemana = iniciSemana.toISOString().split('T')[0]
 
     const inicio30 = new Date(agora)
-    inicio30.setDate(agora.getDate() - 29)
+    inicio30.setDate(agora.getDate() - 6)
     const dataInicio30 = inicio30.toISOString().split('T')[0]
 
     const [{ count: total }, { count: hoje }, { count: semana }, { data: raw }] = await Promise.all([
@@ -85,7 +85,7 @@ export default function Dashboard() {
     })
 
     const dias = []
-    for (let i = 29; i >= 0; i--) {
+    for (let i = 6; i >= 0; i--) {
       const d = new Date(agora)
       d.setDate(agora.getDate() - i)
       const chave = d.toISOString().split('T')[0]
@@ -145,7 +145,7 @@ export default function Dashboard() {
         {/* Gráfico 1 — Valor por mês */}
         <div className="card">
           <div style={{ fontWeight: 600, fontSize: 15, color: '#1e2a3b', marginBottom: 16 }}>
-            Valor por Dia — últimos 30 dias
+            Valor por Dia — últimos 7 dias
           </div>
           {dadosMes.every(d => d.valor === 0) ? (
             <div className="vazio" style={{ padding: 32 }}>Sem dados no período.</div>
@@ -169,7 +169,7 @@ export default function Dashboard() {
         {/* Gráfico 2 — Top 10 equipes */}
         <div className="card">
           <div style={{ fontWeight: 600, fontSize: 15, color: '#1e2a3b', marginBottom: 16 }}>
-            Top 10 Equipes — últimos 30 dias
+            Top 10 Equipes — últimos 7 dias
           </div>
           {top10.length === 0 ? (
             <div className="vazio" style={{ padding: 32 }}>Sem dados no período.</div>
