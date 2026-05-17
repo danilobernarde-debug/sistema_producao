@@ -128,16 +128,15 @@ export default function EditarRegistro() {
     const { data: te } = await supabase
       .from('d_tipo_equipe').select('grupo_atividades').eq('id', reg.tipo_equipe_id).single()
     const grupoAtiv = te?.grupo_atividades
-    const referenciaContrato = reg.d_contratos?.referencia_codigo
     const campos = 'id, codigo_op, DESCRICAO_BASICA_SISTEMA, unidade, tipo_upe_fixa, UPE, tipo_lm_lv, comprimento_lagura'
 
     const qJustif = supabase.from('d_atividades').select(campos)
       .eq('referencia_codigo', 'justificativa').order('DESCRICAO_BASICA_SISTEMA')
 
     const qNormais = (() => {
-      if (!referenciaContrato) return Promise.resolve({ data: [] })
+      if (!reg.contrato_id) return Promise.resolve({ data: [] })
       let q = supabase.from('d_atividades').select(campos)
-        .eq('referencia_codigo', referenciaContrato)
+        .eq('contrato_id', reg.contrato_id)
         .order('DESCRICAO_BASICA_SISTEMA')
       q = grupoAtiv != null
         ? q.or(`tipo_equipe_id.eq.0,tipo_equipe_id.eq.${grupoAtiv}`)

@@ -107,7 +107,6 @@ export default function NovoRegistro() {
       .then(({ data }) => setEquipes(data || []))
 
     async function carregarAtividades() {
-      const referenciaContrato = contrato?.referencia_codigo
       const { data: te } = await supabase
         .from('d_tipo_equipe').select('grupo_atividades').eq('id', tipoEquipeId).single()
       const grupoAtiv = te?.grupo_atividades
@@ -118,11 +117,11 @@ export default function NovoRegistro() {
       const qJustif = supabase.from('d_atividades').select(campos)
         .eq('referencia_codigo', 'justificativa').order('DESCRICAO_BASICA_SISTEMA')
 
-      // Atividades normais: filtro por referencia_codigo do contrato + tipo_equipe_id
+      // Atividades normais: filtro por contrato_id + tipo_equipe_id
       const qNormais = (() => {
-        if (!referenciaContrato) return Promise.resolve({ data: [] })
+        if (!contratoId) return Promise.resolve({ data: [] })
         let q = supabase.from('d_atividades').select(campos)
-          .eq('referencia_codigo', referenciaContrato)
+          .eq('contrato_id', Number(contratoId))
           .order('DESCRICAO_BASICA_SISTEMA')
         q = grupoAtiv != null
           ? q.or(`tipo_equipe_id.eq.0,tipo_equipe_id.eq.${grupoAtiv}`)
