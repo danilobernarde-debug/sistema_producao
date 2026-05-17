@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../supabaseClient'
 import { useAuth } from '../hooks/useAuth'
@@ -7,23 +7,21 @@ import {
   ResponsiveContainer, Cell,
 } from 'recharts'
 
-
 function fmtBRL(v) {
   return `R$ ${Number(v || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
 }
-
 function fmtK(v) {
   if (v >= 1_000_000) return `R$${(v / 1_000_000).toFixed(1)}M`
   if (v >= 1_000)     return `R$${(v / 1_000).toFixed(0)}k`
   return `R$${Number(v).toFixed(0)}`
 }
 
-function TooltipMensal({ active, payload, label }) {
+function TooltipMensal({ active, payload }) {
   if (!active || !payload?.length) return null
   const d = payload[0].payload
   return (
     <div style={{ background: 'white', border: '1px solid #e5e7eb', borderRadius: 8, padding: '10px 14px', fontSize: 13, boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }}>
-      <div style={{ fontWeight: 600, marginBottom: 4, color: '#1e2a3b' }}>{label}</div>
+      <div style={{ fontWeight: 600, marginBottom: 4, color: '#1e2a3b' }}>{d.label}</div>
       <div style={{ color: '#2563eb' }}>Valor: <strong>{fmtBRL(d.valor)}</strong></div>
       <div style={{ color: '#6b7280' }}>Registros: <strong>{d.quantidade}</strong></div>
     </div>
@@ -36,7 +34,7 @@ function TooltipEquipe({ active, payload }) {
   return (
     <div style={{ background: 'white', border: '1px solid #e5e7eb', borderRadius: 8, padding: '10px 14px', fontSize: 13, boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }}>
       <div style={{ fontWeight: 600, marginBottom: 4, color: '#1e2a3b', maxWidth: 200 }}>{d.equipe}</div>
-      <div style={{ color: '#7c3aed' }}>Valor: <strong>{fmtBRL(d.valor)}</strong></div>
+      <div style={{ color: '#000000' }}>Valor: <strong>{fmtBRL(d.valor)}</strong></div>
       <div style={{ color: '#6b7280' }}>Registros: <strong>{d.quantidade}</strong></div>
     </div>
   )
@@ -46,42 +44,46 @@ export default function Dashboard() {
   const navegar = useNavigate()
   const { perfil } = useAuth()
   const [stats, setStats]         = useState({ total: 0, hoje: 0, semana: 0 })
-  const [dadosMes, setDadosMes]   = useState([])
-  const [top10, setTop10]         = useState([])
+  const [rawData, setRawData]     = useState([])
   const [carregando, setCarregando] = useState(true)
+  const [diaFiltrado, setDiaFiltrado]       = useState(null)
+  const [equipeFiltrada, setEquipeFiltrada] = useState(null)
 
   useEffect(() => { carregarDados() }, [])
 
   async function carregarDados() {
     const agora = new Date()
-    const dataHoje = agora.toISOString().split('T')[0]
-    const iniciSemana = new Date(agora)
-    iniciSemana.setDate(agora.getDate() - 7)
-    const dataIniSemana = iniciSemana.toISOString().split('T')[0]
-
-    const inicio30 = new Date(agora)
-    inicio30.setDate(agora.getDate() - 6)
-    const dataInicio30 = inicio30.toISOString().split('T')[0]
+    const dataHoje    = agora.toISOString().split('T')[0]
+    const ini7 = new Date(agora); ini7.setDate(agora.getDate() - 6)
+    const dataIni7    = ini7.toISOString().split('T')[0]
 
     const [{ count: total }, { count: hoje }, { count: semana }, { data: raw }] = await Promise.all([
       supabase.from('f_prod_registro').select('*', { count: 'exact', head: true }),
       supabase.from('f_prod_registro').select('*', { count: 'exact', head: true }).eq('data_producao', dataHoje),
-      supabase.from('f_prod_registro').select('*', { count: 'exact', head: true }).gte('data_producao', dataIniSemana),
+      supabase.from('f_prod_registro').select('*', { count: 'exact', head: true }).gte('data_producao', dataIni7),
       supabase.from('view_f_prod_id_editar')
         .select('data_producao, valor_total, descricao_equipe')
-        .gte('data_producao', dataInicio30)
+        .gte('data_producao', dataIni7)
         .limit(5000),
     ])
 
     setStats({ total: total || 0, hoje: hoje || 0, semana: semana || 0 })
+    setRawData(raw || [])
+    setCarregando(false)
+  }
 
-    // Agrupa por dia
+  // Gráfico de dias — filtrado por equipe selecionada
+  const dadosMes = useMemo(() => {
+    const agora = new Date()
+    const fonte = equipeFiltrada
+      ? rawData.filter(r => r.descricao_equipe === equipeFiltrada)
+      : rawData
+
     const porDia = {}
-    ;(raw || []).forEach(r => {
-      const chave = r.data_producao
-      if (!porDia[chave]) porDia[chave] = { valor: 0, quantidade: 0 }
-      porDia[chave].valor      += Number(r.valor_total || 0)
-      porDia[chave].quantidade += 1
+    fonte.forEach(r => {
+      if (!porDia[r.data_producao]) porDia[r.data_producao] = { valor: 0, quantidade: 0 }
+      porDia[r.data_producao].valor      += Number(r.valor_total || 0)
+      porDia[r.data_producao].quantidade += 1
     })
 
     const dias = []
@@ -90,29 +92,50 @@ export default function Dashboard() {
       d.setDate(agora.getDate() - i)
       const chave = d.toISOString().split('T')[0]
       const [, mes, dia] = chave.split('-')
-      dias.push({
-        label: `${dia}/${mes}`,
-        valor:      porDia[chave]?.valor      || 0,
-        quantidade: porDia[chave]?.quantidade || 0,
-      })
+      dias.push({ chave, label: `${dia}/${mes}`, valor: porDia[chave]?.valor || 0, quantidade: porDia[chave]?.quantidade || 0 })
     }
-    setDadosMes(dias)
+    return dias
+  }, [rawData, equipeFiltrada])
 
-    // Agrupa por equipe — top 10
+  // Top 10 equipes — filtrado por dia selecionado
+  const top10 = useMemo(() => {
+    const fonte = diaFiltrado
+      ? rawData.filter(r => r.data_producao === diaFiltrado)
+      : rawData
+
     const porEquipe = {}
-    ;(raw || []).forEach(r => {
+    fonte.forEach(r => {
       const equipe = r.descricao_equipe || 'Sem equipe'
       if (!porEquipe[equipe]) porEquipe[equipe] = { equipe, valor: 0, quantidade: 0 }
       porEquipe[equipe].valor      += Number(r.valor_total || 0)
       porEquipe[equipe].quantidade += 1
     })
-    const ranking = Object.values(porEquipe)
+
+    return Object.values(porEquipe)
       .sort((a, b) => b.valor - a.valor)
       .slice(0, 10)
-    setTop10(ranking)
+  }, [rawData, diaFiltrado])
 
-    setCarregando(false)
+  function handleClickDia(data) {
+    const chave = data?.chave
+    if (!chave) return
+    setDiaFiltrado(prev => prev === chave ? null : chave)
+    setEquipeFiltrada(null)
   }
+
+  function handleClickEquipe(data) {
+    const equipe = data?.equipe
+    if (!equipe) return
+    setEquipeFiltrada(prev => prev === equipe ? null : equipe)
+    setDiaFiltrado(null)
+  }
+
+  function limparFiltros() {
+    setDiaFiltrado(null)
+    setEquipeFiltrada(null)
+  }
+
+  const filtroAtivo = diaFiltrado || equipeFiltrada
 
   if (carregando) {
     return <div className="loading" style={{ height: '60vh' }}><div className="spinner" />Carregando...</div>
@@ -139,14 +162,27 @@ export default function Dashboard() {
         <StatCard icone="📆" titulo="Últimos 7 Dias"     valor={stats.semana} cor="#d97706" />
       </div>
 
+      {/* Indicador de filtro ativo */}
+      {filtroAtivo && (
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 12, padding: '8px 14px', background: '#eff6ff', border: '1px solid #bfdbfe', borderRadius: 8, fontSize: 13 }}>
+          <span style={{ color: '#1d4ed8' }}>
+            {diaFiltrado
+              ? `Filtrando por dia: ${diaFiltrado.split('-').reverse().join('/')}`
+              : `Filtrando por equipe: ${equipeFiltrada}`}
+          </span>
+          <button onClick={limparFiltros} style={{ marginLeft: 'auto', background: 'none', border: 'none', cursor: 'pointer', color: '#6b7280', fontSize: 16, lineHeight: 1 }}>✕</button>
+        </div>
+      )}
+
       {/* Gráficos */}
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, alignItems: 'start' }}>
 
-        {/* Gráfico 1 — Valor por mês */}
+        {/* Gráfico 1 — Valor por dia */}
         <div className="card">
-          <div style={{ fontWeight: 600, fontSize: 15, color: '#1e2a3b', marginBottom: 16 }}>
+          <div style={{ fontWeight: 600, fontSize: 15, color: '#1e2a3b', marginBottom: 4 }}>
             Valor por Dia — últimos 7 dias
           </div>
+          <div style={{ fontSize: 12, color: '#9ca3af', marginBottom: 14 }}>Clique em uma barra para filtrar o Top 10</div>
           {dadosMes.every(d => d.valor === 0) ? (
             <div className="vazio" style={{ padding: 32 }}>Sem dados no período.</div>
           ) : (
@@ -156,9 +192,14 @@ export default function Dashboard() {
                 <XAxis dataKey="label" tick={{ fontSize: 11, fill: '#6b7280' }} />
                 <YAxis tickFormatter={fmtK} tick={{ fontSize: 11, fill: '#6b7280' }} width={56} />
                 <Tooltip content={<TooltipMensal />} />
-                <Bar dataKey="valor" radius={[4, 4, 0, 0]}>
+                <Bar dataKey="valor" radius={[4, 4, 0, 0]} onClick={handleClickDia} cursor="pointer">
                   {dadosMes.map((d, i) => (
-                    <Cell key={i} fill={d.valor > 0 ? '#2563eb' : '#e5e7eb'} />
+                    <Cell key={i} fill={
+                      d.valor === 0 ? '#e5e7eb'
+                      : diaFiltrado === null ? '#2563eb'
+                      : diaFiltrado === d.chave ? '#1d4ed8'
+                      : '#bfdbfe'
+                    } />
                   ))}
                 </Bar>
               </BarChart>
@@ -168,9 +209,10 @@ export default function Dashboard() {
 
         {/* Gráfico 2 — Top 10 equipes */}
         <div className="card">
-          <div style={{ fontWeight: 600, fontSize: 15, color: '#1e2a3b', marginBottom: 16 }}>
+          <div style={{ fontWeight: 600, fontSize: 15, color: '#1e2a3b', marginBottom: 4 }}>
             Top 10 Equipes — últimos 7 dias
           </div>
+          <div style={{ fontSize: 12, color: '#9ca3af', marginBottom: 14 }}>Clique em uma barra para filtrar o gráfico de dias</div>
           {top10.length === 0 ? (
             <div className="vazio" style={{ padding: 32 }}>Sem dados no período.</div>
           ) : (
@@ -184,9 +226,13 @@ export default function Dashboard() {
                   tickFormatter={v => v.length > 16 ? v.slice(0, 16) + '…' : v}
                 />
                 <Tooltip content={<TooltipEquipe />} />
-                <Bar dataKey="valor" radius={[0, 4, 4, 0]}>
-                  {top10.map((_, i) => (
-                    <Cell key={i} fill="#000000" />
+                <Bar dataKey="valor" radius={[0, 4, 4, 0]} onClick={handleClickEquipe} cursor="pointer">
+                  {top10.map((d, i) => (
+                    <Cell key={i} fill={
+                      equipeFiltrada === null ? '#000000'
+                      : equipeFiltrada === d.equipe ? '#000000'
+                      : '#9ca3af'
+                    } />
                   ))}
                 </Bar>
               </BarChart>
