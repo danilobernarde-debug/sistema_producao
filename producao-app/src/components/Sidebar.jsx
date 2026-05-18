@@ -86,7 +86,7 @@ export default function Sidebar({ aberta, onFechar }) {
         <img
           src="/Logo, Sem nome, Transparente.PNG"
           alt="Rede Forte"
-          style={{ height: 36, width: 'auto', objectFit: 'contain', flexShrink: 0 }}
+          style={{ height: 36, width: 'auto', objectFit: 'contain', filter: 'brightness(0) invert(1)' }}
         />
         <div style={{ fontSize: 15, fontWeight: 700, color: 'white', letterSpacing: '0.03em' }}>
           REDE FORTE

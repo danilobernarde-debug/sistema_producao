@@ -19,10 +19,12 @@ export default function ListaRegistros() {
 
   const [contratos, setContratos] = useState([])
   const [tiposEquipe, setTiposEquipe] = useState([])
+  const [equipes, setEquipes] = useState([])
 
   useEffect(() => {
     supabase.from('d_contratos').select('id, descricao').order('descricao').then(({ data }) => setContratos(data || []))
     supabase.from('d_tipo_equipe').select('id, descricao').then(({ data }) => setTiposEquipe(data || []))
+    supabase.from('d_equipes').select('id, equipe, contrato_id').order('equipe').then(({ data }) => setEquipes(data || []))
   }, [])
 
   useEffect(() => {
@@ -33,7 +35,7 @@ export default function ListaRegistros() {
     if (filtroContrato) q = q.eq('contrato_id', filtroContrato)
     if (filtroData)     q = q.eq('data_producao', filtroData)
     if (filtroId)       q = q.eq('id', Number(filtroId))
-    if (filtroEquipe)      q = q.ilike('descricao_equipe', `%${filtroEquipe}%`)
+    if (filtroEquipe)      q = q.eq('equipe_id', filtroEquipe)
     if (filtroObservacoes) q = q.ilike('metadata_registro->>observacoes', `%${filtroObservacoes}%`)
     return q
   }
@@ -120,7 +122,7 @@ export default function ListaRegistros() {
           </div>
           <div className="campo-grupo" style={{ marginBottom: 0, minWidth: 180 }}>
             <label className="campo-label">Contrato</label>
-            <select className="campo-select" value={filtroContrato} onChange={e => setFiltroContrato(e.target.value)}>
+            <select className="campo-select" value={filtroContrato} onChange={e => { setFiltroContrato(e.target.value); setFiltroEquipe('') }}>
               <option value="">Todos</option>
               {contratos.map(c => <option key={c.id} value={c.id}>{c.descricao}</option>)}
             </select>
@@ -129,10 +131,15 @@ export default function ListaRegistros() {
             <label className="campo-label">Data</label>
             <input type="date" className="campo-input" value={filtroData} onChange={e => setFiltroData(e.target.value)} />
           </div>
-          <div className="campo-grupo" style={{ marginBottom: 0, minWidth: 140 }}>
+          <div className="campo-grupo" style={{ marginBottom: 0, minWidth: 160 }}>
             <label className="campo-label">Equipe</label>
-            <input type="text" className="campo-input" value={filtroEquipe}
-              onChange={e => setFiltroEquipe(e.target.value)} placeholder="Pesquisar..." />
+            <select className="campo-select" value={filtroEquipe} onChange={e => setFiltroEquipe(e.target.value)}>
+              <option value="">Todas</option>
+              {(filtroContrato
+                ? equipes.filter(e => String(e.contrato_id) === String(filtroContrato))
+                : equipes
+              ).map(e => <option key={e.id} value={e.id}>{e.equipe}</option>)}
+            </select>
           </div>
           <div className="campo-grupo" style={{ marginBottom: 0, minWidth: 160 }}>
             <label className="campo-label">Observações</label>
