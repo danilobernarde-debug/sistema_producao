@@ -22,6 +22,7 @@ import Obras from './pages/Configuracoes/Obras'
 import ContratosPrecoUpe from './pages/Configuracoes/ContratosPrecoUpe'
 import GerenciarUsuarios from './pages/Configuracoes/GerenciarUsuarios'
 import Atividades from './pages/Configuracoes/Atividades'
+import PlanejamentoRip from './pages/PlanejamentoRip'
 
 function RotaProtegida({ children }) {
   const { usuario, carregando } = useAuth()
@@ -126,6 +127,12 @@ export default function App() {
         <Route path="/configuracoes/contratos-preco-upe" element={<RotaProtegida><RotaSuperAdmin><ContratosPrecoUpe /></RotaSuperAdmin></RotaProtegida>} />
         <Route path="/configuracoes/usuarios" element={<RotaProtegida><RotaSuperAdmin><GerenciarUsuarios /></RotaSuperAdmin></RotaProtegida>} />
         <Route path="/configuracoes/atividades" element={<RotaProtegida><RotaSuperAdmin><Atividades /></RotaSuperAdmin></RotaProtegida>} />
+
+        <Route path="/planejamento-rip" element={
+          <RotaProtegida>
+            <PlanejamentoRip />
+          </RotaProtegida>
+        } />
 
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
