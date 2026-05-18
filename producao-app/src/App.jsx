@@ -9,6 +9,7 @@ import EditarRegistro from './pages/Producao/EditarRegistro'
 import ProducaoMensal from './pages/Relatorios/ProducaoMensal'
 import JustificativasObservacoes from './pages/Relatorios/JustificativasObservacoes'
 import Exportacao from './pages/Relatorios/Exportacao'
+import Bonificacoes from './pages/Relatorios/Bonificacoes'
 import Configuracoes from './pages/Configuracoes/index'
 import Contratos from './pages/Configuracoes/Contratos'
 import TiposEquipe from './pages/Configuracoes/TiposEquipe'
@@ -20,7 +21,6 @@ import Obras from './pages/Configuracoes/Obras'
 import ContratosPrecoUpe from './pages/Configuracoes/ContratosPrecoUpe'
 import GerenciarUsuarios from './pages/Configuracoes/GerenciarUsuarios'
 import Atividades from './pages/Configuracoes/Atividades'
-import Chat from './pages/Chat'
 
 function RotaProtegida({ children }) {
   const { usuario, carregando } = useAuth()
@@ -103,9 +103,13 @@ export default function App() {
           </RotaProtegida>
         } />
 
-        <Route path="/chat" element={<RotaProtegida><Chat /></RotaProtegida>} />
+        <Route path="/relatorios/bonificacoes" element={
+          <RotaProtegida>
+            <Bonificacoes />
+          </RotaProtegida>
+        } />
 
-        <Route path="/configuracoes" element={<RotaProtegida><Configuracoes /></RotaProtegida>} />
+<Route path="/configuracoes" element={<RotaProtegida><Configuracoes /></RotaProtegida>} />
         <Route path="/configuracoes/contratos" element={<RotaProtegida><RotaSuperAdmin><Contratos /></RotaSuperAdmin></RotaProtegida>} />
         <Route path="/configuracoes/tipos-equipe" element={<RotaProtegida><RotaSuperAdmin><TiposEquipe /></RotaSuperAdmin></RotaProtegida>} />
         <Route path="/configuracoes/equipes" element={<RotaProtegida><Equipes /></RotaProtegida>} />

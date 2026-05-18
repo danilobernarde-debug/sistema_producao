@@ -11,7 +11,7 @@ const itensMenu = [
   { caminho: '/relatorios/producao',        icone: '📈', label: 'Prod. Mensal' },
   { caminho: '/relatorios/justificativas',  icone: '📝', label: 'Justificativas' },
   { caminho: '/relatorios/exportacao',      icone: '⬇️', label: 'Exportação' },
-  { caminho: '/chat',                            icone: '🤖', label: 'Assistente IA' },
+  { caminho: '/relatorios/bonificacoes',    icone: '🏆', label: 'Bonificações' },
   { secao: 'CONFIGURAÇÕES' },
   { caminho: '/configuracoes',              icone: '⚙️', label: 'Configurações' },
 ]
