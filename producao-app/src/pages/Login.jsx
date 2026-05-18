@@ -27,7 +27,7 @@ export default function Login() {
     <div style={estilos.pagina}>
       <div style={estilos.card}>
         <div style={estilos.logo}>
-          <span style={estilos.logoIcone}>⚡</span>
+          <img src="/Logo, Sem nome, Transparente.PNG" alt="Rede Forte" style={{ height: 64, objectFit: 'contain' }} />
           <div>
             <div style={estilos.logoTitulo}>Sistema de Produção</div>
             <div style={estilos.logoSubtitulo}>D B Machado LTDA</div>
@@ -99,9 +99,6 @@ const estilos = {
     alignItems: 'center',
     gap: 12,
     marginBottom: 32,
-  },
-  logoIcone: {
-    fontSize: 36,
   },
   logoTitulo: {
     fontSize: 18,
