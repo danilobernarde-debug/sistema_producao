@@ -363,6 +363,14 @@ body {
   margin-top: 24px;
 }
 
+/* Grid de gráficos lado a lado no desktop, empilhados no mobile */
+.graficos-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+  align-items: start;
+}
+
 /* Mobile */
 .sidebar-overlay {
   display: none;
@@ -426,6 +434,10 @@ body {
   }
 
   .campos-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .graficos-grid {
     grid-template-columns: 1fr;
   }
 

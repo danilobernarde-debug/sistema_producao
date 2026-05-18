@@ -333,7 +333,7 @@ export default function ProducaoMensal() {
             )}
           </div>
 
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginBottom: 16 }}>
+          <div className="graficos-grid" style={{ marginBottom: 16 }}>
             <div className="card">
               <h3 style={{ margin: '0 0 4px', fontSize: 15, fontWeight: 600, color: '#1e2a3b' }}>Ranking de Equipes</h3>
               <p style={{ margin: '0 0 12px', fontSize: 11, color: '#9ca3af' }}>Clique para filtrar os demais gráficos</p>

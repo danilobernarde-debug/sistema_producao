@@ -175,7 +175,7 @@ export default function Dashboard() {
       )}
 
       {/* Gráficos */}
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, alignItems: 'start' }}>
+      <div className="graficos-grid">
 
         {/* Gráfico 1 — Valor por dia */}
         <div className="card">
