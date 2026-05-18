@@ -1,4 +1,5 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
+import { useState } from 'react'
 import { useAuth } from './hooks/useAuth'
 import Sidebar from './components/Sidebar'
 import Login from './pages/Login'
@@ -24,6 +25,7 @@ import Atividades from './pages/Configuracoes/Atividades'
 
 function RotaProtegida({ children }) {
   const { usuario, carregando } = useAuth()
+  const [sidebarAberta, setSidebarAberta] = useState(false)
 
   if (carregando) {
     return (
@@ -40,8 +42,12 @@ function RotaProtegida({ children }) {
 
   return (
     <div className="layout">
-      <Sidebar />
+      <Sidebar aberta={sidebarAberta} onFechar={() => setSidebarAberta(false)} />
+      {sidebarAberta && (
+        <div className="sidebar-overlay" onClick={() => setSidebarAberta(false)} />
+      )}
       <div className="layout-conteudo">
+        <button className="btn-menu-mobile" onClick={() => setSidebarAberta(true)}>☰</button>
         {children}
       </div>
     </div>

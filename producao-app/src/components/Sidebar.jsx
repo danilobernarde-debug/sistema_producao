@@ -16,7 +16,7 @@ const itensMenu = [
   { caminho: '/configuracoes',              icone: '⚙️', label: 'Configurações' },
 ]
 
-export default function Sidebar() {
+export default function Sidebar({ aberta, onFechar }) {
   const { usuario, perfil, sair, atualizarPerfil } = useAuth()
   const navegar = useNavigate()
   const fileInputRef = useRef(null)
@@ -80,7 +80,7 @@ export default function Sidebar() {
   }
 
   return (
-    <aside style={estilos.sidebar}>
+    <aside className={`sidebar-nav${aberta ? ' sidebar-nav-aberta' : ''}`} style={estilos.sidebar}>
       {/* Logo */}
       <div style={estilos.logoArea}>
         <img
@@ -103,6 +103,7 @@ export default function Sidebar() {
               key={item.caminho}
               to={item.caminho}
               end={item.caminho === '/'}
+              onClick={onFechar}
               style={({ isActive }) => ({
                 ...estilos.item,
                 ...(isActive ? estilos.itemAtivo : {}),
