@@ -216,6 +216,7 @@ body {
   color: var(--cor-texto-suave);
   background: var(--cor-fundo);
   border-bottom: 1px solid var(--cor-borda);
+  white-space: nowrap;
 }
 
 .tabela td {
@@ -223,6 +224,7 @@ body {
   border-bottom: 1px solid var(--cor-borda);
   font-size: 13px;
   vertical-align: middle;
+  white-space: nowrap;
 }
 
 .tabela tr:hover td {
