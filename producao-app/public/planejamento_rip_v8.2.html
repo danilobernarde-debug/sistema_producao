@@ -267,13 +267,7 @@ select:focus,input:focus{border-color:rgba(255,87,34,.5)}
 .leaflet-popup-content-wrapper{background:var(--s1)!important;border:1px solid var(--border2)!important;border-radius:10px!important;color:var(--text)!important;box-shadow:0 10px 30px rgba(0,0,0,.5)!important}
 .leaflet-popup-tip{background:var(--s1)!important}
 .leaflet-popup-content{margin:12px 14px!important;font-family:"DM Sans",sans-serif!important}
-.gsi-btn{display:flex;align-items:center;gap:6px;background:#4285f4;color:#fff;border:none;border-radius:6px;padding:5px 12px;font-size:11px;font-weight:600;cursor:pointer;font-family:"DM Sans",sans-serif;white-space:nowrap}
-.gsi-user-wrap{display:flex;align-items:center;gap:6px}
-.gsi-avatar{width:22px;height:22px;border-radius:50%;object-fit:cover}
-.gsi-name{font-size:11px;color:var(--text-muted);max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-#gsi-menu div:hover{background:var(--s2)}
 </style>
-<script src="https://accounts.google.com/gsi/client" async></script>
 </head>
 <body>
 
@@ -338,15 +332,7 @@ select:focus,input:focus{border-color:rgba(255,87,34,.5)}
     <span class="chip chip-p" id="chip-p">—</span>
     <span class="chip chip-e" id="chip-e">—</span>
     <span class="chip chip-t" id="chip-t">—</span>
-    <div id="gsi-signin-wrap" style="display:none"></div>
-    <div id="gsi-user-wrap" class="gsi-user-wrap" style="display:none;position:relative">
-      <img id="gsi-avatar" class="gsi-avatar" src="" alt="" style="cursor:pointer" onclick="toggleGsiMenu(event)">
-      <div id="gsi-menu" style="display:none;position:absolute;right:0;top:30px;background:var(--s1);border:1px solid var(--border2);border-radius:8px;z-index:9999;min-width:160px;box-shadow:0 8px 24px rgba(0,0,0,.5);overflow:hidden">
-        <div id="gsi-menu-name" style="padding:8px 14px;font-size:11px;color:var(--muted2);border-bottom:1px solid var(--border2)"></div>
-        <div onclick="newFile();toggleGsiMenu()" style="padding:9px 14px;cursor:pointer;font-size:12px;border-bottom:1px solid var(--border2)">🔄 Trocar Planilha</div>
-        <div onclick="gsiSignOut()" style="padding:9px 14px;cursor:pointer;font-size:12px">🚪 Sair</div>
-      </div>
-    </div>
+    <button class="nav-btn" onclick="newFile()">📂 Nova Planilha</button>
   </div>
 </div>
 
@@ -479,6 +465,7 @@ select:focus,input:focus{border-color:rgba(255,87,34,.5)}
       <button class="m-close" onclick="closeM()">✕</button>
       <div id="modal-body"></div>
     </div>
+  </div>
   </div>
 </div>
 
@@ -899,12 +886,6 @@ document.addEventListener('DOMContentLoaded',()=>{
   initMap();
   notify('⏳ Carregando planilha...');
   loadFromSheets();
-  if(document.readyState==='complete'){initGsi();}else{window.addEventListener('load',initGsi);}
-  document.addEventListener('click',e=>{
-    const wrap=document.getElementById('gsi-user-wrap');
-    const menu=document.getElementById('gsi-menu');
-    if(menu&&wrap&&!wrap.contains(e.target))menu.style.display='none';
-  });
 });
 
 // ═══ STATS ═══
@@ -1352,62 +1333,6 @@ function openM(d){
     </div>`;
   document.getElementById('modal-ov').classList.add('on');
 }
-const SCRIPT_URL='https://script.google.com/macros/s/AKfycbzJ4qNJZdgHdpPsrW2Y_i5t4tF2MABZdxBgvnvGE8CqPBuak-Bk7FZDtnDJ0FiZ3Xqx4g/exec';
-const GOOGLE_CLIENT_ID='718253912288-2q3e2sfm00rjga5ekloqrdmavi4oqapt.apps.googleusercontent.com';
-let gsiToken=null,gsiEmail=null;
-function initGsi(){
-  if(typeof google==='undefined'){setTimeout(initGsi,300);return;}
-  google.accounts.id.initialize({client_id:GOOGLE_CLIENT_ID,callback:handleGsiCredential,auto_select:true});
-  const wrap=document.getElementById('gsi-signin-wrap');
-  wrap.style.display='flex';
-  google.accounts.id.renderButton(wrap,{theme:'filled_blue',size:'small',text:'signin_with',shape:'rectangular'});
-  restoreUserInfo();
-  google.accounts.id.prompt();
-}
-function restoreUserInfo(){
-  const info=JSON.parse(localStorage.getItem('gsi_user')||'null');
-  if(!info) return;
-  gsiEmail=info.email;
-  const stored=localStorage.getItem('gsi_credential');
-  if(stored){try{const p=JSON.parse(atob(stored.split('.')[1].replace(/-/g,'+').replace(/_/g,'/')));if(p.exp*1000>=Date.now())gsiToken=stored;}catch(e){}}
-  document.getElementById('gsi-signin-wrap').style.display='none';
-  document.getElementById('gsi-user-wrap').style.display='flex';
-  if(info.picture){const av=document.getElementById('gsi-avatar');av.src=info.picture;}
-  const mn=document.getElementById('gsi-menu-name');if(mn)mn.textContent=info.name||info.email;
-}
-function handleGsiCredential(resp){
-  gsiToken=resp.credential;
-  const payload=JSON.parse(atob(gsiToken.split('.')[1].replace(/-/g,'+').replace(/_/g,'/')));
-  gsiEmail=payload.email;
-  localStorage.setItem('gsi_credential',gsiToken);
-  localStorage.setItem('gsi_user',JSON.stringify({email:payload.email,name:payload.name||'',picture:payload.picture||''}));
-  document.getElementById('gsi-signin-wrap').style.display='none';
-  document.getElementById('gsi-user-wrap').style.display='flex';
-  if(payload.picture){const av=document.getElementById('gsi-avatar');av.src=payload.picture;}
-  const mn=document.getElementById('gsi-menu-name');if(mn)mn.textContent=payload.name||gsiEmail;
-}
-function gsiRefreshToken(){
-  return new Promise(resolve=>{
-    google.accounts.id.initialize({client_id:GOOGLE_CLIENT_ID,callback:r=>{handleGsiCredential(r);resolve(true);},auto_select:true});
-    google.accounts.id.prompt(n=>{if(n.isNotDisplayed()||n.isDismissedMoment())resolve(false);});
-    setTimeout(()=>resolve(false),4000);
-  });
-}
-function toggleGsiMenu(e){
-  if(e)e.stopPropagation();
-  const m=document.getElementById('gsi-menu');
-  m.style.display=m.style.display==='none'?'block':'none';
-}
-function gsiSignOut(){
-  document.getElementById('gsi-menu').style.display='none';
-  google.accounts.id.disableAutoSelect();
-  localStorage.removeItem('gsi_credential');
-  localStorage.removeItem('gsi_user');
-  gsiToken=null;gsiEmail=null;
-  document.getElementById('gsi-user-wrap').style.display='none';
-  document.getElementById('gsi-signin-wrap').style.display='flex';
-  notify('Saiu da conta Google');
-}
 function saveEdit(id){
   const d=DATA.find(x=>x.id===id);if(!d) return;
   d.status=document.getElementById('e-st').value;
@@ -1418,19 +1343,7 @@ function saveEdit(id){
   document.getElementById('ex-ed').textContent=editedIds.size.toLocaleString('pt-BR');
   closeM();applyF();buildWeeks();
   if(document.getElementById('p-sched').classList.contains('on')) renderSched();
-  const doSave=()=>{
-    if(!gsiToken){notify('⚠ Faça login com Google para salvar na planilha');return;}
-    notify(`⏳ Salvando na planilha...`);
-    fetch(SCRIPT_URL,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify({
-      id,token:gsiToken,status:d.status,viatura:d.viatura,prog_inicio:d.prog_inicio,prog_fim:d.prog_fim
-    })})
-    .then(r=>r.json())
-    .then(r=>notify(r.code===200?`✅ Poste ${d.poste} salvo na planilha`:`⚠ Erro: ${r.msg}`))
-    .catch(()=>notify(`⚠ Falha ao salvar na planilha`));
-  };
-  const tokenExpired=()=>{if(!gsiToken)return true;try{const p=JSON.parse(atob(gsiToken.split('.')[1].replace(/-/g,'+').replace(/_/g,'/')));return p.exp*1000<Date.now();}catch(e){return true;}};
-  if(tokenExpired()&&gsiEmail){notify('⏳ Renovando sessão...');gsiRefreshToken().then(ok=>{if(!ok){notify('⚠ Sessão expirada. Faça login novamente.');}else doSave();});}
-  else doSave();
+  notify(`✅ Poste ${d.poste} atualizado`);
 }
 function closeM(){document.getElementById('modal-ov').classList.remove('on');}
 
