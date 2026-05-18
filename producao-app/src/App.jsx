@@ -22,7 +22,7 @@ import Obras from './pages/Configuracoes/Obras'
 import ContratosPrecoUpe from './pages/Configuracoes/ContratosPrecoUpe'
 import GerenciarUsuarios from './pages/Configuracoes/GerenciarUsuarios'
 import Atividades from './pages/Configuracoes/Atividades'
-import PlanejamentoRip from './pages/PlanejamentoRip'
+import PlanejamentoRmb from './pages/PlanejamentoRMB'
 
 function RotaProtegida({ children }) {
   const { usuario, carregando } = useAuth()
@@ -130,7 +130,7 @@ export default function App() {
 
         <Route path="/planejamento-rip" element={
           <RotaProtegida>
-            <PlanejamentoRip />
+            <PlanejamentoRmb />
           </RotaProtegida>
         } />
 
