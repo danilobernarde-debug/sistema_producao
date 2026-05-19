@@ -86,20 +86,14 @@ export default function GerenciarUsuarios() {
       setErro('A senha deve ter pelo menos 6 caracteres.'); return
     }
     setSalvando(true)
-    const { data: newUuid, error: errRpc } = await supabase.rpc('criar_usuario_auth', {
+    const { error: errRpc } = await supabase.rpc('criar_usuario_auth', {
       p_email: formNovo.email,
       p_password: formNovo.senha,
-    })
-    if (errRpc) { setErro(errRpc.message); setSalvando(false); return }
-
-    const { error: errPerfil } = await supabase.from('d_auth_user').insert({
-      uuid: newUuid,
-      nome: formNovo.nome,
-      email: formNovo.email,
-      role_id: formNovo.role_id || null,
+      p_nome: formNovo.nome,
+      p_role_id: formNovo.role_id,
     })
     setSalvando(false)
-    if (errPerfil) { setErro(errPerfil.message); return }
+    if (errRpc) { setErro(errRpc.message); return }
     setModalNovo(false)
     setFormNovo({ email: '', senha: '', confirmar: '', nome: '', role_id: '' })
     await carregarDados()
