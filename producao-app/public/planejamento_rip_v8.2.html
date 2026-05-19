@@ -522,6 +522,10 @@ select:focus,input:focus{border-color:rgba(255,87,34,.5)}
 const AC_DATA = {carteira:[],
   ose:   [],osi:[],equip:[],poste:[]};
 
+// ═══ APPS SCRIPT ═══
+const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbzJ4qNJZdgHdpPsrW2Y_i5t4tF2MABZdxBgvnvGE8CqPBuak-Bk7FZDtnDJ0FiZ3Xqx4g/exec';
+const APPS_SECRET_KEY = 'rmb-2026-redeforte';
+
 // ═══ DATA ═══
 let DATA=[], editedIds=new Set();
 let TEAMS={
@@ -1333,7 +1337,7 @@ function openM(d){
     </div>`;
   document.getElementById('modal-ov').classList.add('on');
 }
-function saveEdit(id){
+async function saveEdit(id){
   const d=DATA.find(x=>x.id===id);if(!d) return;
   d.status=document.getElementById('e-st').value;
   d.viatura=document.getElementById('e-via').value;
@@ -1343,7 +1347,24 @@ function saveEdit(id){
   document.getElementById('ex-ed').textContent=editedIds.size.toLocaleString('pt-BR');
   closeM();applyF();buildWeeks();
   if(document.getElementById('p-sched').classList.contains('on')) renderSched();
-  notify(`✅ Poste ${d.poste} atualizado`);
+  try {
+    const res = await fetch(APPS_SCRIPT_URL, {
+      method: 'POST',
+      body: JSON.stringify({
+        secret: APPS_SECRET_KEY,
+        id: id,
+        status: d.status,
+        viatura: d.viatura,
+        prog_inicio: d.prog_inicio,
+        prog_fim: d.prog_fim
+      })
+    });
+    const json = await res.json();
+    if(json.code !== 200) throw new Error(json.msg);
+    notify(`✅ Poste ${d.poste} salvo na planilha`);
+  } catch(err) {
+    notify(`❌ Erro ao salvar: ${err.message}`);
+  }
 }
 function closeM(){document.getElementById('modal-ov').classList.remove('on');}
 
