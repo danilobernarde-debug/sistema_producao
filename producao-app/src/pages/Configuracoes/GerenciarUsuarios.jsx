@@ -76,6 +76,9 @@ export default function GerenciarUsuarios() {
     if (!formNovo.email || !formNovo.senha || !formNovo.nome) {
       setErro('Preencha e-mail, nome e senha.'); return
     }
+    if (!formNovo.role_id) {
+      setErro('Selecione um perfil de acesso.'); return
+    }
     if (formNovo.senha !== formNovo.confirmar) {
       setErro('As senhas não coincidem.'); return
     }
@@ -307,7 +310,7 @@ export default function GerenciarUsuarios() {
               <input className="campo-input" type="email" value={formNovo.email} onChange={e => setFormNovo(p => ({ ...p, email: e.target.value }))} />
             </div>
             <div className="campo-grupo">
-              <label className="campo-label">Perfil de Acesso</label>
+              <label className="campo-label">Perfil de Acesso <span className="obrigatorio">*</span></label>
               <select className="campo-select" value={formNovo.role_id} onChange={e => setFormNovo(p => ({ ...p, role_id: e.target.value }))}>
                 <option value="">Sem perfil</option>
                 {roles.map(r => <option key={r.id} value={r.id}>{r.name}</option>)}

@@ -12,6 +12,7 @@ const SECOES = [
   { caminho: '/configuracoes/contratos-preco-upe',      icone: '💰', titulo: 'Preço UPE',              descricao: 'Preço da UPE por contrato e período',        superAdmin: true },
   { caminho: '/configuracoes/usuarios',                 icone: '🔐', titulo: 'Usuários',               descricao: 'Criar usuários, perfis e acessos por contrato', superAdmin: true },
   { caminho: '/configuracoes/atividades',               icone: '⚡', titulo: 'Atividades',              descricao: 'Cadastro de atividades e vinculação por contrato', superAdmin: true },
+  { caminho: '/configuracoes/form-builder',             icone: '🧩', titulo: 'Editor de Formulário',    descricao: 'Configure os campos do formulário por contrato e equipe', superAdmin: true },
 ]
 
 export default function Configuracoes() {
