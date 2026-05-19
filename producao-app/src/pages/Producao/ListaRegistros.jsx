@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../../supabaseClient'
 
@@ -6,7 +6,10 @@ const POR_PAGINA = 30
 
 export default function ListaRegistros() {
   const navegar = useNavigate()
-  const [registros, setRegistros] = useState([])
+  const [registrosRaw, setRegistrosRaw] = useState([])
+  const [encMap, setEncMap] = useState({})
+  const [totalMap, setTotalMap] = useState({})
+  const [equipeColabMap, setEquipeColabMap] = useState({})
   const [carregando, setCarregando] = useState(true)
   const [total, setTotal] = useState(0)
   const [pagina, setPagina] = useState(1)
@@ -22,14 +25,27 @@ export default function ListaRegistros() {
   const [equipes, setEquipes] = useState([])
 
   useEffect(() => {
-    supabase.from('d_contratos').select('id, descricao').order('descricao').then(({ data }) => setContratos(data || []))
+    supabase.from('d_contratos').select('id, descricao, logica_contrato').order('descricao').then(({ data }) => setContratos(data || []))
     supabase.from('d_tipo_equipe').select('id, descricao').then(({ data }) => setTiposEquipe(data || []))
-    supabase.from('d_equipes').select('id, equipe, contrato_id').order('equipe').then(({ data }) => setEquipes(data || []))
+    supabase.from('d_equipes').select('id, equipe, sistema_producao, contrato_id').order('equipe').then(({ data }) => setEquipes(data || []))
   }, [])
 
   useEffect(() => {
     buscar(pagina)
   }, [pagina])
+
+  const registros = useMemo(() => registrosRaw.map(r => ({
+    ...r,
+    descricao_equipe: (() => {
+      const contrato = contratos.find(c => String(c.id) === String(r.contrato_id))
+      if (contrato?.logica_contrato) {
+        return [...(equipeColabMap[r.id] || [])].map(eid => equipes.find(e => String(e.id) === String(eid))?.sistema_producao).filter(Boolean).join(', ') || null
+      }
+      return equipes.find(e => String(e.id) === String(r.equipe_id))?.sistema_producao || null
+    })(),
+    _encarregado_nome: encMap[r.encarregado_id] || null,
+    valor_total: totalMap[r.id] || 0,
+  })), [registrosRaw, encMap, totalMap, equipeColabMap, equipes, contratos])
 
   function aplicarFiltros(q) {
     if (filtroContrato) q = q.eq('contrato_id', filtroContrato)
@@ -46,7 +62,7 @@ export default function ListaRegistros() {
     const to = from + POR_PAGINA - 1
 
     let q = aplicarFiltros(
-      supabase.from('view_f_prod_id_editar').select('*', { count: 'exact' })
+      supabase.from('f_prod_registro').select('id, data_producao, contrato_id, tipo_equipe_id, equipe_id, encarregado_id, metadata_registro', { count: 'exact' })
         .order('data_producao', { ascending: false })
         .order('id', { ascending: false })
         .range(from, to)
@@ -56,17 +72,40 @@ export default function ListaRegistros() {
     const rows = data || []
     setTotal(count || 0)
 
-    const encIds = [...new Set(rows.map(r => r.encarregado_id).filter(Boolean))]
-    let encMap = {}
-    if (encIds.length > 0) {
-      const { data: encs } = await supabase
-        .from('d_colaboradores').select('id, matricula_nome').in('id', encIds)
-      ;(encs || []).forEach(e => { encMap[e.id] = e.matricula_nome })
-    }
+    const ids = rows.map(r => r.id)
 
-    let resultado = rows.map(r => ({ ...r, _encarregado_nome: encMap[r.encarregado_id] || null }))
+    const [encResult, atividadesResult, colaboradoresResult] = await Promise.all([
+      (() => {
+        const encIds = [...new Set(rows.map(r => r.encarregado_id).filter(Boolean))]
+        if (encIds.length === 0) return Promise.resolve({ data: [] })
+        return supabase.from('d_colaboradores').select('id, matricula_nome').in('id', encIds)
+      })(),
+      ids.length > 0
+        ? supabase.from('f_prod_atividades').select('registro_id, valor_total').in('registro_id', ids)
+        : Promise.resolve({ data: [] }),
+      ids.length > 0
+        ? supabase.from('f_prod_colaboradores').select('registro_id, equipe_id').in('registro_id', ids)
+        : Promise.resolve({ data: [] }),
+    ])
 
-    setRegistros(resultado)
+    const encMap = {}
+    ;(encResult.data || []).forEach(e => { encMap[e.id] = e.matricula_nome })
+
+    const totalMap = {}
+    ;(atividadesResult.data || []).forEach(a => {
+      totalMap[a.registro_id] = (totalMap[a.registro_id] || 0) + Number(a.valor_total || 0)
+    })
+
+    const newEquipeColabMap = {}
+    ;(colaboradoresResult.data || []).forEach(c => {
+      if (!newEquipeColabMap[c.registro_id]) newEquipeColabMap[c.registro_id] = new Set()
+      if (c.equipe_id) newEquipeColabMap[c.registro_id].add(c.equipe_id)
+    })
+
+    setRegistrosRaw(rows)
+    setEncMap(encMap)
+    setTotalMap(totalMap)
+    setEquipeColabMap(newEquipeColabMap)
     setCarregando(false)
   }
 
