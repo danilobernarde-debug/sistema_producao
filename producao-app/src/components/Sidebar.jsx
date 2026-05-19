@@ -13,8 +13,7 @@ const itensMenu = [
   { caminho: '/relatorios/exportacao',      icone: '⬇️', label: 'Exportação' },
   { caminho: '/relatorios/bonificacoes',    icone: '🏆', label: 'Bonificações' },
   { secao: 'PLANEJAMENTO' },
-  { caminho: '/planejamento-rmb', icone: '🗺️', label: 'Planejamento RMB' },
-  { caminho: '/planejamento-rip', icone: '🗺️', label: 'Planejamento RIP' },
+  { caminho: '/planejamento', icone: '🗺️', label: 'Planejamento' },
   { secao: 'CONFIGURAÇÕES' },
   { caminho: '/configuracoes',              icone: '⚙️', label: 'Configurações' },
 ]
