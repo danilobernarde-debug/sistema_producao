@@ -99,6 +99,18 @@ export default function GerenciarUsuarios() {
     await carregarDados()
   }
 
+  async function excluirUsuario() {
+    if (!confirm(`Excluir o usuário "${selecionado.nome || selecionado.email}"? Esta ação não pode ser desfeita.`)) return
+    setSalvando(true)
+    setErro('')
+    const { error } = await supabase.rpc('deletar_usuario_auth', { p_uuid: selecionado.uuid })
+    setSalvando(false)
+    if (error) { setErro(error.message); return }
+    setSelecionado(null)
+    setContratosUsuario([])
+    await carregarDados()
+  }
+
   async function alterarSenha() {
     setErro('')
     if (!formSenha.senha) { setErro('Digite a nova senha.'); return }
@@ -252,12 +264,20 @@ export default function GerenciarUsuarios() {
                 {erro && <div className="erro-mensagem" style={{ marginTop: 12 }}>{erro}</div>}
                 {sucesso && <div style={{ marginTop: 12, color: '#16a34a', fontSize: 13 }}>{sucesso}</div>}
 
-                <div style={{ display: 'flex', gap: 8, marginTop: 16 }}>
+                <div style={{ display: 'flex', gap: 8, marginTop: 16, flexWrap: 'wrap' }}>
                   <button className="btn btn-primario" onClick={salvarPerfil} disabled={salvando}>
                     {salvando ? 'Salvando...' : 'Salvar Perfil'}
                   </button>
                   <button className="btn btn-secundario" onClick={() => { setErro(''); setFormSenha({ senha: '', confirmar: '' }); setModalSenha(true) }}>
                     🔑 Alterar Senha
+                  </button>
+                  <button
+                    className="btn"
+                    onClick={excluirUsuario}
+                    disabled={salvando}
+                    style={{ background: '#fef2f2', color: '#dc2626', border: '1px solid #fecaca', marginLeft: 'auto' }}
+                  >
+                    🗑 Excluir Usuário
                   </button>
                 </div>
               </div>
