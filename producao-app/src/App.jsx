@@ -24,6 +24,7 @@ import GerenciarUsuarios from './pages/Configuracoes/GerenciarUsuarios'
 import Atividades from './pages/Configuracoes/Atividades'
 import FormBuilder from './pages/Configuracoes/FormBuilder'
 import PlanejamentoRmb from './pages/PlanejamentoRMB'
+import PlanejamentoRIP from './pages/PlanejamentoRIP'
 
 function RotaProtegida({ children }) {
   const { usuario, carregando } = useAuth()
@@ -130,9 +131,15 @@ export default function App() {
         <Route path="/configuracoes/atividades" element={<RotaProtegida><RotaSuperAdmin><Atividades /></RotaSuperAdmin></RotaProtegida>} />
         <Route path="/configuracoes/form-builder" element={<RotaProtegida><RotaSuperAdmin><FormBuilder /></RotaSuperAdmin></RotaProtegida>} />
 
-        <Route path="/planejamento-rip" element={
+        <Route path="/planejamento-rmb" element={
           <RotaProtegida>
             <PlanejamentoRmb />
+          </RotaProtegida>
+        } />
+
+        <Route path="/planejamento-rip" element={
+          <RotaProtegida>
+            <PlanejamentoRIP />
           </RotaProtegida>
         } />
 
