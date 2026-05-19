@@ -1,0 +1,735 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Documentação — Sistema de Produção</title>
+<style>
+  :root {
+    --azul: #1a56db;
+    --azul-claro: #eff6ff;
+    --verde: #16a34a;
+    --verde-claro: #f0fdf4;
+    --laranja: #ea580c;
+    --laranja-claro: #fff7ed;
+    --roxo: #7c3aed;
+    --roxo-claro: #f5f3ff;
+    --cinza: #6b7280;
+    --borda: #e5e7eb;
+    --fundo: #f9fafb;
+    --texto: #1e2a3b;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: var(--fundo); color: var(--texto); line-height: 1.6; }
+
+  /* Layout */
+  .container { max-width: 960px; margin: 0 auto; padding: 40px 24px; }
+  header { background: linear-gradient(135deg, #1e2a3b 0%, #1a56db 100%); color: white; padding: 48px 24px; text-align: center; }
+  header h1 { font-size: 32px; font-weight: 800; margin-bottom: 8px; }
+  header p { font-size: 16px; opacity: 0.85; max-width: 600px; margin: 0 auto; }
+  .badge { display: inline-block; background: rgba(255,255,255,0.2); border: 1px solid rgba(255,255,255,0.3); border-radius: 20px; padding: 4px 14px; font-size: 12px; font-weight: 600; letter-spacing: 0.5px; margin: 6px 4px; }
+
+  /* Navegação lateral */
+  .layout { display: flex; gap: 32px; align-items: flex-start; }
+  .nav { width: 220px; flex-shrink: 0; position: sticky; top: 24px; background: white; border: 1px solid var(--borda); border-radius: 12px; padding: 16px; }
+  .nav h3 { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; color: var(--cinza); margin-bottom: 8px; padding-bottom: 8px; border-bottom: 1px solid var(--borda); }
+  .nav a { display: block; font-size: 13px; color: #374151; text-decoration: none; padding: 5px 8px; border-radius: 6px; margin-bottom: 2px; transition: background 0.15s; }
+  .nav a:hover { background: var(--azul-claro); color: var(--azul); }
+  .conteudo { flex: 1; min-width: 0; }
+
+  /* Seções */
+  section { margin-bottom: 48px; }
+  h2 { font-size: 22px; font-weight: 700; color: var(--texto); margin-bottom: 16px; padding-bottom: 10px; border-bottom: 2px solid var(--borda); display: flex; align-items: center; gap: 10px; }
+  h3 { font-size: 16px; font-weight: 600; color: var(--texto); margin: 20px 0 10px; }
+  p { font-size: 14px; color: #374151; margin-bottom: 12px; }
+
+  /* Cards */
+  .card { background: white; border: 1px solid var(--borda); border-radius: 12px; padding: 20px; margin-bottom: 16px; }
+  .card-titulo { font-size: 15px; font-weight: 600; margin-bottom: 6px; }
+  .card-desc { font-size: 13px; color: #4b5563; }
+  .card-arquivo { font-size: 11px; color: var(--cinza); margin-top: 8px; font-family: monospace; background: var(--fundo); padding: 3px 8px; border-radius: 4px; display: inline-block; }
+
+  /* Grid de cards */
+  .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px; }
+  @media (max-width: 700px) { .grid-2, .grid-3 { grid-template-columns: 1fr; } .layout { flex-direction: column; } .nav { width: 100%; position: static; } }
+
+  /* Cores por categoria */
+  .card.azul  { border-left: 4px solid var(--azul);   background: var(--azul-claro); }
+  .card.verde { border-left: 4px solid var(--verde);  background: var(--verde-claro); }
+  .card.laranja { border-left: 4px solid var(--laranja); background: var(--laranja-claro); }
+  .card.roxo  { border-left: 4px solid var(--roxo);   background: var(--roxo-claro); }
+
+  /* Código */
+  code { font-family: 'Courier New', monospace; background: #f3f4f6; border: 1px solid var(--borda); border-radius: 4px; padding: 1px 6px; font-size: 12px; color: #be185d; }
+  pre { background: #1e2a3b; color: #e2e8f0; border-radius: 10px; padding: 20px; font-size: 13px; overflow-x: auto; margin: 12px 0; line-height: 1.7; }
+  pre .comentario { color: #64748b; font-style: italic; }
+  pre .palavra-chave { color: #93c5fd; }
+  pre .string { color: #86efac; }
+  pre .funcao { color: #fbbf24; }
+
+  /* Árvore de arquivos */
+  .arvore { background: #1e2a3b; color: #e2e8f0; border-radius: 10px; padding: 20px; font-family: monospace; font-size: 13px; line-height: 1.8; overflow-x: auto; }
+  .arvore .pasta { color: #93c5fd; font-weight: 600; }
+  .arvore .arquivo-jsx { color: #86efac; }
+  .arvore .arquivo-js { color: #fbbf24; }
+  .arvore .arquivo-css { color: #f9a8d4; }
+  .arvore .arquivo-html { color: #fb923c; }
+  .arvore .desc { color: #64748b; margin-left: 8px; }
+
+  /* Tabela */
+  table { width: 100%; border-collapse: collapse; font-size: 13px; margin-bottom: 16px; }
+  th { background: #f3f4f6; text-align: left; padding: 10px 14px; font-weight: 600; color: var(--texto); border-bottom: 2px solid var(--borda); }
+  td { padding: 10px 14px; border-bottom: 1px solid var(--borda); vertical-align: top; }
+  tr:hover td { background: #f9fafb; }
+  td code { font-size: 11px; }
+
+  /* Dica */
+  .dica { background: #fefce8; border: 1px solid #fde047; border-radius: 8px; padding: 14px 16px; margin: 12px 0; font-size: 13px; }
+  .dica::before { content: '💡 '; font-weight: 700; }
+  .aviso { background: #fef2f2; border: 1px solid #fecaca; border-radius: 8px; padding: 14px 16px; margin: 12px 0; font-size: 13px; }
+  .aviso::before { content: '⚠️ '; font-weight: 700; }
+
+  /* Passo a passo */
+  .passos { counter-reset: passo; list-style: none; }
+  .passos li { counter-increment: passo; display: flex; gap: 14px; margin-bottom: 16px; }
+  .passos li::before { content: counter(passo); background: var(--azul); color: white; border-radius: 50%; width: 28px; height: 28px; display: flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 700; flex-shrink: 0; margin-top: 2px; }
+  .passos li div { flex: 1; }
+  .passos li strong { display: block; margin-bottom: 4px; }
+
+  /* Fluxo */
+  .fluxo { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin: 12px 0; }
+  .fluxo-passo { background: white; border: 1px solid var(--borda); border-radius: 8px; padding: 8px 14px; font-size: 13px; font-weight: 500; }
+  .fluxo-seta { color: var(--cinza); font-size: 18px; }
+
+  /* Perfis */
+  .perfil { display: flex; align-items: flex-start; gap: 12px; background: white; border: 1px solid var(--borda); border-radius: 10px; padding: 16px; margin-bottom: 10px; }
+  .perfil-icone { font-size: 28px; }
+  .perfil-nome { font-weight: 600; font-size: 14px; margin-bottom: 4px; }
+  .perfil-acesso { font-size: 12px; color: var(--cinza); }
+  .tag { display: inline-block; font-size: 11px; font-weight: 600; padding: 2px 8px; border-radius: 10px; margin: 2px; }
+  .tag.sim { background: #dcfce7; color: #16a34a; }
+  .tag.nao { background: #fee2e2; color: #dc2626; }
+</style>
+</head>
+<body>
+
+<header>
+  <div style="font-size:13px;opacity:0.7;margin-bottom:12px;letter-spacing:1px;text-transform:uppercase">D.B. Machado LTDA</div>
+  <h1>Sistema de Produção</h1>
+  <p>Documentação técnica e guia para entender, manter e evoluir o sistema</p>
+  <div style="margin-top:20px">
+    <span class="badge">React 18</span>
+    <span class="badge">Vite</span>
+    <span class="badge">Supabase</span>
+    <span class="badge">JavaScript</span>
+    <span class="badge">PostgreSQL</span>
+  </div>
+</header>
+
+<div class="container">
+<div class="layout">
+
+<!-- Navegação -->
+<nav class="nav">
+  <h3>Conteúdo</h3>
+  <a href="#visao-geral">1. Visão Geral</a>
+  <a href="#tecnologias">2. Tecnologias</a>
+  <a href="#estrutura">3. Estrutura de Pastas</a>
+  <a href="#paginas">4. Páginas</a>
+  <a href="#componentes">5. Componentes</a>
+  <a href="#banco">6. Banco de Dados</a>
+  <a href="#autenticacao">7. Autenticação</a>
+  <a href="#como-alterar">8. Como Fazer Alterações</a>
+  <a href="#aprender">9. Aprendendo a Programar</a>
+  <a href="#fluxo-dados">10. Fluxo de Dados</a>
+</nav>
+
+<div class="conteudo">
+
+<!-- 1. VISÃO GERAL -->
+<section id="visao-geral">
+  <h2>🏠 1. Visão Geral do Sistema</h2>
+  <p>O <strong>Sistema de Produção</strong> é uma aplicação web usada para registrar, acompanhar e analisar a produção de equipes de campo da D.B. Machado LTDA. Ele substitui planilhas manuais por um sistema centralizado com controle de acesso.</p>
+
+  <div class="grid-2">
+    <div class="card verde">
+      <div class="card-titulo">O que o sistema faz</div>
+      <div class="card-desc">
+        ✅ Lançamento diário de produção<br>
+        ✅ Relatórios mensais e por equipe<br>
+        ✅ Exportação de dados<br>
+        ✅ Planejamento de campo (RMB/RIP)<br>
+        ✅ Controle de usuários e acessos<br>
+        ✅ Cadastro de contratos, equipes e colaboradores
+      </div>
+    </div>
+    <div class="card azul">
+      <div class="card-titulo">Quem usa</div>
+      <div class="card-desc">
+        👑 <strong>Super Admin</strong> — acesso total<br>
+        👤 <strong>Usuário comum</strong> — lançamento e relatórios<br>
+        🗺️ <strong>Planejamento</strong> — somente página de planejamento<br><br>
+        Cada usuário pode ter acesso a contratos específicos.
+      </div>
+    </div>
+  </div>
+
+  <div class="fluxo">
+    <div class="fluxo-passo">👤 Login</div>
+    <div class="fluxo-seta">→</div>
+    <div class="fluxo-passo">📋 Lança Produção</div>
+    <div class="fluxo-seta">→</div>
+    <div class="fluxo-passo">💾 Salva no Banco</div>
+    <div class="fluxo-seta">→</div>
+    <div class="fluxo-passo">📊 Relatórios</div>
+  </div>
+</section>
+
+<!-- 2. TECNOLOGIAS -->
+<section id="tecnologias">
+  <h2>⚙️ 2. Tecnologias Usadas</h2>
+  <p>Você não precisa ser especialista em tudo, mas entender o papel de cada tecnologia ajuda a saber onde mexer.</p>
+
+  <div class="card azul" style="margin-bottom:12px">
+    <div class="card-titulo">⚛️ React — A interface do usuário</div>
+    <div class="card-desc">React é uma biblioteca JavaScript que constrói as telas do sistema. Em vez de escrever HTML puro, você escreve componentes — como peças de LEGO que se encaixam para formar a página.</div>
+    <div style="margin-top:10px;font-size:12px;color:#374151"><strong>Exemplo simples:</strong></div>
+    <pre><span class="comentario">// Um componente React é uma função que retorna HTML</span>
+<span class="palavra-chave">function</span> <span class="funcao">BotaoSalvar</span>() {
+  <span class="palavra-chave">return</span> (
+    &lt;button onClick={() =&gt; alert(<span class="string">'Salvou!'</span>)}&gt;
+      Salvar
+    &lt;/button&gt;
+  )
+}</pre>
+  </div>
+
+  <div class="card laranja" style="margin-bottom:12px">
+    <div class="card-titulo">🗄️ Supabase — O banco de dados na nuvem</div>
+    <div class="card-desc">Supabase é onde os dados ficam guardados. Ele fornece o banco de dados PostgreSQL (planilhas relacionais) e também cuida do login dos usuários. O sistema se comunica com o Supabase para salvar e buscar dados.</div>
+    <div style="margin-top:10px;font-size:12px;color:#374151"><strong>Como o sistema busca dados:</strong></div>
+    <pre><span class="comentario">// Busca todos os registros de produção</span>
+<span class="palavra-chave">const</span> { data } = <span class="palavra-chave">await</span> supabase
+  .from(<span class="string">'f_prod_registro'</span>)
+  .select(<span class="string">'*'</span>)
+  .order(<span class="string">'data'</span>, { ascending: <span class="palavra-chave">false</span> })</pre>
+  </div>
+
+  <div class="card verde" style="margin-bottom:12px">
+    <div class="card-titulo">⚡ Vite — A ferramenta de construção</div>
+    <div class="card-desc">Vite é quem "compila" o código React em arquivos que o navegador consegue entender. Também serve o sistema localmente durante o desenvolvimento. Para rodar o projeto, você usa o comando <code>npm run dev</code>.</div>
+  </div>
+
+  <div class="card roxo">
+    <div class="card-titulo">🎨 CSS — O visual do sistema</div>
+    <div class="card-desc">O arquivo <code>index.css</code> contém todos os estilos visuais: cores, tamanhos, espaçamentos. Classes como <code>card</code>, <code>btn</code>, <code>pagina</code> são usadas nos componentes React.</div>
+  </div>
+</section>
+
+<!-- 3. ESTRUTURA DE PASTAS -->
+<section id="estrutura">
+  <h2>📁 3. Estrutura de Pastas</h2>
+  <p>O projeto fica dentro da pasta <code>producao-app/</code>. Veja o que cada parte faz:</p>
+
+  <div class="arvore">
+<span class="pasta">producao-app/</span>
+├── <span class="pasta">src/</span>                         <span class="desc">← Todo o código React fica aqui</span>
+│   ├── <span class="arquivo-jsx">App.jsx</span>              <span class="desc">← Ponto central: define as rotas (URLs) do sistema</span>
+│   ├── <span class="arquivo-css">index.css</span>            <span class="desc">← Todos os estilos visuais (cores, botões, cards)</span>
+│   ├── <span class="arquivo-js">supabaseClient.js</span>    <span class="desc">← Conexão com o banco de dados Supabase</span>
+│   │
+│   ├── <span class="pasta">components/</span>              <span class="desc">← Peças reutilizáveis em várias páginas</span>
+│   │   ├── <span class="arquivo-jsx">Sidebar.jsx</span>      <span class="desc">← Menu lateral do sistema</span>
+│   │   ├── <span class="arquivo-jsx">TabelaCRUD.jsx</span>   <span class="desc">← Tabela com botões de editar/excluir</span>
+│   │   ├── <span class="arquivo-jsx">CampoDinamico.jsx</span><span class="desc">← Campo de formulário configurável</span>
+│   │   └── <span class="arquivo-jsx">SelectPesquisavel.jsx</span> <span class="desc">← Dropdown com pesquisa</span>
+│   │
+│   ├── <span class="pasta">hooks/</span>                   <span class="desc">← Lógica reutilizável (funções especiais do React)</span>
+│   │   ├── <span class="arquivo-jsx">useAuth.jsx</span>      <span class="desc">← Controla o login: quem está logado, perfil, sair</span>
+│   │   └── <span class="arquivo-js">useCamposDinamicos.js</span> <span class="desc">← Carrega campos configuráveis do formulário</span>
+│   │
+│   └── <span class="pasta">pages/</span>                   <span class="desc">← Uma pasta por seção do sistema</span>
+│       ├── <span class="arquivo-jsx">Login.jsx</span>        <span class="desc">← Tela de login</span>
+│       ├── <span class="arquivo-jsx">Dashboard.jsx</span>    <span class="desc">← Tela inicial com gráficos</span>
+│       ├── <span class="arquivo-jsx">Planejamento.jsx</span> <span class="desc">← Página com abas RMB e RIP</span>
+│       │
+│       ├── <span class="pasta">Producao/</span>             <span class="desc">← Lançamento de produção</span>
+│       │   ├── <span class="arquivo-jsx">ListaRegistros.jsx</span>   <span class="desc">← Lista todos os lançamentos</span>
+│       │   ├── <span class="arquivo-jsx">NovoRegistro.jsx</span>     <span class="desc">← Formulário para novo lançamento</span>
+│       │   └── <span class="arquivo-jsx">EditarRegistro.jsx</span>   <span class="desc">← Formulário para editar lançamento</span>
+│       │
+│       ├── <span class="pasta">Relatorios/</span>           <span class="desc">← Relatórios e análises</span>
+│       │   ├── <span class="arquivo-jsx">ProducaoMensal.jsx</span>   <span class="desc">← Gráficos e totais mensais</span>
+│       │   ├── <span class="arquivo-jsx">JustificativasObservacoes.jsx</span>
+│       │   ├── <span class="arquivo-jsx">Exportacao.jsx</span>       <span class="desc">← Download de dados</span>
+│       │   └── <span class="arquivo-jsx">Bonificacoes.jsx</span>     <span class="desc">← Relatório de bonificações</span>
+│       │
+│       └── <span class="pasta">Configuracoes/</span>        <span class="desc">← Telas de configuração (Super Admin)</span>
+│           ├── <span class="arquivo-jsx">index.jsx</span>            <span class="desc">← Menu de configurações</span>
+│           ├── <span class="arquivo-jsx">GerenciarUsuarios.jsx</span><span class="desc">← Criar/editar/excluir usuários</span>
+│           ├── <span class="arquivo-jsx">Contratos.jsx</span>        <span class="desc">← Cadastro de contratos</span>
+│           ├── <span class="arquivo-jsx">Equipes.jsx</span>          <span class="desc">← Cadastro de equipes</span>
+│           ├── <span class="arquivo-jsx">Colaboradores.jsx</span>    <span class="desc">← Cadastro de colaboradores</span>
+│           ├── <span class="arquivo-jsx">FormBuilder.jsx</span>      <span class="desc">← Configura campos do formulário</span>
+│           └── <span class="arquivo-jsx">Atividades.jsx</span>       <span class="desc">← Cadastro de atividades</span>
+│
+├── <span class="pasta">public/</span>                      <span class="desc">← Arquivos acessíveis diretamente pelo navegador</span>
+│   ├── <span class="arquivo-html">planejamento_RMB.html</span>   <span class="desc">← Sistema de planejamento RMB (arquivo independente)</span>
+│   └── <span class="arquivo-html">planejamento_RIP.html</span>   <span class="desc">← Sistema de planejamento RIP (arquivo independente)</span>
+│
+└── <span class="arquivo-js">package.json</span>                 <span class="desc">← Lista de dependências do projeto</span>
+  </div>
+
+  <div class="dica">Quando quiser mexer em algo visual (layout, cores), procure no arquivo <code>index.css</code>. Quando quiser mudar o comportamento de uma página, procure o arquivo <code>.jsx</code> correspondente em <code>src/pages/</code>.</div>
+</section>
+
+<!-- 4. PÁGINAS -->
+<section id="paginas">
+  <h2>📄 4. Páginas do Sistema</h2>
+
+  <h3>Produção</h3>
+  <div class="card">
+    <div class="card-titulo">📋 Lista de Registros</div>
+    <div class="card-desc">Mostra todos os lançamentos de produção com filtros por contrato, equipe, data. Busca direto da tabela <code>f_prod_registro</code> e faz consultas paralelas para buscar totais e equipes. Tem paginação.</div>
+    <div class="card-arquivo">src/pages/Producao/ListaRegistros.jsx</div>
+  </div>
+  <div class="card">
+    <div class="card-titulo">➕ Novo Registro / ✏️ Editar Registro</div>
+    <div class="card-desc">Formulários para lançar ou editar produção. Os campos do formulário são configuráveis — dependem do contrato e equipe selecionados (carregados via <code>useCamposDinamicos</code>). Ao salvar, insere ou atualiza no banco.</div>
+    <div class="card-arquivo">src/pages/Producao/NovoRegistro.jsx &nbsp;|&nbsp; EditarRegistro.jsx</div>
+  </div>
+
+  <h3>Relatórios</h3>
+  <div class="grid-2">
+    <div class="card">
+      <div class="card-titulo">📈 Produção Mensal</div>
+      <div class="card-desc">Gráficos de produção por mês, com comparação entre equipes. Usa a biblioteca Recharts para os gráficos.</div>
+      <div class="card-arquivo">Relatorios/ProducaoMensal.jsx</div>
+    </div>
+    <div class="card">
+      <div class="card-titulo">⬇️ Exportação</div>
+      <div class="card-desc">Permite baixar os dados em Excel ou CSV com filtros aplicados.</div>
+      <div class="card-arquivo">Relatorios/Exportacao.jsx</div>
+    </div>
+    <div class="card">
+      <div class="card-titulo">📝 Justificativas</div>
+      <div class="card-desc">Relatório focado nas observações e justificativas dos lançamentos.</div>
+      <div class="card-arquivo">Relatorios/JustificativasObservacoes.jsx</div>
+    </div>
+    <div class="card">
+      <div class="card-titulo">🏆 Bonificações</div>
+      <div class="card-desc">Relatório para cálculo de bonificações baseado na produção.</div>
+      <div class="card-arquivo">Relatorios/Bonificacoes.jsx</div>
+    </div>
+  </div>
+
+  <h3>Planejamento</h3>
+  <div class="card laranja">
+    <div class="card-titulo">🗺️ Planejamento (RMB + RIP)</div>
+    <div class="card-desc">
+      Página com duas abas que carregam arquivos HTML independentes dentro de um <code>iframe</code>. Cada arquivo HTML tem seu próprio sistema de mapa (Leaflet), quadro semanal e exportação. Os dados vêm direto do Google Sheets via API pública.<br><br>
+      <strong>Por que iframe?</strong> Os arquivos HTML são sistemas completos por si só (com mapa, JavaScript próprio). O iframe é a forma mais simples de integrá-los ao sistema React sem reescrever tudo.
+    </div>
+    <div class="card-arquivo">src/pages/Planejamento.jsx &nbsp;|&nbsp; public/planejamento_RMB.html &nbsp;|&nbsp; public/planejamento_RIP.html</div>
+  </div>
+
+  <h3>Configurações (Super Admin)</h3>
+  <div class="grid-2">
+    <div class="card">
+      <div class="card-titulo">🔐 Gerenciar Usuários</div>
+      <div class="card-desc">Cria, edita e exclui usuários. Vincula contratos. Usa funções RPC no Supabase para criação/exclusão segura.</div>
+      <div class="card-arquivo">Configuracoes/GerenciarUsuarios.jsx</div>
+    </div>
+    <div class="card">
+      <div class="card-titulo">🧩 Editor de Formulário</div>
+      <div class="card-desc">Configura quais campos aparecem no formulário de produção para cada contrato e tipo de equipe. Salva automaticamente.</div>
+      <div class="card-arquivo">Configuracoes/FormBuilder.jsx</div>
+    </div>
+    <div class="card">
+      <div class="card-titulo">📄 Contratos / 🏗️ Obras</div>
+      <div class="card-desc">Cadastro dos contratos e obras da empresa. Contratos controlam qual lógica de produção é usada.</div>
+    </div>
+    <div class="card">
+      <div class="card-titulo">👷 Equipes / 👤 Colaboradores</div>
+      <div class="card-desc">Cadastro das equipes de campo e seus membros. Equipes são vinculadas a contratos.</div>
+    </div>
+  </div>
+</section>
+
+<!-- 5. COMPONENTES -->
+<section id="componentes">
+  <h2>🧩 5. Componentes Reutilizáveis</h2>
+  <p>Componentes são peças de interface usadas em várias páginas. Quando você altera um componente, a mudança aparece em todos os lugares que o usam.</p>
+
+  <div class="card azul" style="margin-bottom:12px">
+    <div class="card-titulo">Sidebar.jsx — Menu lateral</div>
+    <div class="card-desc">
+      O menu lateral com todos os links de navegação. Para <strong>adicionar um item no menu</strong>, edite o array <code>itensMenu</code> no início do arquivo. O menu filtra automaticamente itens baseado no perfil do usuário (ex: perfil "Planejamento" vê só o item de planejamento).
+    </div>
+    <pre><span class="comentario">// Para adicionar um novo item no menu, adicione aqui:</span>
+<span class="palavra-chave">const</span> itensMenu = [
+  { secao: <span class="string">'MENU'</span> },
+  { caminho: <span class="string">'/'</span>, icone: <span class="string">'📊'</span>, label: <span class="string">'Dashboard'</span> },
+  <span class="comentario">// ... outros itens</span>
+]</pre>
+  </div>
+
+  <div class="card verde" style="margin-bottom:12px">
+    <div class="card-titulo">TabelaCRUD.jsx — Tabela com ações</div>
+    <div class="card-desc">Tabela genérica usada nas páginas de configuração (Contratos, Equipes, etc.) com botões de Editar e Excluir embutidos. Também exporta o componente <code>Modal</code> usado nos formulários de criação.</div>
+  </div>
+
+  <div class="card laranja">
+    <div class="card-titulo">useAuth.jsx — Hook de autenticação</div>
+    <div class="card-desc">
+      Não é uma tela, mas um "hook" — uma função especial do React que qualquer componente pode usar para saber quem está logado. Fornece:
+      <br>• <code>usuario</code> — dados do Supabase Auth (email, id)
+      <br>• <code>perfil</code> — dados da tabela <code>d_auth_user</code> (nome, foto, perfil de acesso)
+      <br>• <code>carregando</code> — true enquanto verifica o login
+      <br>• <code>sair()</code> — função para fazer logout
+    </div>
+  </div>
+</section>
+
+<!-- 6. BANCO DE DADOS -->
+<section id="banco">
+  <h2>🗄️ 6. Banco de Dados</h2>
+  <p>O banco de dados fica no Supabase. Cada tabela é como uma planilha. Veja as principais:</p>
+
+  <table>
+    <tr>
+      <th>Tabela</th>
+      <th>Para que serve</th>
+      <th>Campos principais</th>
+    </tr>
+    <tr>
+      <td><code>f_prod_registro</code></td>
+      <td>Registro de produção (cada lançamento)</td>
+      <td>data, contrato_id, equipe_id, criado_por_id</td>
+    </tr>
+    <tr>
+      <td><code>f_prod_atividades</code></td>
+      <td>Atividades dentro de cada registro</td>
+      <td>registro_id, atividade_id, quantidade, valor_total</td>
+    </tr>
+    <tr>
+      <td><code>f_prod_colaboradores</code></td>
+      <td>Colaboradores em cada registro</td>
+      <td>registro_id, equipe_id, colaborador_id</td>
+    </tr>
+    <tr>
+      <td><code>d_contratos</code></td>
+      <td>Contratos da empresa</td>
+      <td>descricao, ativo, logica_contrato</td>
+    </tr>
+    <tr>
+      <td><code>d_equipes</code></td>
+      <td>Equipes de campo</td>
+      <td>sistema_producao, contrato_id, tipo_equipe_id</td>
+    </tr>
+    <tr>
+      <td><code>d_colaboradores</code></td>
+      <td>Colaboradores (pessoas)</td>
+      <td>nome, equipe_id</td>
+    </tr>
+    <tr>
+      <td><code>d_atividades</code></td>
+      <td>Tipos de atividade</td>
+      <td>descricao, unidade</td>
+    </tr>
+    <tr>
+      <td><code>d_auth_user</code></td>
+      <td>Perfil dos usuários do sistema</td>
+      <td>uuid, nome, email, role_id, foto_url</td>
+    </tr>
+    <tr>
+      <td><code>d_auth_roles</code></td>
+      <td>Perfis de acesso (Super Admin, Planejamento...)</td>
+      <td>name</td>
+    </tr>
+    <tr>
+      <td><code>d_auth_contratos</code></td>
+      <td>Quais contratos cada usuário acessa</td>
+      <td>user_uuid, contrato_id</td>
+    </tr>
+    <tr>
+      <td><code>config_campos</code></td>
+      <td>Definição dos campos dinâmicos do formulário</td>
+      <td>label, tipo, opcoes</td>
+    </tr>
+    <tr>
+      <td><code>config_campos_contrato</code></td>
+      <td>Quais campos aparecem em cada contrato/equipe</td>
+      <td>campo_id, contrato_id, tipo_equipe_id, ordem</td>
+    </tr>
+  </table>
+
+  <div class="dica">O prefixo <code>f_</code> nas tabelas significa "fato" (dados transacionais). O prefixo <code>d_</code> significa "dimensão" (dados cadastrais). Essa é uma convenção de banco de dados chamada esquema estrela.</div>
+
+  <h3>Funções RPC no Supabase</h3>
+  <p>Algumas operações precisam de permissões especiais (como criar usuários no sistema de autenticação). Elas são feitas via funções armazenadas no banco:</p>
+  <table>
+    <tr><th>Função</th><th>O que faz</th></tr>
+    <tr><td><code>criar_usuario_auth(email, senha, nome, role_id)</code></td><td>Cria um usuário no Auth e na tabela d_auth_user de forma atômica</td></tr>
+    <tr><td><code>deletar_usuario_auth(uuid)</code></td><td>Remove usuário do Auth, d_auth_user e d_auth_contratos</td></tr>
+    <tr><td><code>alterar_senha_usuario(uuid, senha)</code></td><td>Altera a senha de um usuário</td></tr>
+  </table>
+</section>
+
+<!-- 7. AUTENTICAÇÃO -->
+<section id="autenticacao">
+  <h2>🔐 7. Autenticação e Perfis de Acesso</h2>
+
+  <p>O sistema usa o Supabase Auth para gerenciar login. O fluxo é:</p>
+
+  <ol class="passos">
+    <li>
+      <div><strong>Usuário entra com e-mail e senha</strong><br>O Supabase verifica as credenciais na tabela <code>auth.users</code>.</div>
+    </li>
+    <li>
+      <div><strong>Sistema carrega o perfil</strong><br>O hook <code>useAuth</code> busca os dados do usuário na tabela <code>d_auth_user</code> e seu perfil de acesso em <code>d_auth_roles</code>.</div>
+    </li>
+    <li>
+      <div><strong>Rotas são protegidas por perfil</strong><br>O componente <code>RotaProtegida</code> verifica se o usuário está logado. O componente <code>RotaSuperAdmin</code> verifica se é Super Admin.</div>
+    </li>
+    <li>
+      <div><strong>Dados são filtrados por contrato</strong><br>Cada usuário só vê dados dos contratos que tem acesso (tabela <code>d_auth_contratos</code>).</div>
+    </li>
+  </ol>
+
+  <h3>Perfis de Acesso</h3>
+
+  <div class="perfil">
+    <div class="perfil-icone">👑</div>
+    <div>
+      <div class="perfil-nome">Super Admin</div>
+      <div class="perfil-acesso">Acesso total ao sistema</div>
+      <div style="margin-top:8px">
+        <span class="tag sim">Dashboard</span>
+        <span class="tag sim">Produção</span>
+        <span class="tag sim">Relatórios</span>
+        <span class="tag sim">Planejamento</span>
+        <span class="tag sim">Configurações</span>
+        <span class="tag sim">Usuários</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="perfil">
+    <div class="perfil-icone">👤</div>
+    <div>
+      <div class="perfil-nome">Usuário comum</div>
+      <div class="perfil-acesso">Acesso às funcionalidades operacionais</div>
+      <div style="margin-top:8px">
+        <span class="tag sim">Dashboard</span>
+        <span class="tag sim">Produção</span>
+        <span class="tag sim">Relatórios</span>
+        <span class="tag sim">Planejamento</span>
+        <span class="tag nao">Configurações avançadas</span>
+        <span class="tag nao">Usuários</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="perfil">
+    <div class="perfil-icone">🗺️</div>
+    <div>
+      <div class="perfil-nome">Planejamento</div>
+      <div class="perfil-acesso">Acesso restrito à página de planejamento</div>
+      <div style="margin-top:8px">
+        <span class="tag nao">Dashboard</span>
+        <span class="tag nao">Produção</span>
+        <span class="tag nao">Relatórios</span>
+        <span class="tag sim">Planejamento</span>
+        <span class="tag nao">Configurações</span>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- 8. COMO FAZER ALTERAÇÕES -->
+<section id="como-alterar">
+  <h2>🔧 8. Como Fazer Alterações Comuns</h2>
+
+  <h3>Adicionar um item no menu lateral</h3>
+  <p>Abra <code>src/components/Sidebar.jsx</code> e edite o array <code>itensMenu</code>:</p>
+  <pre><span class="comentario">// Adicione um novo item assim:</span>
+{ caminho: <span class="string">'/minha-pagina'</span>, icone: <span class="string">'⭐'</span>, label: <span class="string">'Minha Página'</span> }</pre>
+
+  <h3>Alterar uma cor ou estilo</h3>
+  <p>Abra <code>src/index.css</code>. As classes principais são:</p>
+  <table>
+    <tr><th>Classe CSS</th><th>Onde é usada</th></tr>
+    <tr><td><code>.card</code></td><td>Caixas brancas com sombra</td></tr>
+    <tr><td><code>.btn-primario</code></td><td>Botão azul principal</td></tr>
+    <tr><td><code>.btn-secundario</code></td><td>Botão cinza secundário</td></tr>
+    <tr><td><code>.pagina</code></td><td>Área de conteúdo de cada página</td></tr>
+    <tr><td><code>.campo-input</code></td><td>Campos de texto</td></tr>
+    <tr><td><code>.campo-select</code></td><td>Dropdowns</td></tr>
+  </table>
+
+  <h3>Adicionar uma nova rota (página)</h3>
+  <ol class="passos">
+    <li><div><strong>Crie o arquivo da página</strong><br>Ex: <code>src/pages/MinhaPagina.jsx</code></div></li>
+    <li><div><strong>Importe no App.jsx</strong><br><code>import MinhaPagina from './pages/MinhaPagina'</code></div></li>
+    <li><div><strong>Adicione a rota no App.jsx</strong><br><pre>&lt;Route path=<span class="string">"/minha-pagina"</span> element={&lt;RotaProtegida&gt;&lt;MinhaPagina /&gt;&lt;/RotaProtegida&gt;} /&gt;</pre></div></li>
+    <li><div><strong>Adicione o link no sidebar</strong><br>Edite <code>itensMenu</code> no <code>Sidebar.jsx</code></div></li>
+  </ol>
+
+  <h3>Alterar um texto ou rótulo</h3>
+  <p>Procure o arquivo <code>.jsx</code> da página correspondente e edite o texto diretamente. Use Ctrl+F para buscar o texto no arquivo.</p>
+
+  <h3>Adicionar uma nova coluna em uma tabela do banco</h3>
+  <ol class="passos">
+    <li><div><strong>No Supabase</strong><br>Vá em Database → Tables → selecione a tabela → Add Column</div></li>
+    <li><div><strong>No código React</strong><br>Adicione o campo no <code>.select()</code> da query e exiba na tela</div></li>
+  </ol>
+
+  <div class="aviso">Sempre teste as alterações em ambiente local antes de publicar. Use <code>npm run dev</code> para rodar o sistema localmente e acesse <code>http://localhost:5173</code>.</div>
+</section>
+
+<!-- 9. APRENDENDO A PROGRAMAR -->
+<section id="aprender">
+  <h2>📚 9. Conceitos de Programação — Aprendendo com o Sistema</h2>
+
+  <h3>Conceito 1: Estado (State)</h3>
+  <p>Estado é uma variável que, quando muda, atualiza automaticamente a tela. No React, usamos o hook <code>useState</code>:</p>
+  <pre><span class="comentario">// Declara uma variável de estado</span>
+<span class="palavra-chave">const</span> [carregando, setCarregando] = useState(<span class="palavra-chave">false</span>)
+
+<span class="comentario">// Para mudar o valor e atualizar a tela:</span>
+setCarregando(<span class="palavra-chave">true</span>)   <span class="comentario">// mostra spinner</span>
+setCarregando(<span class="palavra-chave">false</span>)  <span class="comentario">// esconde spinner</span></pre>
+  <div class="dica">No sistema, quase toda página tem estados como <code>carregando</code>, <code>erro</code>, <code>dados</code>. Esses três controlam o que o usuário vê.</div>
+
+  <h3>Conceito 2: Efeito (useEffect)</h3>
+  <p>O <code>useEffect</code> executa código quando a página carrega ou quando algo muda. É usado para buscar dados do banco:</p>
+  <pre><span class="comentario">// Executa UMA VEZ quando a página abre</span>
+useEffect(() =&gt; {
+  <span class="funcao">buscarDados</span>()
+}, [])  <span class="comentario">← o [] vazio significa "só uma vez"</span>
+
+<span class="comentario">// Executa toda vez que 'contratoId' muda</span>
+useEffect(() =&gt; {
+  <span class="funcao">buscarDados</span>()
+}, [contratoId])</pre>
+
+  <h3>Conceito 3: Async/Await — Código assíncrono</h3>
+  <p>Buscar dados do banco leva tempo. O <code>async/await</code> espera a resposta antes de continuar:</p>
+  <pre><span class="palavra-chave">async function</span> <span class="funcao">buscarContratos</span>() {
+  setCarregando(<span class="palavra-chave">true</span>)
+
+  <span class="palavra-chave">const</span> { data, error } = <span class="palavra-chave">await</span> supabase
+    .from(<span class="string">'d_contratos'</span>)
+    .select(<span class="string">'*'</span>)
+
+  <span class="palavra-chave">if</span> (error) {
+    setErro(error.message)  <span class="comentario">// mostra o erro</span>
+  } <span class="palavra-chave">else</span> {
+    setContratos(data)      <span class="comentario">// salva os dados</span>
+  }
+
+  setCarregando(<span class="palavra-chave">false</span>)
+}</pre>
+
+  <h3>Conceito 4: Componente — Reutilização de código</h3>
+  <p>Componentes são funções que retornam HTML. Você pode passá-los parâmetros (props) para personalizar:</p>
+  <pre><span class="comentario">// Definindo o componente</span>
+<span class="palavra-chave">function</span> <span class="funcao">CartaoUsuario</span>({ nome, email }) {
+  <span class="palavra-chave">return</span> (
+    &lt;div className=<span class="string">"card"</span>&gt;
+      &lt;div&gt;{nome}&lt;/div&gt;
+      &lt;div&gt;{email}&lt;/div&gt;
+    &lt;/div&gt;
+  )
+}
+
+<span class="comentario">// Usando o componente</span>
+&lt;CartaoUsuario nome=<span class="string">"João"</span> email=<span class="string">"joao@empresa.com"</span> /&gt;</pre>
+
+  <h3>Conceito 5: Map — Renderizar listas</h3>
+  <p>Para mostrar uma lista de itens, usamos <code>.map()</code> para transformar cada item em HTML:</p>
+  <pre><span class="comentario">// Renderiza um item da lista para cada contrato</span>
+{contratos.<span class="funcao">map</span>(contrato =&gt; (
+  &lt;div key={contrato.id} className=<span class="string">"card"</span>&gt;
+    {contrato.descricao}
+  &lt;/div&gt;
+))}</pre>
+  <div class="dica">O <code>key={contrato.id}</code> é obrigatório no React para identificar cada item da lista. Sempre use um identificador único.</div>
+</section>
+
+<!-- 10. FLUXO DE DADOS -->
+<section id="fluxo-dados">
+  <h2>🔄 10. Fluxo de Dados — Como Tudo se Conecta</h2>
+
+  <h3>Lançamento de produção (fluxo completo)</h3>
+  <div class="fluxo">
+    <div class="fluxo-passo">1. Usuário abre<br>Novo Registro</div>
+    <div class="fluxo-seta">→</div>
+    <div class="fluxo-passo">2. Seleciona<br>Contrato + Equipe</div>
+    <div class="fluxo-seta">→</div>
+    <div class="fluxo-passo">3. Campos<br>carregam via hook</div>
+    <div class="fluxo-seta">→</div>
+    <div class="fluxo-passo">4. Preenche<br>e salva</div>
+    <div class="fluxo-seta">→</div>
+    <div class="fluxo-passo">5. INSERT em<br>f_prod_registro</div>
+  </div>
+
+  <h3>O arquivo supabaseClient.js</h3>
+  <p>Este arquivo cria a conexão com o Supabase. Todos os outros arquivos importam ele para acessar o banco:</p>
+  <pre><span class="comentario">// supabaseClient.js — a "ponte" para o banco de dados</span>
+<span class="palavra-chave">import</span> { createClient } <span class="palavra-chave">from</span> <span class="string">'@supabase/supabase-js'</span>
+
+<span class="palavra-chave">export const</span> supabase = <span class="funcao">createClient</span>(
+  <span class="string">'https://sua-url.supabase.co'</span>,
+  <span class="string">'sua-chave-publica'</span>
+)</pre>
+  <div class="aviso">Nunca coloque a chave <strong>service_role</strong> do Supabase no código frontend. Use sempre a chave <strong>anon</strong> (pública). A service_role tem acesso total ao banco sem restrições.</div>
+
+  <h3>Como o Git/GitHub é usado</h3>
+  <div class="card verde">
+    <div class="card-titulo">Controle de versão com Git</div>
+    <div class="card-desc">
+      Cada alteração no código é salva com um <strong>commit</strong> no Git e enviada ao GitHub. Isso permite:<br>
+      • Ver o histórico de todas as mudanças<br>
+      • Voltar para uma versão anterior se algo der errado<br>
+      • Trabalhar em equipe sem sobrescrever o trabalho do outro<br><br>
+      O deploy (publicação) no servidor acontece automaticamente quando o código é enviado ao GitHub.
+    </div>
+  </div>
+
+  <h3>Como rodar o sistema localmente</h3>
+  <ol class="passos">
+    <li><div><strong>Abrir o terminal na pasta do projeto</strong><br><code>cd "producao-app"</code></div></li>
+    <li><div><strong>Instalar dependências (só na primeira vez)</strong><br><code>npm install</code></div></li>
+    <li><div><strong>Iniciar o servidor de desenvolvimento</strong><br><code>npm run dev</code></div></li>
+    <li><div><strong>Acessar no navegador</strong><br><code>http://localhost:5173</code></div></li>
+  </ol>
+
+  <div style="margin-top:40px;padding:24px;background:#1e2a3b;border-radius:12px;color:#e2e8f0;text-align:center">
+    <div style="font-size:20px;font-weight:700;margin-bottom:8px">D.B. Machado LTDA — Sistema de Produção</div>
+    <div style="font-size:13px;color:#94a3b8">Documentação gerada em maio de 2026 &nbsp;·&nbsp; Para dúvidas, consulte o código-fonte no GitHub</div>
+  </div>
+</section>
+
+</div><!-- /conteudo -->
+</div><!-- /layout -->
+</div><!-- /container -->
+
+<script>
+  // Destaca o item ativo na navegação ao rolar a página
+  const links = document.querySelectorAll('.nav a')
+  const sections = document.querySelectorAll('section[id]')
+  window.addEventListener('scroll', () => {
+    let atual = ''
+    sections.forEach(s => { if (window.scrollY >= s.offsetTop - 80) atual = s.id })
+    links.forEach(a => {
+      a.style.background = a.getAttribute('href') === '#' + atual ? '#dbeafe' : ''
+      a.style.color = a.getAttribute('href') === '#' + atual ? '#1a56db' : ''
+      a.style.fontWeight = a.getAttribute('href') === '#' + atual ? '600' : ''
+    })
+  })
+</script>
+</body>
+</html>
