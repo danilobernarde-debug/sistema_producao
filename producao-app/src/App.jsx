@@ -1,4 +1,4 @@
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
+import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom'
 import { useState } from 'react'
 import { useAuth } from './hooks/useAuth'
 import Sidebar from './components/Sidebar'
@@ -26,7 +26,8 @@ import FormBuilder from './pages/Configuracoes/FormBuilder'
 import Planejamento from './pages/Planejamento'
 
 function RotaProtegida({ children }) {
-  const { usuario, carregando } = useAuth()
+  const { usuario, perfil, carregando } = useAuth()
+  const { pathname } = useLocation()
   const [sidebarAberta, setSidebarAberta] = useState(false)
 
   if (carregando) {
@@ -40,6 +41,10 @@ function RotaProtegida({ children }) {
 
   if (!usuario) {
     return <Navigate to="/login" replace />
+  }
+
+  if (perfil?.d_auth_roles?.name === 'Planejamento' && !pathname.startsWith('/planejamento')) {
+    return <Navigate to="/planejamento" replace />
   }
 
   return (

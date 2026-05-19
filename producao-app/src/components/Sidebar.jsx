@@ -97,7 +97,10 @@ export default function Sidebar({ aberta, onFechar }) {
 
       {/* Menu */}
       <nav style={estilos.nav}>
-        {itensMenu.map((item, i) =>
+        {(perfil?.d_auth_roles?.name === 'Planejamento'
+          ? itensMenu.filter(item => item.secao === 'PLANEJAMENTO' || item.caminho === '/planejamento')
+          : itensMenu
+        ).map((item, i) =>
           item.secao ? (
             <div key={i} style={{ ...estilos.secao, marginTop: i === 0 ? 0 : 12 }}>{item.secao}</div>
           ) : (
