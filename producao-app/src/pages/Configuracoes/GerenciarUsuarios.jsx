@@ -105,7 +105,13 @@ export default function GerenciarUsuarios() {
     setErro('')
     const { error } = await supabase.rpc('deletar_usuario_auth', { p_uuid: selecionado.uuid })
     setSalvando(false)
-    if (error) { setErro(error.message); return }
+    if (error) {
+      if (error.message.includes('f_prod_registro'))
+        setErro('Não é possível excluir este usuário pois ele possui registros de produção vinculados.')
+      else
+        setErro(error.message)
+      return
+    }
     setSelecionado(null)
     setContratosUsuario([])
     await carregarDados()
