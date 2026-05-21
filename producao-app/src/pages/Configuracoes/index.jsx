@@ -2,17 +2,16 @@ import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../../hooks/useAuth'
 
 const SECOES = [
-  { caminho: '/configuracoes/contratos',               icone: '📄', titulo: 'Contratos',             descricao: 'Cadastro de contratos e obras',                   superAdmin: true },
-  { caminho: '/configuracoes/tipos-equipe',             icone: '🏷️', titulo: 'Tipos de Equipe',       descricao: 'Categorias de equipes de produção',              superAdmin: true },
+  { caminho: '/configuracoes/tipos-equipe',             icone: '🏷️', titulo: 'Tipos de Equipe',       descricao: 'Categorias de equipes de produção',                       superAdmin: true },
   { caminho: '/configuracoes/equipes',                  icone: '👷', titulo: 'Equipes',               descricao: 'Equipes e suas vinculações' },
   { caminho: '/configuracoes/colaboradores',            icone: '👤', titulo: 'Colaboradores',         descricao: 'Cadastro de colaboradores' },
-  { caminho: '/configuracoes/config-campos',            icone: '🔧', titulo: 'Campos',                descricao: 'Definição dos campos dinâmicos',             superAdmin: true },
-  { caminho: '/configuracoes/config-campos-contrato',   icone: '⚙️', titulo: 'Campos por Contrato',   descricao: 'Quais campos aparecem em cada contrato/equipe', superAdmin: true },
   { caminho: '/configuracoes/obras',                    icone: '🏗️', titulo: 'Obras',                 descricao: 'Obras vinculadas aos contratos' },
-  { caminho: '/configuracoes/contratos-preco-upe',      icone: '💰', titulo: 'Preço UPE',              descricao: 'Preço da UPE por contrato e período',        superAdmin: true },
-  { caminho: '/configuracoes/usuarios',                 icone: '🔐', titulo: 'Usuários',               descricao: 'Criar usuários, perfis e acessos por contrato', superAdmin: true },
-  { caminho: '/configuracoes/atividades',               icone: '⚡', titulo: 'Atividades',              descricao: 'Cadastro de atividades e vinculação por contrato', superAdmin: true },
-  { caminho: '/configuracoes/form-builder',             icone: '🧩', titulo: 'Editor de Formulário',    descricao: 'Configure os campos do formulário por contrato e equipe', superAdmin: true },
+  { caminho: '/configuracoes/atividades',               icone: '⚡', titulo: 'Atividades',             descricao: 'Cadastro de atividades e vinculação por contrato',         superAdmin: true },
+  { caminho: '/configuracoes/contratos',                icone: '📄', titulo: 'Contratos',             descricao: 'Cadastro de contratos e obras',                            superAdmin: true },
+  { caminho: '/configuracoes/contratos-preco-upe',      icone: '💰', titulo: 'Preço UPE',             descricao: 'Preço da UPE por contrato e período',                      superAdmin: true },
+  { caminho: '/configuracoes/config-campos',            icone: '🔧', titulo: 'Campos',                descricao: 'Definição dos campos dinâmicos',                           superAdmin: true },
+  { caminho: '/configuracoes/form-builder',             icone: '🧩', titulo: 'Editor de Formulário',  descricao: 'Configure os campos do formulário por contrato e equipe',  superAdmin: true },
+  { caminho: '/configuracoes/usuarios',                 icone: '🔐', titulo: 'Usuários',              descricao: 'Criar usuários, perfis e acessos por contrato',            superAdmin: true },
 ]
 
 export default function Configuracoes() {

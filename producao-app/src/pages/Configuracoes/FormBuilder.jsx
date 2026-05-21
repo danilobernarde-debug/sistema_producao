@@ -2,9 +2,79 @@ import { useState, useEffect, useMemo, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../../supabaseClient'
 
+function PainelInfo({ aberto, onFechar }) {
+  if (!aberto) return null
+  return (
+    <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.45)', zIndex: 2000, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+      onClick={onFechar}>
+      <div style={{ background: 'white', borderRadius: 12, padding: 28, width: 520, maxWidth: '94vw', maxHeight: '85vh', overflowY: 'auto', boxShadow: '0 8px 32px rgba(0,0,0,0.2)' }}
+        onClick={e => e.stopPropagation()}>
+
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
+          <div style={{ fontSize: 16, fontWeight: 700, color: '#1e2a3b' }}>Como funciona o Editor de Formulário</div>
+          <button onClick={onFechar} style={{ background: 'none', border: 'none', fontSize: 20, cursor: 'pointer', color: '#9ca3af', lineHeight: 1 }}>×</button>
+        </div>
+
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+
+          <div style={{ fontSize: 13, color: '#374151', lineHeight: 1.7, background: '#f0f9ff', border: '1px solid #bae6fd', borderRadius: 8, padding: '12px 16px' }}>
+            <strong style={{ color: '#0369a1' }}>Como funciona:</strong> cada formulário de lançamento é definido pela combinação de <strong>Contrato + Tipo de Equipe</strong>. Isso significa que equipes diferentes, mesmo dentro do mesmo contrato, podem ter campos diferentes — e contratos diferentes também têm suas próprias configurações independentes.
+          </div>
+
+          <div>
+            <div style={{ fontSize: 13, fontWeight: 700, color: '#1e2a3b', marginBottom: 6, display: 'flex', alignItems: 'center', gap: 6 }}>
+              <span style={{ fontSize: 16 }}>📄</span> Contrato
+            </div>
+            <div style={{ fontSize: 13, color: '#374151', lineHeight: 1.7, background: '#f9fafb', borderRadius: 8, padding: '10px 14px' }}>
+              Para um contrato aparecer no formulário de lançamento de produção, ele precisa estar marcado como <strong>ativo</strong>.<br />
+              Contratos inativos ainda aparecem aqui no editor para configuração, mas não ficam disponíveis para lançamento.
+            </div>
+          </div>
+
+          <div>
+            <div style={{ fontSize: 13, fontWeight: 700, color: '#1e2a3b', marginBottom: 6, display: 'flex', alignItems: 'center', gap: 6 }}>
+              <span style={{ fontSize: 16 }}>👷</span> Tipo de Equipe
+            </div>
+            <div style={{ fontSize: 13, color: '#374151', lineHeight: 1.7, background: '#f9fafb', borderRadius: 8, padding: '10px 14px' }}>
+              O tipo de equipe só aparece no formulário de lançamento se houver <strong>pelo menos uma equipe ativa</strong> cadastrada neste contrato com esse tipo.<br />
+              Se o tipo não aparecer no lançamento, verifique em <strong>Configurações → Equipes</strong> se existe uma equipe ativa vinculada ao contrato e ao tipo desejado.
+            </div>
+          </div>
+
+          <div>
+            <div style={{ fontSize: 13, fontWeight: 700, color: '#1e2a3b', marginBottom: 6, display: 'flex', alignItems: 'center', gap: 6 }}>
+              <span style={{ fontSize: 16 }}>🗃️</span> Tipos de armazenamento dos campos
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+              <div style={{ fontSize: 13, color: '#374151', lineHeight: 1.7, background: '#fff7ed', border: '1px solid #fed7aa', borderRadius: 8, padding: '10px 14px' }}>
+                <span style={{ fontWeight: 700, color: '#c2410c' }}>Coluna real</span> — o valor é salvo diretamente em uma coluna da tabela do banco de dados. Isso acontece com campos que referenciam outros cadastros, como Obra, Encarregado e Regional. Esses campos permitem filtros e relatórios mais eficientes. <em>Aparecem apenas na seção Registro.</em>
+              </div>
+              <div style={{ fontSize: 13, color: '#374151', lineHeight: 1.7, background: '#f5f3ff', border: '1px solid #ddd6fe', borderRadius: 8, padding: '10px 14px' }}>
+                <span style={{ fontWeight: 700, color: '#7c3aed' }}>Metadado</span> — o valor é salvo dentro de um campo JSON da tabela. É o tipo usado para campos livres (texto, número, data, etc.) que não precisam de referência a outro cadastro. Flexível e não exige alteração no banco para adicionar novos campos.
+              </div>
+              <div style={{ fontSize: 13, color: '#374151', lineHeight: 1.7, background: '#f0f9ff', border: '1px solid #bae6fd', borderRadius: 8, padding: '10px 14px' }}>
+                <span style={{ fontWeight: 700, color: '#0369a1' }}>Fixo</span> — campos sempre presentes, independente de configuração (Data, Contrato, Tipo de Equipe, Atividade, Quantidade). Não podem ser removidos.
+              </div>
+            </div>
+          </div>
+
+        </div>
+
+        <div style={{ marginTop: 22, display: 'flex', justifyContent: 'flex-end' }}>
+          <button className="btn btn-primario" onClick={onFechar}>Entendi</button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 const TIPO_ICONE = {
   texto: '📝', numero: '🔢', decimal: '🔣', alfanumerico: '🔤',
   dropdown: '📋', data: '📅', hora: '🕐', checkbox: '☑️', textarea: '📄',
+}
+
+function ehColunaReal(campo, secao) {
+  return secao === 'registro' && !!campo?.is_coluna_real
 }
 
 const CAMPOS_FIXOS_REGISTRO = [
@@ -30,12 +100,19 @@ function CampoFixo({ label, tipo }) {
 }
 
 function CampoCard({ f, idx, total, secao, onToggle, onMover, onRemover }) {
+  const isColuna = ehColunaReal(f.config_campos, secao)
   return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: 8, background: 'white', border: '1px solid #e5e7eb', borderRadius: 8, padding: '8px 12px' }}>
+    <div style={{ display: 'flex', alignItems: 'center', gap: 8, background: 'white', border: `1px solid ${isColuna ? '#fed7aa' : '#e5e7eb'}`, borderRadius: 8, padding: '8px 12px' }}>
       <span style={{ fontSize: 16, flexShrink: 0 }}>{TIPO_ICONE[f.config_campos?.tipo] || '📝'}</span>
       <div style={{ flex: 1, minWidth: 0 }}>
-        <div style={{ fontSize: 13, fontWeight: 600, color: '#111827', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-          {f.config_campos?.label}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+          <span style={{ fontSize: 13, fontWeight: 600, color: '#111827', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+            {f.config_campos?.label}
+          </span>
+          {isColuna
+            ? <span style={{ fontSize: 10, fontWeight: 600, background: '#fff7ed', color: '#c2410c', border: '1px solid #fed7aa', padding: '1px 6px', borderRadius: 10, flexShrink: 0 }}>coluna real</span>
+            : <span style={{ fontSize: 10, fontWeight: 600, background: '#f5f3ff', color: '#7c3aed', border: '1px solid #ddd6fe', padding: '1px 6px', borderRadius: 10, flexShrink: 0 }}>metadado</span>
+          }
         </div>
         <div style={{ fontSize: 11, color: '#9ca3af' }}>{f.config_campos?.nome} · {f.config_campos?.tipo}</div>
       </div>
@@ -155,23 +232,38 @@ export default function FormBuilder() {
   const [registroFields, setRegistroFields] = useState([])
   const [atividadeFields, setAtividadeFields] = useState([])
   const [carregando, setCarregando] = useState(false)
+  const [toast, setToast] = useState(null)
+  const [painelInfo, setPainelInfo] = useState(false)
+  const [semEquipesNoTipo, setSemEquipesNoTipo] = useState(false)
+  const toastTimer = useRef(null)
+
+  function mostrarToast(msg) {
+    if (toastTimer.current) clearTimeout(toastTimer.current)
+    setToast(msg)
+    toastTimer.current = setTimeout(() => setToast(null), 2500)
+  }
 
   useEffect(() => {
     supabase.from('d_contratos').select('id, descricao, ativo').order('descricao').then(({ data }) => setContratos(data || []))
     supabase.from('d_tipo_equipe').select('id, descricao').order('descricao').then(({ data }) => setTiposEquipe(data || []))
-    supabase.from('config_campos').select('*').order('label').then(({ data }) => setCampos(data || []))
+    supabase.from('config_campos').select('id, label, nome, tipo, is_coluna_real, secao_permitida').order('label').then(({ data }) => setCampos(data || []))
   }, [])
 
   useEffect(() => {
+    setSemEquipesNoTipo(false)
     if (!contratoId || !tipoEquipeId) { setRegistroFields([]); setAtividadeFields([]); return }
     carregarConfig()
+    supabase
+      .from('d_equipes').select('id', { count: 'exact', head: true })
+      .eq('contrato_id', contratoId).eq('tipo_equipe_id', tipoEquipeId).eq('is_ativo', true)
+      .then(({ count }) => setSemEquipesNoTipo((count ?? 0) === 0))
   }, [contratoId, tipoEquipeId])
 
   async function carregarConfig() {
     setCarregando(true)
     const { data } = await supabase
       .from('config_campos_contrato')
-      .select('*, config_campos(id, label, nome, tipo)')
+      .select('*, config_campos(id, label, nome, tipo, is_coluna_real, secao_permitida)')
       .eq('contrato_id', contratoId)
       .eq('tipo_equipe_id', tipoEquipeId)
       .order('ordem')
@@ -202,6 +294,7 @@ export default function FormBuilder() {
     if (error) { alert(error.message); return }
     if (secao === 'registro') setRegistroFields(prev => [...prev, data])
     else setAtividadeFields(prev => [...prev, data])
+    mostrarToast('Campo adicionado')
   }
 
   async function removerCampo(id, secao) {
@@ -209,6 +302,7 @@ export default function FormBuilder() {
     if (error) { alert(error.message); return }
     if (secao === 'registro') setRegistroFields(prev => prev.filter(r => r.id !== id))
     else setAtividadeFields(prev => prev.filter(r => r.id !== id))
+    mostrarToast('Campo removido')
   }
 
   async function toggleObrigatorio(id, current, secao) {
@@ -217,6 +311,7 @@ export default function FormBuilder() {
     const upd = prev => prev.map(r => r.id === id ? { ...r, obrigatorio: !current } : r)
     if (secao === 'registro') setRegistroFields(upd)
     else setAtividadeFields(upd)
+    mostrarToast(!current ? 'Campo marcado como obrigatório' : 'Campo marcado como opcional')
   }
 
   async function mover(id, direcao, secao) {
@@ -236,6 +331,7 @@ export default function FormBuilder() {
     ])
     if (secao === 'registro') setRegistroFields(nova)
     else setAtividadeFields(nova)
+    mostrarToast('Ordem atualizada')
   }
 
   function SecaoForm({ titulo, descricao, cor, fields, secao, fixos }) {
@@ -264,7 +360,7 @@ export default function FormBuilder() {
         </div>
 
         <BotaoAdicionarCampo
-          campos={campos}
+          campos={campos.filter(c => !c.secao_permitida || c.secao_permitida === 'ambas' || c.secao_permitida === secao)}
           jaAdicionados={secao === 'registro' ? camposNoRegistro : camposNaAtividade}
           onAdicionar={id => adicionarCampo(id, secao)}
           ativo={ativo}
@@ -275,8 +371,29 @@ export default function FormBuilder() {
 
   return (
     <div className="pagina">
+      <PainelInfo aberto={painelInfo} onFechar={() => setPainelInfo(false)} />
+
+      {toast && (
+        <div style={{
+          position: 'fixed', bottom: 28, right: 28, zIndex: 9999,
+          background: '#166534', color: '#dcfce7', fontSize: 13, fontWeight: 500,
+          padding: '10px 18px', borderRadius: 8, boxShadow: '0 4px 16px rgba(0,0,0,0.2)',
+          display: 'flex', alignItems: 'center', gap: 8,
+          animation: 'fadeInUp 0.2s ease',
+        }}>
+          <span>✓</span> {toast}
+        </div>
+      )}
+
       <div className="pagina-header">
-        <h1 className="pagina-titulo">Editor de Formulário</h1>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          <h1 className="pagina-titulo">Editor de Formulário</h1>
+          <button
+            onClick={() => setPainelInfo(true)}
+            title="Como funciona"
+            style={{ background: 'none', border: '1.5px solid #60a5fa', borderRadius: '50%', width: 24, height: 24, cursor: 'pointer', fontSize: 13, color: '#60a5fa', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, fontWeight: 700, lineHeight: 1 }}
+          >ℹ</button>
+        </div>
         {carregando && <span style={{ fontSize: 13, color: '#9ca3af' }}>Carregando...</span>}
       </div>
 
@@ -306,17 +423,20 @@ export default function FormBuilder() {
             </button>
           </div>
         </div>
-      </div>
 
-      {/* Aviso contrato desativado */}
-      {contratoDesativado && (
-        <div className="alerta alerta-erro" style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-          <span style={{ fontSize: 18 }}>⚠️</span>
-          <div>
-            <strong>Contrato desativado</strong> — este formulário não será exibido para lançamento de produção enquanto o contrato estiver inativo.
+        {contratoDesativado && (
+          <div style={{ display: 'flex', alignItems: 'flex-start', gap: 6, marginTop: 14, padding: '8px 12px', background: '#fefce8', border: '1px solid #fde047', borderRadius: 6, fontSize: 13, color: '#854d0e', lineHeight: 1.6 }}>
+            <span style={{ flexShrink: 0 }}>⚠️</span>
+            <span>O contrato selecionado está <strong>inativo</strong> e não aparecerá no formulário de lançamento de produção.</span>
           </div>
-        </div>
-      )}
+        )}
+        {semEquipesNoTipo && (
+          <div style={{ display: 'flex', alignItems: 'flex-start', gap: 6, marginTop: contratoDesativado ? 6 : 14, padding: '8px 12px', background: '#fefce8', border: '1px solid #fde047', borderRadius: 6, fontSize: 13, color: '#854d0e', lineHeight: 1.6 }}>
+            <span style={{ flexShrink: 0 }}>⚠️</span>
+            <span>Nenhuma equipe ativa com este tipo está vinculada ao contrato. Este tipo de equipe <strong>não aparecerá</strong> no formulário de lançamento.</span>
+          </div>
+        )}
+      </div>
 
       {/* Seção Registro */}
       <SecaoForm

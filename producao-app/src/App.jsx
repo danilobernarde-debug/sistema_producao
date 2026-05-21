@@ -7,17 +7,18 @@ import Dashboard from './pages/Dashboard'
 import ListaRegistros from './pages/Producao/ListaRegistros'
 import NovoRegistro from './pages/Producao/NovoRegistro'
 import EditarRegistro from './pages/Producao/EditarRegistro'
+import Relatorios from './pages/Relatorios/index'
 import ProducaoMensal from './pages/Relatorios/ProducaoMensal'
 import JustificativasObservacoes from './pages/Relatorios/JustificativasObservacoes'
 import Exportacao from './pages/Relatorios/Exportacao'
 import Bonificacoes from './pages/Relatorios/Bonificacoes'
+import RelatorioEquipes from './pages/Relatorios/RelatorioEquipes'
 import Configuracoes from './pages/Configuracoes/index'
 import Contratos from './pages/Configuracoes/Contratos'
 import TiposEquipe from './pages/Configuracoes/TiposEquipe'
 import Equipes from './pages/Configuracoes/Equipes'
 import Colaboradores from './pages/Configuracoes/Colaboradores'
 import ConfigCampos from './pages/Configuracoes/ConfigCampos'
-import ConfigCamposContrato from './pages/Configuracoes/ConfigCamposContrato'
 import Obras from './pages/Configuracoes/Obras'
 import ContratosPrecoUpe from './pages/Configuracoes/ContratosPrecoUpe'
 import GerenciarUsuarios from './pages/Configuracoes/GerenciarUsuarios'
@@ -98,6 +99,12 @@ export default function App() {
           </RotaProtegida>
         } />
 
+        <Route path="/relatorios" element={
+          <RotaProtegida>
+            <Relatorios />
+          </RotaProtegida>
+        } />
+
         <Route path="/relatorios/producao" element={
           <RotaProtegida>
             <ProducaoMensal />
@@ -122,13 +129,18 @@ export default function App() {
           </RotaProtegida>
         } />
 
+        <Route path="/relatorios/equipes" element={
+          <RotaProtegida>
+            <RelatorioEquipes />
+          </RotaProtegida>
+        } />
+
 <Route path="/configuracoes" element={<RotaProtegida><Configuracoes /></RotaProtegida>} />
         <Route path="/configuracoes/contratos" element={<RotaProtegida><RotaSuperAdmin><Contratos /></RotaSuperAdmin></RotaProtegida>} />
         <Route path="/configuracoes/tipos-equipe" element={<RotaProtegida><RotaSuperAdmin><TiposEquipe /></RotaSuperAdmin></RotaProtegida>} />
         <Route path="/configuracoes/equipes" element={<RotaProtegida><Equipes /></RotaProtegida>} />
         <Route path="/configuracoes/colaboradores" element={<RotaProtegida><Colaboradores /></RotaProtegida>} />
         <Route path="/configuracoes/config-campos" element={<RotaProtegida><RotaSuperAdmin><ConfigCampos /></RotaSuperAdmin></RotaProtegida>} />
-        <Route path="/configuracoes/config-campos-contrato" element={<RotaProtegida><RotaSuperAdmin><ConfigCamposContrato /></RotaSuperAdmin></RotaProtegida>} />
         <Route path="/configuracoes/obras" element={<RotaProtegida><Obras /></RotaProtegida>} />
         <Route path="/configuracoes/contratos-preco-upe" element={<RotaProtegida><RotaSuperAdmin><ContratosPrecoUpe /></RotaSuperAdmin></RotaProtegida>} />
         <Route path="/configuracoes/usuarios" element={<RotaProtegida><RotaSuperAdmin><GerenciarUsuarios /></RotaSuperAdmin></RotaProtegida>} />

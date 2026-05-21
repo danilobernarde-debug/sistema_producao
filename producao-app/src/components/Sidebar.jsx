@@ -5,17 +5,13 @@ import { supabase } from '../supabaseClient'
 
 const itensMenu = [
   { secao: 'MENU' },
-  { caminho: '/',                           icone: '📊', label: 'Dashboard' },
-  { caminho: '/producao',                   icone: '📋', label: 'Produção' },
-  { secao: 'RELATÓRIOS' },
-  { caminho: '/relatorios/producao',        icone: '📈', label: 'Prod. Mensal' },
-  { caminho: '/relatorios/justificativas',  icone: '📝', label: 'Justificativas' },
-  { caminho: '/relatorios/exportacao',      icone: '⬇️', label: 'Exportação' },
-  { caminho: '/relatorios/bonificacoes',    icone: '🏆', label: 'Bonificações' },
+  { caminho: '/',             icone: '📊', label: 'Dashboard' },
+  { caminho: '/producao',     icone: '📋', label: 'Produção' },
+  { caminho: '/relatorios',   icone: '📈', label: 'Relatórios' },
   { secao: 'PLANEJAMENTO' },
   { caminho: '/planejamento', icone: '🗺️', label: 'Planejamento' },
   { secao: 'CONFIGURAÇÕES' },
-  { caminho: '/configuracoes',              icone: '⚙️', label: 'Configurações' },
+  { caminho: '/configuracoes', icone: '⚙️', label: 'Configurações' },
 ]
 
 export default function Sidebar({ aberta, onFechar }) {
@@ -111,7 +107,7 @@ export default function Sidebar({ aberta, onFechar }) {
               onClick={onFechar}
               style={({ isActive }) => ({
                 ...estilos.item,
-                ...(isActive ? estilos.itemAtivo : {}),
+                ...(isActive || (item.caminho !== '/' && window.location.pathname.startsWith(item.caminho)) ? estilos.itemAtivo : {}),
               })}
             >
               <span style={estilos.icone}>{item.icone}</span>
