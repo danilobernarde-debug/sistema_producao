@@ -54,13 +54,15 @@ export default function Dashboard() {
   async function carregarDados() {
     const agora = new Date()
     const dataHoje    = agora.toISOString().split('T')[0]
+    const amanha = new Date(agora); amanha.setDate(agora.getDate() + 1)
+    const dataAmanha  = amanha.toISOString().split('T')[0]
     const ini7 = new Date(agora); ini7.setDate(agora.getDate() - 6)
     const dataIni7    = ini7.toISOString().split('T')[0]
 
     const [{ count: total }, { count: hoje }, { count: semana }, { data: raw }] = await Promise.all([
       supabase.from('f_prod_registro').select('*', { count: 'exact', head: true }),
-      supabase.from('f_prod_registro').select('*', { count: 'exact', head: true }).eq('data_producao', dataHoje),
-      supabase.from('f_prod_registro').select('*', { count: 'exact', head: true }).gte('data_producao', dataIni7),
+      supabase.from('f_prod_registro').select('*', { count: 'exact', head: true }).gte('criado_em', dataHoje).lt('criado_em', dataAmanha),
+      supabase.from('f_prod_registro').select('*', { count: 'exact', head: true }).gte('criado_em', dataIni7),
       supabase.from('view_f_prod_id_editar')
         .select('data_producao, valor_total, descricao_equipe')
         .gte('data_producao', dataIni7)
