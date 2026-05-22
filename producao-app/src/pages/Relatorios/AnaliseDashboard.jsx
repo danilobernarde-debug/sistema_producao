@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo, useCallback, useRef } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { supabase } from '../../supabaseClient'
 import * as XLSX from 'xlsx'
 import {
@@ -84,6 +85,7 @@ const CACHE_TTL_MS = 3 * 60 * 60 * 1000 // 3 horas
 
 // ── Componente principal ──────────────────────────────────────────────────────
 export default function AnaliseDashboard() {
+  const navegar = useNavigate()
   const anoAtual = new Date().getFullYear()
 
   const [aba, setAba]               = useState(0)
@@ -505,7 +507,11 @@ export default function AnaliseDashboard() {
     <div ref={containerRef} className="pagina"
       style={telaCheia ? { background: '#f8fafc', overflowY: 'auto', padding: 24 } : {}}>
       <div className="pagina-header">
-        <h1 className="pagina-titulo">Dashboard de Produção</h1>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+          <button className="btn btn-secundario" onClick={() => navegar(-1)}
+            style={{ padding: '6px 12px', fontSize: 13 }}>← Voltar</button>
+          <h1 className="pagina-titulo" style={{ margin: 0 }}>Dashboard de Produção</h1>
+        </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
           {carregando ? (
             <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>

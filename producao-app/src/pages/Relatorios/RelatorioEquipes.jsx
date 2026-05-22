@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { supabase } from '../../supabaseClient'
 import * as XLSX from 'xlsx'
 
@@ -244,6 +245,7 @@ ${detalhesSecs.join('\n')}
 
 // ─── Página ───────────────────────────────────────────────────────────────────
 export default function RelatorioEquipes() {
+  const navegar = useNavigate()
   const [contratos, setContratos]     = useState([])
   const [tiposEquipe, setTiposEquipe] = useState([])
   const [equipes, setEquipes]         = useState([])
@@ -485,7 +487,11 @@ setRegistros(resReg.data || [])
   return (
     <div className="pagina">
       <div className="pagina-header">
-        <h1 className="pagina-titulo">Relatório de Produção</h1>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+          <button className="btn btn-secundario" onClick={() => navegar(-1)}
+            style={{ padding: '6px 12px', fontSize: 13 }}>← Voltar</button>
+          <h1 className="pagina-titulo" style={{ margin: 0 }}>Relatório de Produção</h1>
+        </div>
         {carregando && <span style={{ fontSize: 13, color: '#9ca3af' }}>Carregando...</span>}
       </div>
 

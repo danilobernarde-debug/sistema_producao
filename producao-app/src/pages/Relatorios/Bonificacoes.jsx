@@ -1,4 +1,5 @@
 import { useState, useMemo, useEffect, useRef } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { supabase } from '../../supabaseClient'
 
 function fmtBRL(v) {
@@ -64,6 +65,7 @@ const COR_FAIXA = {
 }
 
 export default function Bonificacoes() {
+  const navegar = useNavigate()
   const hoje = new Date()
   const primeiroDiaMes = `${hoje.getFullYear()}-${String(hoje.getMonth() + 1).padStart(2, '0')}-01`
   const ultimoDiaMes   = new Date(hoje.getFullYear(), hoje.getMonth() + 1, 0).toISOString().split('T')[0]
@@ -262,6 +264,8 @@ export default function Bonificacoes() {
     <div className="pagina">
       <div className="pagina-header">
         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          <button className="btn btn-secundario" onClick={() => navegar(-1)}
+            style={{ padding: '6px 12px', fontSize: 13 }}>← Voltar</button>
           <h1 className="pagina-titulo">Bonificações</h1>
           <button
             onClick={() => setModalRegras(true)}
