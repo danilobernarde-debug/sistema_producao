@@ -332,7 +332,8 @@ select:focus,input:focus{border-color:rgba(255,87,34,.5)}
     <span class="chip chip-p" id="chip-p">—</span>
     <span class="chip chip-e" id="chip-e">—</span>
     <span class="chip chip-t" id="chip-t">—</span>
-    <button class="nav-btn" onclick="newFile()">🔄 Trocar Planilha</button>
+    <button class="nav-btn" onclick="openSheet()" title="Abrir no Google Sheets" style="background:#1b7a3e;border-color:#1b7a3e;color:#fff">📊 Planilha</button>
+<button class="nav-btn" onclick="newFile()">🔄 Trocar Planilha</button>
   </div>
 </div>
 
@@ -402,6 +403,15 @@ select:focus,input:focus{border-color:rgba(255,87,34,.5)}
     <div class="filter-group">
       <label class="fl-lbl">Prioridade</label>
       <select id="f-prioridade" onchange="applyF()" style="width:120px"><option value="">Todas</option></select>
+    </div>
+    <!-- Cidade (busca no mapa) -->
+    <div class="filter-group" style="margin-left:4px;padding-left:10px;border-left:1px solid var(--border2)">
+      <label class="fl-lbl">📍 Cidade</label>
+      <div class="ac-wrap">
+        <input class="ac-input" id="ai-cidade" placeholder="Ir para cidade..." oninput="cityInput()" autocomplete="off" style="width:150px">
+        <span class="ac-clear" onclick="cityClear()">✕</span>
+        <div class="ac-drop" id="ad-cidade" style="width:280px"></div>
+      </div>
     </div>
     <div class="map-actions">
       <button class="btn-clear" onclick="clearFilters()">✕ Limpar</button>
@@ -582,6 +592,64 @@ function closeAllAc(){
   document.querySelectorAll('.ac-drop').forEach(d=>d.classList.remove('open'));
 }
 
+// --- Busca de cidade (Nominatim / OpenStreetMap) ---
+let cityMarker = null, cityTimer = null;
+let currentSheetId = null;
+
+function openSheet() {
+  if (!currentSheetId) { notify('⚠ Dados carregados de arquivo local — sem link de planilha'); return; }
+  window.open(`https://docs.google.com/spreadsheets/d/${currentSheetId}/edit`, '_blank');
+}
+
+function cityInput() {
+  const q = document.getElementById('ai-cidade').value.trim();
+  clearTimeout(cityTimer);
+  const drop = document.getElementById('ad-cidade');
+  drop.innerHTML = '';
+  drop.classList.remove('open');
+  if (q.length < 2) return;
+  cityTimer = setTimeout(() => cityFetch(q), 350);
+}
+
+async function cityFetch(q) {
+  const drop = document.getElementById('ad-cidade');
+  drop.innerHTML = '<div class="ac-none">Buscando...</div>';
+  drop.classList.add('open');
+  try {
+    const res = await fetch(
+      `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(q + ', Brasil')}&limit=6&addressdetails=1`,
+      { headers: { 'Accept-Language': 'pt-BR,pt;q=0.9' } }
+    );
+    const data = await res.json();
+    if (!data.length) { drop.innerHTML = '<div class="ac-none">Nenhuma cidade encontrada</div>'; return; }
+    drop.innerHTML = data.map(r => {
+      const parts = r.display_name.split(',');
+      const label = parts.slice(0, 3).join(',').trim();
+      const lat = parseFloat(r.lat), lon = parseFloat(r.lon);
+      return `<div class="ac-opt" onclick="citySelect(${lat},${lon},'${label.replace(/'/g, "\\'")}')">${label}</div>`;
+    }).join('');
+  } catch(e) {
+    drop.innerHTML = '<div class="ac-none">Erro na busca</div>';
+  }
+}
+
+function citySelect(lat, lon, name) {
+  if (cityMarker) map.removeLayer(cityMarker);
+  cityMarker = L.circleMarker([lat, lon], {
+    radius: 11, fillColor: '#ff5722', color: '#fff', weight: 2.5, fillOpacity: 0.9, zIndexOffset: 2000
+  }).addTo(map);
+  cityMarker.bindPopup(`<b style="font-family:Syne,sans-serif">${name.split(',')[0].trim()}</b>`).openPopup();
+  map.flyTo([lat, lon], 12, { duration: 1.2 });
+  document.getElementById('ai-cidade').value = name.split(',')[0].trim();
+  document.getElementById('ad-cidade').classList.remove('open');
+}
+
+function cityClear() {
+  document.getElementById('ai-cidade').value = '';
+  document.getElementById('ad-cidade').classList.remove('open');
+  if (cityMarker) { map.removeLayer(cityMarker); cityMarker = null; }
+}
+
 document.addEventListener('click', e=>{
   if(!e.target.closest('.ac-wrap')) closeAllAc();
   if(!e.target.closest('#layer-fab')){
@@ -735,6 +803,7 @@ function parseTeamsJson(text) {
 }
 async function loadFromSheets(id) {
   id = id || DEFAULT_SHEET_ID;
+  currentSheetId = id;
   const prog = document.getElementById('up-progress');
   const bar  = document.getElementById('up-bar');
   const st   = document.getElementById('up-status');
@@ -803,6 +872,8 @@ async function fetchAndParseCsv(url) {
 // ═══ UPLOAD ═══
 function handleFile(file){
   if(!file) return;
+  currentSheetId = null;
+  TEAMS = {};
   const prog=document.getElementById('up-progress'),bar=document.getElementById('up-bar'),st=document.getElementById('up-status');
   prog.style.display='block';bar.style.width='20%';st.textContent='Lendo arquivo...';
   const reader=new FileReader();

@@ -8,11 +8,10 @@ import ListaRegistros from './pages/Producao/ListaRegistros'
 import NovoRegistro from './pages/Producao/NovoRegistro'
 import EditarRegistro from './pages/Producao/EditarRegistro'
 import Relatorios from './pages/Relatorios/index'
-import ProducaoMensal from './pages/Relatorios/ProducaoMensal'
-import JustificativasObservacoes from './pages/Relatorios/JustificativasObservacoes'
 import Exportacao from './pages/Relatorios/Exportacao'
 import Bonificacoes from './pages/Relatorios/Bonificacoes'
 import RelatorioEquipes from './pages/Relatorios/RelatorioEquipes'
+import AnaliseDashboard from './pages/Relatorios/AnaliseDashboard'
 import Configuracoes from './pages/Configuracoes/index'
 import Contratos from './pages/Configuracoes/Contratos'
 import TiposEquipe from './pages/Configuracoes/TiposEquipe'
@@ -105,19 +104,7 @@ export default function App() {
           </RotaProtegida>
         } />
 
-        <Route path="/relatorios/producao" element={
-          <RotaProtegida>
-            <ProducaoMensal />
-          </RotaProtegida>
-        } />
-
-        <Route path="/relatorios/justificativas" element={
-          <RotaProtegida>
-            <JustificativasObservacoes />
-          </RotaProtegida>
-        } />
-
-        <Route path="/relatorios/exportacao" element={
+<Route path="/relatorios/exportacao" element={
           <RotaProtegida>
             <Exportacao />
           </RotaProtegida>
@@ -132,6 +119,12 @@ export default function App() {
         <Route path="/relatorios/equipes" element={
           <RotaProtegida>
             <RelatorioEquipes />
+          </RotaProtegida>
+        } />
+
+        <Route path="/relatorios/dashboard" element={
+          <RotaProtegida>
+            <AnaliseDashboard />
           </RotaProtegida>
         } />
 

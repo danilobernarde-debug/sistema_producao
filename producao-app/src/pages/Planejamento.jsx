@@ -40,30 +40,6 @@ export default function Planejamento() {
             </button>
           ))}
         </div>
-        <a
-          href={ABAS[aba].planilha}
-          target="_blank"
-          rel="noreferrer"
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: 6,
-            marginRight: 16,
-            padding: '6px 14px',
-            borderRadius: 6,
-            background: '#166534',
-            color: '#bbf7d0',
-            fontSize: 13,
-            fontWeight: 500,
-            textDecoration: 'none',
-            whiteSpace: 'nowrap',
-            transition: 'background 0.15s',
-          }}
-          onMouseEnter={e => e.currentTarget.style.background = '#15803d'}
-          onMouseLeave={e => e.currentTarget.style.background = '#166534'}
-        >
-          📊 Abrir Planilha
-        </a>
       </div>
       {ABAS.map((a, i) => (
         <iframe

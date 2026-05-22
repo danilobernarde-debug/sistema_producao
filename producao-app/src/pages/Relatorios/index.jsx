@@ -1,11 +1,10 @@
 import { useNavigate } from 'react-router-dom'
 
 const RELATORIOS = [
-  { caminho: '/relatorios/producao',       icone: '📈', titulo: 'Prod. Mensal',     descricao: 'Produção mensal por equipe e contrato' },
-  { caminho: '/relatorios/justificativas', icone: '📝', titulo: 'Justificativas',   descricao: 'Justificativas e observações por período' },
-  { caminho: '/relatorios/exportacao',     icone: '⬇️', titulo: 'Exportação',       descricao: 'Exportar dados de produção' },
+{ caminho: '/relatorios/exportacao',     icone: '⬇️', titulo: 'Exportação',       descricao: 'Exportar dados de produção' },
   { caminho: '/relatorios/bonificacoes',   icone: '🏆', titulo: 'Bonificações',     descricao: 'Relatório de bonificações por equipe' },
   { caminho: '/relatorios/equipes',        icone: '📊', titulo: 'Relatório WhatsApp', descricao: 'Produção por contrato e equipe com meta' },
+  { caminho: '/relatorios/dashboard',      icone: '📉', titulo: 'Dashboard',           descricao: 'Gráficos, análise mensal e detalhe por equipe' },
 ]
 
 export default function Relatorios() {
