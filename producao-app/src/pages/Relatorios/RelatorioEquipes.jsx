@@ -593,22 +593,21 @@ setRegistros(resReg.data || [])
                   </div>
 
                   {/* Justificativas e observações por equipe */}
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
                   {equipesComNotas.map(({ equipeNome, notas }) => (
-                    <div key={equipeNome} style={{ background: 'white', border: '1px solid #e5e7eb',
-                      borderRadius: 6, padding: '8px 12px', marginBottom: 6 }}>
-                      <span style={{ display: 'inline-block', fontSize: 11, fontWeight: 700, color: '#374151',
-                        background: '#f1f5f9', padding: '2px 8px', borderRadius: 10, marginBottom: 6 }}>
-                        {equipeNome}
-                      </span>
-                      {notas.map((n, i) => (
-                        <div key={i} style={{ fontSize: 11, padding: '3px 7px', background: '#fffbeb',
-                          borderLeft: '3px solid #d97706', borderRadius: '0 4px 4px 0', marginBottom: 2 }}>
-                          <span style={{ fontWeight: 700, color: '#1a56db', marginRight: 5 }}>{fmtData(n.data)}</span>
-                          <span style={{ color: '#4b5563' }}>{n.texto}</span>
-                        </div>
-                      ))}
-                    </div>
+                    notas.map((n, i) => (
+                      <div key={equipeNome + i} style={{ fontSize: 11, padding: '3px 7px', background: '#fffbeb',
+                        borderLeft: '3px solid #d97706', borderRadius: '0 4px 4px 0' }}>
+                        <span style={{ fontWeight: 700, color: '#374151', marginRight: 6,
+                          background: '#f1f5f9', padding: '1px 6px', borderRadius: 8, fontSize: 10 }}>
+                          {equipeNome}
+                        </span>
+                        <span style={{ fontWeight: 700, color: '#1a56db', marginRight: 5 }}>{fmtData(n.data)}</span>
+                        <span style={{ color: '#4b5563' }}>{n.texto}</span>
+                      </div>
+                    ))
                   ))}
+                  </div>
                 </div>
               )
             })}
