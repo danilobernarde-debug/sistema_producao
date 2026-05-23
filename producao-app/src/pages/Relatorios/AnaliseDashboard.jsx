@@ -396,7 +396,7 @@ export default function AnaliseDashboard() {
         contrato: cnome, cid,
         equipes: eqs.sort((a, b) => a.nome.localeCompare(b.nome)),
       }))
-  }, [registros, equipes, contratos, metas, filtroContrato, equipeByReg])
+  }, [registros, contratos, metas, filtroContrato, equipeByReg])
 
   // ── Dados para Aba 2: Produção Detalhada ─────────────────────────────────────
   const dadosDetalhada = useMemo(() => {
