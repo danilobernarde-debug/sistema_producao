@@ -82,6 +82,35 @@ async function fetchAllPages(buildQuery, pageSize = 1000) {
 }
 
 const CACHE_TTL_MS = 3 * 60 * 60 * 1000 // 3 horas
+const _cacheAnos = {} // fallback em memória se sessionStorage estourar
+
+function cacheGet(ano) {
+  // tenta sessionStorage primeiro
+  try {
+    const raw = sessionStorage.getItem(`dash_cache_${ano}`)
+    if (raw) {
+      const parsed = JSON.parse(raw)
+      parsed.carregadoEm = new Date(parsed.carregadoEm)
+      return parsed
+    }
+  } catch {}
+  return _cacheAnos[ano] || null
+}
+
+function cacheSet(ano, valor) {
+  _cacheAnos[ano] = valor
+  try {
+    sessionStorage.setItem(`dash_cache_${ano}`, JSON.stringify({
+      ...valor,
+      carregadoEm: valor.carregadoEm.toISOString(),
+    }))
+  } catch {} // quota excedida — mantém só em memória
+}
+
+function cacheDel(ano) {
+  delete _cacheAnos[ano]
+  try { sessionStorage.removeItem(`dash_cache_${ano}`) } catch {}
+}
 
 // ── Componente principal ──────────────────────────────────────────────────────
 export default function AnaliseDashboard() {
@@ -109,7 +138,6 @@ export default function AnaliseDashboard() {
   const [colaboradoresDrill, setColabsDrill] = useState({ lista: [], porDia: {} })
   const [telaCheia, setTelaCheia] = useState(false)
   const containerRef = useRef(null)
-  const cacheAnos = useRef({}) // { [ano]: { registros, viewRows, metas, carregadoEm } }
 
   useEffect(() => {
     function onChange() { setTelaCheia(!!document.fullscreenElement) }
@@ -137,7 +165,7 @@ export default function AnaliseDashboard() {
   useEffect(() => { carregarDados() }, [ano])
 
   async function carregarDados(forcar = false) {
-    const cached = cacheAnos.current[ano]
+    const cached = cacheGet(ano)
     const cacheValido = cached && (Date.now() - cached.carregadoEm.getTime() < CACHE_TTL_MS)
 
     if (!forcar && cacheValido) {
@@ -151,7 +179,7 @@ export default function AnaliseDashboard() {
     setCarregando(true)
     setCacheInfo(null)
     setErroCarregar('')
-    if (forcar) delete cacheAnos.current[ano]
+    if (forcar) cacheDel(ano)
 
     const ini = `${ano}-01-01`
     const fim = `${ano}-12-31`
@@ -169,7 +197,7 @@ export default function AnaliseDashboard() {
         ),
         lerMetasAnuais(ano),
       ])
-      cacheAnos.current[ano] = { registros: regData, viewRows: viewData, metas: resMetas, carregadoEm: new Date() }
+      cacheSet(ano, { registros: regData, viewRows: viewData, metas: resMetas, carregadoEm: new Date() })
       setRegistros(regData)
       setViewRows(viewData)
       setMetas(resMetas)

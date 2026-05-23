@@ -53,16 +53,22 @@ export default function Dashboard() {
 
   async function carregarDados() {
     const agora = new Date()
-    const dataHoje    = agora.toISOString().split('T')[0]
-    const amanha = new Date(agora); amanha.setDate(agora.getDate() + 1)
-    const dataAmanha  = amanha.toISOString().split('T')[0]
-    const ini7 = new Date(agora); ini7.setDate(agora.getDate() - 6)
-    const dataIni7    = ini7.toISOString().split('T')[0]
+    // Ajuste BRT (UTC-3): converte limites do dia brasileiro para UTC
+    const BRT = 3 * 60 * 60 * 1000
+    const agoraBRT = new Date(agora.getTime() - BRT)
+    const dataHojeBRT  = agoraBRT.toISOString().split('T')[0]
+    const dataAmanhaBRT = new Date(agoraBRT.getTime() + 86400000).toISOString().split('T')[0]
+    const dataIni7BRT   = new Date(agoraBRT.getTime() - 6 * 86400000).toISOString().split('T')[0]
+    // Midnight BRT = 03:00 UTC
+    const inicioHoje = dataHojeBRT  + 'T03:00:00.000Z'
+    const fimHoje    = dataAmanhaBRT + 'T03:00:00.000Z'
+    const inicio7    = dataIni7BRT   + 'T03:00:00.000Z'
+    const dataIni7   = dataIni7BRT // para o gráfico (data_producao ainda é data local)
 
     const [{ count: total }, { count: hoje }, { count: semana }, { data: raw }] = await Promise.all([
       supabase.from('f_prod_registro').select('*', { count: 'exact', head: true }),
-      supabase.from('f_prod_registro').select('*', { count: 'exact', head: true }).gte('criado_em', dataHoje).lt('criado_em', dataAmanha),
-      supabase.from('f_prod_registro').select('*', { count: 'exact', head: true }).gte('criado_em', dataIni7),
+      supabase.from('f_prod_registro').select('*', { count: 'exact', head: true }).gte('criado_em', inicioHoje).lt('criado_em', fimHoje),
+      supabase.from('f_prod_registro').select('*', { count: 'exact', head: true }).gte('criado_em', inicio7),
       supabase.from('view_f_prod_id_editar')
         .select('data_producao, valor_total, descricao_equipe')
         .gte('data_producao', dataIni7)
