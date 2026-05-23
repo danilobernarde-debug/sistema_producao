@@ -319,18 +319,20 @@ export default function FormBuilder() {
     const idx = lista.findIndex(r => r.id === id)
     const swapIdx = direcao === 'up' ? idx - 1 : idx + 1
     if (swapIdx < 0 || swapIdx >= lista.length) return
+
     const nova = [...lista]
-    const ordemA = nova[idx].ordem
-    const ordemB = nova[swapIdx].ordem
     ;[nova[idx], nova[swapIdx]] = [nova[swapIdx], nova[idx]]
-    nova[idx] = { ...nova[idx], ordem: ordemA }
-    nova[swapIdx] = { ...nova[swapIdx], ordem: ordemB }
-    await Promise.all([
-      supabase.from('config_campos_contrato').update({ ordem: ordemA }).eq('id', nova[idx].id),
-      supabase.from('config_campos_contrato').update({ ordem: ordemB }).eq('id', nova[swapIdx].id),
-    ])
-    if (secao === 'registro') setRegistroFields(nova)
-    else setAtividadeFields(nova)
+    const reordenados = nova.map((item, i) => ({ ...item, ordem: (i + 1) * 10 }))
+
+    const erros = await Promise.all(
+      reordenados.map(item =>
+        supabase.from('config_campos_contrato').update({ ordem: item.ordem }).eq('id', item.id).then(({ error }) => error)
+      )
+    )
+    if (erros.some(e => e)) { mostrarToast('Erro ao salvar ordem'); return }
+
+    if (secao === 'registro') setRegistroFields(reordenados)
+    else setAtividadeFields(reordenados)
     mostrarToast('Ordem atualizada')
   }
 
