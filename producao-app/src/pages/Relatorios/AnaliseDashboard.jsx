@@ -123,9 +123,6 @@ export default function AnaliseDashboard() {
   const [filtroMes, setFiltroMes]   = useState(0)      // 0 = todos
   const [filtroEquipe, setFiltroEquipe] = useState(null) // null = todas
 
-  const [contratos, setContratos]     = useState([])
-  const [tiposEquipe, setTiposEquipe] = useState([])
-  const [equipes, setEquipes]         = useState([])
   const [viewRows, setViewRows]       = useState([])
   const [metas, setMetas]             = useState({}) // tid -> { mes: valor }
   const [carregando, setCarregando]   = useState(false)
@@ -152,14 +149,6 @@ export default function AnaliseDashboard() {
     }
   }
 
-  useEffect(() => {
-    supabase.from('d_contratos').select('id, descricao').order('descricao')
-      .then(({ data }) => setContratos(data || []))
-    supabase.from('d_tipo_equipe').select('id, descricao').order('descricao')
-      .then(({ data }) => setTiposEquipe(data || []))
-    supabase.from('d_equipes').select('id, sistema_producao, tipo_equipe_id, contrato_id').order('sistema_producao')
-      .then(({ data }) => setEquipes(data || []))
-  }, [])
 
   useEffect(() => { carregarDados() }, [ano])
 
@@ -201,6 +190,15 @@ export default function AnaliseDashboard() {
     }
   }
 
+  // Contratos únicos derivados da view
+  const contratos = useMemo(() => {
+    const map = {}
+    viewRows.forEach(v => { if (v.contrato_id && !map[v.contrato_id]) map[v.contrato_id] = v.desc_contrato })
+    return Object.entries(map)
+      .map(([id, descricao]) => ({ id: Number(id), descricao }))
+      .sort((a, b) => a.descricao?.localeCompare(b.descricao))
+  }, [viewRows])
+
   // Reconstrói registros a partir de viewRows (uma linha por atividade → agrupa por registro_id)
   const registros = useMemo(() => {
     const map = {}
@@ -230,13 +228,10 @@ export default function AnaliseDashboard() {
 
   // Mapa equipe por registro_id
   const equipeByReg = useMemo(() => {
-    const byId = {}
-    equipes.forEach(e => { byId[e.id] = e.sistema_producao })
     const map = {}
     viewRows.forEach(v => { if (v.desc_equipe && !map[v.registro_id]) map[v.registro_id] = v.desc_equipe })
-    registros.forEach(r => { if (!map[r.id] && r.equipe_id) map[r.id] = byId[r.equipe_id] || null })
     return map
-  }, [viewRows, registros, equipes])
+  }, [viewRows])
 
   useEffect(() => {
     if (!drillEquipe) { setColabsDrill({ lista: [], porDia: {} }); return }
@@ -366,9 +361,6 @@ export default function AnaliseDashboard() {
   const dadosAnaliseMensal = useMemo(() => {
     // meta por equipe_id por mes
     const metaPorTidMes = metas // tid -> { mes: valor }
-
-    const equipePorId = {}
-    equipes.forEach(e => { equipePorId[e.id] = e })
 
     // produção por equipe por mês
     const prodMap = {} // equipeNome -> { mes: valor }
