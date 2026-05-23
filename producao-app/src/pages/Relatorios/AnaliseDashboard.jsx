@@ -82,7 +82,7 @@ async function fetchAllPages(buildQuery, pageSize = 1000) {
 }
 
 const CACHE_TTL_MS = 3 * 60 * 60 * 1000 // 3 horas
-const CACHE_VER = 'v4' // incrementar quando mudar estrutura do cache
+const CACHE_VER = 'v5' // incrementar quando mudar estrutura do cache
 const _cacheAnos = {} // fallback em memória se sessionStorage estourar
 
 function cacheGet(ano) {
@@ -175,7 +175,7 @@ export default function AnaliseDashboard() {
       const [viewData, resMetas] = await Promise.all([
         fetchAllPages(() =>
           supabase.from('vw_producao_dashboard')
-            .select('registro_id, contrato_id, tipo_equipe_id, data_producao_original, equipe_id, desc_equipe, desc_atividade, atividade_id, quantidade, upe, preco_upe, valor_producao, justificativa')
+            .select('registro_id, contrato_id, desc_contrato, tipo_equipe_id, data_producao_original, equipe_id, desc_equipe, desc_atividade, atividade_id, quantidade, upe, preco_upe, valor_producao, justificativa')
             .gte('data_producao_original', ini).lte('data_producao_original', fim)
             .order('data_producao_original', { ascending: true })
         ),
