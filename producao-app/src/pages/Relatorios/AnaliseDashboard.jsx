@@ -82,7 +82,7 @@ async function fetchAllPages(buildQuery, pageSize = 1000) {
 }
 
 const CACHE_TTL_MS = 3 * 60 * 60 * 1000 // 3 horas
-const CACHE_VER = 'v2' // incrementar quando mudar estrutura do cache
+const CACHE_VER = 'v4' // incrementar quando mudar estrutura do cache
 const _cacheAnos = {} // fallback em memória se sessionStorage estourar
 
 function cacheGet(ano) {
@@ -132,6 +132,7 @@ export default function AnaliseDashboard() {
   // Para drill-down de equipe (aba 3)
   const [drillEquipe, setDrillEquipe] = useState(null) // { equipeNome, mes }
   const [colaboradoresDrill, setColabsDrill] = useState({ lista: [], porDia: {} })
+  const [metadataDrill, setMetadataDrill] = useState({}) // registro_id -> metadata_registro (carregado sob demanda)
   const [telaCheia, setTelaCheia] = useState(false)
   const containerRef = useRef(null)
 
@@ -173,8 +174,8 @@ export default function AnaliseDashboard() {
     try {
       const [viewData, resMetas] = await Promise.all([
         fetchAllPages(() =>
-          supabase.from('view_r07_weweb')
-            .select('registro_id, contrato_id, tipo_equipe_id, data_producao_original, equipe_id, desc_equipe, desc_atividade, atividade_id, quantidade, upe, preco_upe, valor_producao, justificativa, metadata_registro')
+          supabase.from('vw_producao_dashboard')
+            .select('registro_id, contrato_id, tipo_equipe_id, data_producao_original, equipe_id, desc_equipe, desc_atividade, atividade_id, quantidade, upe, preco_upe, valor_producao, justificativa')
             .gte('data_producao_original', ini).lte('data_producao_original', fim)
             .order('data_producao_original', { ascending: true })
         ),
@@ -234,7 +235,11 @@ export default function AnaliseDashboard() {
   }, [viewRows])
 
   useEffect(() => {
-    if (!drillEquipe) { setColabsDrill({ lista: [], porDia: {} }); return }
+    if (!drillEquipe) {
+      setColabsDrill({ lista: [], porDia: {} })
+      setMetadataDrill({})
+      return
+    }
     const { equipeNome, mes } = drillEquipe
     const regIds = registros
       .filter(r => {
@@ -243,35 +248,48 @@ export default function AnaliseDashboard() {
         return true
       })
       .map(r => r.id)
-    if (!regIds.length) { setColabsDrill({ lista: [], porDia: {} }); return }
+    if (!regIds.length) {
+      setColabsDrill({ lista: [], porDia: {} })
+      setMetadataDrill({})
+      return
+    }
     const regDatas = {}
     registros.forEach(r => { if (regIds.includes(r.id)) regDatas[r.id] = r.data_producao })
-    supabase.from('f_prod_colaboradores')
-      .select('registro_id, colaborador_id, d_colaboradores(nome, matricula_nome)')
-      .in('registro_id', regIds)
-      .then(({ data }) => {
-        const vistos = new Set()
-        const lista = []
-        const porDia = {}
-        const vistosPorDia = {}
-        ;(data || []).forEach(({ registro_id, colaborador_id, d_colaboradores: c }) => {
-          if (!c) return
-          const colab = { id: colaborador_id, nome: c.nome, matricula: c.matricula_nome }
-          if (!vistos.has(colaborador_id)) { vistos.add(colaborador_id); lista.push(colab) }
-          const dia = regDatas[registro_id]
-          if (dia) {
-            if (!vistosPorDia[dia]) vistosPorDia[dia] = new Set()
-            if (!vistosPorDia[dia].has(colaborador_id)) {
-              vistosPorDia[dia].add(colaborador_id)
-              if (!porDia[dia]) porDia[dia] = []
-              porDia[dia].push(colab)
-            }
+
+    Promise.all([
+      supabase.from('f_prod_colaboradores')
+        .select('registro_id, colaborador_id, d_colaboradores(nome, matricula_nome)')
+        .in('registro_id', regIds),
+      supabase.from('f_prod_registro')
+        .select('id, metadata_registro')
+        .in('id', regIds),
+    ]).then(([{ data: colabData }, { data: metaData }]) => {
+      const vistos = new Set()
+      const lista = []
+      const porDia = {}
+      const vistosPorDia = {}
+      ;(colabData || []).forEach(({ registro_id, colaborador_id, d_colaboradores: c }) => {
+        if (!c) return
+        const colab = { id: colaborador_id, nome: c.nome, matricula: c.matricula_nome }
+        if (!vistos.has(colaborador_id)) { vistos.add(colaborador_id); lista.push(colab) }
+        const dia = regDatas[registro_id]
+        if (dia) {
+          if (!vistosPorDia[dia]) vistosPorDia[dia] = new Set()
+          if (!vistosPorDia[dia].has(colaborador_id)) {
+            vistosPorDia[dia].add(colaborador_id)
+            if (!porDia[dia]) porDia[dia] = []
+            porDia[dia].push(colab)
           }
-        })
-        lista.sort((a, b) => a.nome.localeCompare(b.nome))
-        Object.values(porDia).forEach(arr => arr.sort((a, b) => a.nome.localeCompare(b.nome)))
-        setColabsDrill({ lista, porDia })
+        }
       })
+      lista.sort((a, b) => a.nome.localeCompare(b.nome))
+      Object.values(porDia).forEach(arr => arr.sort((a, b) => a.nome.localeCompare(b.nome)))
+      setColabsDrill({ lista, porDia })
+
+      const newMeta = {}
+      ;(metaData || []).forEach(r => { newMeta[r.id] = r.metadata_registro })
+      setMetadataDrill(newMeta)
+    })
   }, [drillEquipe, registros, equipeByReg])
 
   // Registros filtrados (todos os filtros — usado em abas 1, 2, 3 e tabela do painel)
@@ -452,23 +470,24 @@ export default function AnaliseDashboard() {
       porDia[r.data_producao] = (porDia[r.data_producao] || 0) + valorReg(r)
     })
 
-    // notas e horários por dia (via viewRows que já tem metadata_registro)
+    // notas e horários por dia (metadata carregado sob demanda via metadataDrill)
     const regIds = new Set(regsEquipe.map(r => r.id))
     const notasDia = {}
     const horaInicioDia = {}
     const horaFimDia = {}
     viewRows.filter(v => regIds.has(v.registro_id)).forEach(v => {
-      const txt = [v.justificativa, v.metadata_registro?.observacoes].filter(Boolean).join(' | ')
+      const meta = metadataDrill[v.registro_id]
+      const txt = [v.justificativa, meta?.observacoes].filter(Boolean).join(' | ')
       if (txt.trim()) {
-        if (!notasDia[v.data_producao]) notasDia[v.data_producao] = new Set()
-        notasDia[v.data_producao].add(txt.trim())
+        if (!notasDia[v.data_producao_original]) notasDia[v.data_producao_original] = new Set()
+        notasDia[v.data_producao_original].add(txt.trim())
       }
-      const hi = v.metadata_registro?.horario_inicio
-      const hf = v.metadata_registro?.horario_fim
-      if (hi && (!horaInicioDia[v.data_producao] || hi < horaInicioDia[v.data_producao]))
-        horaInicioDia[v.data_producao] = hi
-      if (hf && (!horaFimDia[v.data_producao] || hf > horaFimDia[v.data_producao]))
-        horaFimDia[v.data_producao] = hf
+      const hi = meta?.horario_inicio
+      const hf = meta?.horario_fim
+      if (hi && (!horaInicioDia[v.data_producao_original] || hi < horaInicioDia[v.data_producao_original]))
+        horaInicioDia[v.data_producao_original] = hi
+      if (hf && (!horaFimDia[v.data_producao_original] || hf > horaFimDia[v.data_producao_original]))
+        horaFimDia[v.data_producao_original] = hf
     })
 
     // atividades (total + por dia)
@@ -520,7 +539,7 @@ export default function AnaliseDashboard() {
         ])
       ),
     }
-  }, [drillEquipe, registros, viewRows, equipeByReg, metas])
+  }, [drillEquipe, registros, viewRows, equipeByReg, metas, metadataDrill])
 
   // ── Handlers ─────────────────────────────────────────────────────────────────
   function clicarCelulaAnaliseMensal(equipeNome, mes) {
