@@ -22,6 +22,7 @@ import Obras from './pages/Configuracoes/Obras'
 import ContratosPrecoUpe from './pages/Configuracoes/ContratosPrecoUpe'
 import GerenciarUsuarios from './pages/Configuracoes/GerenciarUsuarios'
 import UltimosLogins from './pages/Configuracoes/UltimosLogins'
+import LogAlteracoes from './pages/Configuracoes/LogAlteracoes'
 import Atividades from './pages/Configuracoes/Atividades'
 import FormBuilder from './pages/Configuracoes/FormBuilder'
 import Planejamento from './pages/Planejamento'
@@ -139,6 +140,7 @@ export default function App() {
         <Route path="/configuracoes/contratos-preco-upe" element={<RotaProtegida><RotaSuperAdmin><ContratosPrecoUpe /></RotaSuperAdmin></RotaProtegida>} />
         <Route path="/configuracoes/usuarios" element={<RotaProtegida><RotaSuperAdmin><GerenciarUsuarios /></RotaSuperAdmin></RotaProtegida>} />
         <Route path="/configuracoes/logins" element={<RotaProtegida><RotaSuperAdmin><UltimosLogins /></RotaSuperAdmin></RotaProtegida>} />
+        <Route path="/configuracoes/log-alteracoes" element={<RotaProtegida><RotaSuperAdmin><LogAlteracoes /></RotaSuperAdmin></RotaProtegida>} />
         <Route path="/configuracoes/atividades" element={<RotaProtegida><RotaSuperAdmin><Atividades /></RotaSuperAdmin></RotaProtegida>} />
         <Route path="/configuracoes/form-builder" element={<RotaProtegida><RotaSuperAdmin><FormBuilder /></RotaSuperAdmin></RotaProtegida>} />
 
