@@ -27,7 +27,8 @@ export default function NovoRegistro() {
   const [obraId, setObraId] = useState('')
   const [encarregadoId, setEncarregadoId] = useState('')
   const [regionalId, setRegionalId] = useState('')
-  const [dataProducao, setDataProducao] = useState(new Date().toISOString().split('T')[0])
+  const [dataProducao, setDataProducao] = useState('')
+  const hoje = new Date(Date.now() - 3 * 60 * 60 * 1000).toISOString().split('T')[0]
   const [metaRegistro, setMetaRegistro] = useState({})
 
   const [itens, setItens] = useState([{ atividade_id: '', quantidade: '', largura: '', comprimento: '', meta: {} }])
@@ -453,7 +454,8 @@ export default function NovoRegistro() {
             <div className="campo-grupo">
               <label className="campo-label">Data da Produção <span className="obrigatorio">*</span></label>
               <input type="date" className={`campo-input${errosCampos.data ? ' erro' : ''}`}
-                value={dataProducao} onChange={e => setDataProducao(e.target.value)} required />
+                value={dataProducao} onChange={e => setDataProducao(e.target.value)}
+                max={hoje} required />
               {errosCampos.data && <div className="campo-erro-msg">{errosCampos.data}</div>}
             </div>
 
