@@ -126,7 +126,6 @@ export default function AnaliseDashboard() {
   const [contratos, setContratos]     = useState([])
   const [tiposEquipe, setTiposEquipe] = useState([])
   const [equipes, setEquipes]         = useState([])
-  const [registros, setRegistros]     = useState([])
   const [viewRows, setViewRows]       = useState([])
   const [metas, setMetas]             = useState({}) // tid -> { mes: valor }
   const [carregando, setCarregando]   = useState(false)
@@ -169,7 +168,6 @@ export default function AnaliseDashboard() {
     const cacheValido = cached && (Date.now() - cached.carregadoEm.getTime() < CACHE_TTL_MS)
 
     if (!forcar && cacheValido) {
-      setRegistros(cached.registros)
       setViewRows(cached.viewRows)
       setMetas(cached.metas)
       setCacheInfo({ de: cached.carregadoEm })
@@ -184,21 +182,16 @@ export default function AnaliseDashboard() {
     const ini = `${ano}-01-01`
     const fim = `${ano}-12-31`
     try {
-      const [regData, viewData, resMetas] = await Promise.all([
+      const [viewData, resMetas] = await Promise.all([
         fetchAllPages(() =>
-          supabase.from('f_prod_registro')
-            .select('id, data_producao, contrato_id, tipo_equipe_id, equipe_id, f_prod_atividades(atividade_id, upe, preco_upe, quantidade, d_atividades(DESCRICAO_BASICA_SISTEMA))')
-            .gte('data_producao', ini).lte('data_producao', fim)
-            .order('data_producao', { ascending: true })
-        ),
-        fetchAllPages(() =>
-          supabase.rpc('get_mat_producao_powerbi', { p_ini: ini, p_fim: fim })
-            .order('data_producao', { ascending: true })
+          supabase.from('view_r07_weweb')
+            .select('registro_id, contrato_id, tipo_equipe_id, data_producao_original, equipe_id, desc_equipe, desc_atividade, atividade_id, quantidade, upe, preco_upe, valor_producao, justificativa, metadata_registro')
+            .gte('data_producao_original', ini).lte('data_producao_original', fim)
+            .order('data_producao_original', { ascending: true })
         ),
         lerMetasAnuais(ano),
       ])
-      cacheSet(ano, { registros: regData, viewRows: viewData, metas: resMetas, carregadoEm: new Date() })
-      setRegistros(regData)
+      cacheSet(ano, { viewRows: viewData, metas: resMetas, carregadoEm: new Date() })
       setViewRows(viewData)
       setMetas(resMetas)
     } catch (e) {
@@ -207,6 +200,33 @@ export default function AnaliseDashboard() {
       setCarregando(false)
     }
   }
+
+  // Reconstrói registros a partir de viewRows (uma linha por atividade → agrupa por registro_id)
+  const registros = useMemo(() => {
+    const map = {}
+    viewRows.forEach(v => {
+      if (!map[v.registro_id]) {
+        map[v.registro_id] = {
+          id: v.registro_id,
+          contrato_id: v.contrato_id,
+          tipo_equipe_id: v.tipo_equipe_id,
+          data_producao: v.data_producao_original,
+          equipe_id: v.equipe_id,
+          f_prod_atividades: [],
+        }
+      }
+      if (v.atividade_id) {
+        map[v.registro_id].f_prod_atividades.push({
+          atividade_id: v.atividade_id,
+          upe: v.upe,
+          preco_upe: v.preco_upe,
+          quantidade: v.quantidade,
+          d_atividades: { DESCRICAO_BASICA_SISTEMA: v.desc_atividade },
+        })
+      }
+    })
+    return Object.values(map)
+  }, [viewRows])
 
   // Mapa equipe por registro_id
   const equipeByReg = useMemo(() => {
