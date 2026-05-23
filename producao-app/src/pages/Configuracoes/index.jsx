@@ -13,7 +13,6 @@ const SECOES = [
   { caminho: '/configuracoes/form-builder',             icone: '🧩', titulo: 'Editor de Formulário',  descricao: 'Configure os campos do formulário por contrato e equipe',  superAdmin: true },
   { caminho: '/configuracoes/usuarios',                 icone: '🔐', titulo: 'Usuários',              descricao: 'Criar usuários, perfis e acessos por contrato',            superAdmin: true },
   { caminho: '/configuracoes/logins',                   icone: '🕐', titulo: 'Últimos Logins',        descricao: 'Histórico de acessos ao sistema',                          superAdmin: true },
-  { caminho: '/configuracoes/log-alteracoes',           icone: '📝', titulo: 'Log de Alterações',     descricao: 'Auditoria de criações, edições e exclusões',               superAdmin: true },
 ]
 
 export default function Configuracoes() {
