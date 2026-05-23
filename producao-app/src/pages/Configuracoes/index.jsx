@@ -12,6 +12,7 @@ const SECOES = [
   { caminho: '/configuracoes/config-campos',            icone: '🔧', titulo: 'Campos',                descricao: 'Definição dos campos dinâmicos',                           superAdmin: true },
   { caminho: '/configuracoes/form-builder',             icone: '🧩', titulo: 'Editor de Formulário',  descricao: 'Configure os campos do formulário por contrato e equipe',  superAdmin: true },
   { caminho: '/configuracoes/usuarios',                 icone: '🔐', titulo: 'Usuários',              descricao: 'Criar usuários, perfis e acessos por contrato',            superAdmin: true },
+  { caminho: '/configuracoes/logins',                   icone: '🕐', titulo: 'Últimos Logins',        descricao: 'Histórico de acessos ao sistema',                          superAdmin: true },
 ]
 
 export default function Configuracoes() {

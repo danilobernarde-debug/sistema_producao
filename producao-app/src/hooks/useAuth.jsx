@@ -38,7 +38,19 @@ export function AuthProvider({ children }) {
   }
 
   async function entrar(email, senha) {
-    const { error } = await supabase.auth.signInWithPassword({ email, password: senha })
+    const { data, error } = await supabase.auth.signInWithPassword({ email, password: senha })
+    if (!error && data?.user) {
+      const { data: perfData } = await supabase
+        .from('d_auth_user')
+        .select('nome')
+        .eq('uuid', data.user.id)
+        .single()
+      await supabase.from('d_login_log').insert({
+        user_uuid: data.user.id,
+        nome: perfData?.nome ?? null,
+        email: data.user.email,
+      })
+    }
     return error
   }
 
