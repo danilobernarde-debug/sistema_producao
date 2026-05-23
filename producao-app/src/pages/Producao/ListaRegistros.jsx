@@ -118,7 +118,7 @@ export default function ListaRegistros() {
     if (!window.confirm(`Excluir o registro #${id}? Esta ação não pode ser desfeita.`)) return
     const { error } = await supabase.from('f_prod_registro').delete().eq('id', id)
     if (error) { alert(`Erro ao excluir: ${error.message}`); return }
-    setRegistros(prev => prev.filter(r => r.id !== id))
+    setRegistrosRaw(prev => prev.filter(r => r.id !== id))
     setTotal(prev => prev - 1)
   }
 
