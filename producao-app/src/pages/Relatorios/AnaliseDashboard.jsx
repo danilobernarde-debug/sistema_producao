@@ -82,12 +82,12 @@ async function fetchAllPages(buildQuery, pageSize = 1000) {
 }
 
 const CACHE_TTL_MS = 3 * 60 * 60 * 1000 // 3 horas
+const CACHE_VER = 'v2' // incrementar quando mudar estrutura do cache
 const _cacheAnos = {} // fallback em memória se sessionStorage estourar
 
 function cacheGet(ano) {
-  // tenta sessionStorage primeiro
   try {
-    const raw = sessionStorage.getItem(`dash_cache_${ano}`)
+    const raw = sessionStorage.getItem(`dash_cache_${CACHE_VER}_${ano}`)
     if (raw) {
       const parsed = JSON.parse(raw)
       parsed.carregadoEm = new Date(parsed.carregadoEm)
@@ -100,16 +100,16 @@ function cacheGet(ano) {
 function cacheSet(ano, valor) {
   _cacheAnos[ano] = valor
   try {
-    sessionStorage.setItem(`dash_cache_${ano}`, JSON.stringify({
+    sessionStorage.setItem(`dash_cache_${CACHE_VER}_${ano}`, JSON.stringify({
       ...valor,
       carregadoEm: valor.carregadoEm.toISOString(),
     }))
-  } catch {} // quota excedida — mantém só em memória
+  } catch {}
 }
 
 function cacheDel(ano) {
   delete _cacheAnos[ano]
-  try { sessionStorage.removeItem(`dash_cache_${ano}`) } catch {}
+  try { sessionStorage.removeItem(`dash_cache_${CACHE_VER}_${ano}`) } catch {}
 }
 
 // ── Componente principal ──────────────────────────────────────────────────────
@@ -208,7 +208,7 @@ export default function AnaliseDashboard() {
           id: v.registro_id,
           contrato_id: v.contrato_id,
           tipo_equipe_id: v.tipo_equipe_id,
-          data_producao: v.data_producao_original,
+          data_producao: v.data_producao_original ?? v.data_producao?.split('T')[0],
           equipe_id: v.equipe_id,
           f_prod_atividades: [],
         }
