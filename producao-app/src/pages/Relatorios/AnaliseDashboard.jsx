@@ -33,7 +33,7 @@ function corPerc(perc) {
   if (perc === null || perc === undefined) return { bg: '#f3f4f6', text: '#6b7280' }
   if (perc >= 150) return { bg: '#14532d', text: '#ffffff' }
   if (perc >= 100) return { bg: '#dcfce7', text: '#15803d' }
-  if (perc >= 30)  return { bg: '#fef9c3', text: '#92400e' }
+  if (perc >= 70)  return { bg: '#fef9c3', text: '#92400e' }
   return              { bg: '#fee2e2', text: '#b91c1c' }
 }
 
@@ -831,7 +831,7 @@ function AnaliseMensal({ dados, filtroMes, onClickCelula }) {
         <span style={{ fontSize: 11, opacity: .7, marginLeft: 8 }}>· Clique em uma célula para ver o detalhe</span>
       </div>
       <div style={{ fontSize: 11, padding: '8px 16px', background: '#f8fafc', borderBottom: '1px solid #e5e7eb', display: 'flex', gap: 16, flexWrap: 'wrap' }}>
-        {[['#fee2e2','#b91c1c','0–30%'],['#fef9c3','#92400e','30–100%'],['#dcfce7','#15803d','100–150%'],['#14532d','#ffffff','≥150%']].map(([bg, tx, label]) => (
+        {[['#fee2e2','#b91c1c','0–70%'],['#fef9c3','#92400e','70–99%'],['#dcfce7','#15803d','100–150%'],['#14532d','#ffffff','≥150%']].map(([bg, tx, label]) => (
           <span key={label} style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
             <span style={{ width: 12, height: 12, background: bg, border: `1px solid ${tx}20`, borderRadius: 2, display: 'inline-block' }} />
             <span style={{ color: '#6b7280' }}>{label} da meta</span>
