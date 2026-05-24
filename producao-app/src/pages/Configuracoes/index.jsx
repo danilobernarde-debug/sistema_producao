@@ -19,7 +19,7 @@ export default function Configuracoes() {
   const navegar = useNavigate()
   const { perfil, usuario } = useAuth()
   const isSuperAdmin = perfil?.d_auth_roles?.name === 'Super Admin'
-  const isDanilo = usuario?.email === 'danilobernarde@gmail.com'
+  const isDanilo = usuario?.email === 'danilo@dbmachado.com'
   const secoesFiltradas = SECOES.filter(s =>
     (!s.superAdmin || isSuperAdmin) && (!s.soDanilo || isDanilo)
   )

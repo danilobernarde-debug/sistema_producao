@@ -72,7 +72,7 @@ function RotaSuperAdmin({ children }) {
 function RotaDanilo({ children }) {
   const { usuario, carregando } = useAuth()
   if (carregando) return null
-  if (usuario?.email !== 'danilobernarde@gmail.com') return <Navigate to="/configuracoes" replace />
+  if (usuario?.email !== 'danilo@dbmachado.com') return <Navigate to="/configuracoes" replace />
   return children
 }
 
