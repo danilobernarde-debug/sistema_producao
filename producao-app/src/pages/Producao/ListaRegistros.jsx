@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useEffect, useMemo, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../../supabaseClient'
 import SelectPesquisavel from '../../components/SelectPesquisavel'
@@ -260,17 +260,11 @@ export default function ListaRegistros() {
                           : '-'}
                       </td>
                       <td>
-                        <div style={{ display: 'flex', gap: 6 }}>
-                          <button className="btn btn-secundario" style={{ padding: '4px 10px', fontSize: 12 }}
-                            onClick={() => navegar(`/producao/${r.id}/editar`)}>
-                            Editar
-                          </button>
-                          <button
-                            onClick={() => excluir(r.id)}
-                            style={{ padding: '4px 10px', fontSize: 12, background: 'none', border: '1px solid #fca5a5', color: '#dc2626', borderRadius: 6, cursor: 'pointer' }}>
-                            Excluir
-                          </button>
-                        </div>
+                        <MenuAcoes
+                          onVisualizar={() => navegar(`/producao/${r.id}/editar?modo=visualizar`)}
+                          onEditar={() => navegar(`/producao/${r.id}/editar`)}
+                          onExcluir={() => excluir(r.id)}
+                        />
                       </td>
                     </tr>
                   ))}
@@ -305,6 +299,54 @@ export default function ListaRegistros() {
           </>
         )}
       </div>
+    </div>
+  )
+}
+
+function MenuAcoes({ onVisualizar, onEditar, onExcluir }) {
+  const [aberto, setAberto] = useState(false)
+  const ref = useRef(null)
+
+  useEffect(() => {
+    if (!aberto) return
+    function fechar(e) { if (ref.current && !ref.current.contains(e.target)) setAberto(false) }
+    document.addEventListener('mousedown', fechar)
+    return () => document.removeEventListener('mousedown', fechar)
+  }, [aberto])
+
+  return (
+    <div ref={ref} style={{ position: 'relative', display: 'inline-block' }}>
+      <button
+        className="btn btn-secundario"
+        style={{ padding: '4px 10px', fontSize: 12 }}
+        onClick={() => setAberto(p => !p)}
+      >
+        Ações ▾
+      </button>
+      {aberto && (
+        <div style={{
+          position: 'absolute', right: 0, top: '100%', marginTop: 4, zIndex: 100,
+          background: 'white', border: '1px solid #e5e7eb', borderRadius: 8,
+          boxShadow: '0 4px 12px rgba(0,0,0,0.1)', minWidth: 140, overflow: 'hidden',
+        }}>
+          {[
+            { label: 'Visualizar', onClick: onVisualizar, cor: '#374151' },
+            { label: 'Editar',     onClick: onEditar,     cor: '#374151' },
+            { label: 'Excluir',    onClick: onExcluir,    cor: '#dc2626' },
+          ].map(({ label, onClick, cor }) => (
+            <button key={label} onClick={() => { setAberto(false); onClick() }} style={{
+              display: 'block', width: '100%', textAlign: 'left',
+              padding: '8px 14px', fontSize: 13, background: 'none', border: 'none',
+              cursor: 'pointer', color: cor,
+            }}
+              onMouseEnter={e => e.currentTarget.style.background = '#f9fafb'}
+              onMouseLeave={e => e.currentTarget.style.background = 'none'}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+      )}
     </div>
   )
 }

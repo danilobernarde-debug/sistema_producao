@@ -36,6 +36,7 @@ function MetaTabela({ dados }) {
 export default function EditarRegistro() {
   const { id } = useParams()
   const navegar = useNavigate()
+  const soLeitura = new URLSearchParams(window.location.search).get('modo') === 'visualizar'
 
   const [carregando, setCarregando] = useState(true)
   const [salvando, setSalvando] = useState(false)
@@ -581,13 +582,14 @@ export default function EditarRegistro() {
       )}
 
       <div className="pagina-header">
-        <h1 className="pagina-titulo">Editar Lançamento #{id}</h1>
+        <h1 className="pagina-titulo">{soLeitura ? 'Visualizar' : 'Editar'} Lançamento #{id}</h1>
         <button className="btn btn-secundario" onClick={() => navegar('/producao')}>← Voltar</button>
       </div>
 
       {erro && <div className="alerta alerta-erro">{erro}</div>}
 
-      <form onSubmit={salvar}>
+      <form onSubmit={soLeitura ? e => e.preventDefault() : salvar}
+        style={soLeitura ? { pointerEvents: 'none', opacity: 0.8 } : undefined}>
         {/* Identificação */}
         <div className="card">
           <div className="card-titulo" style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
@@ -887,10 +889,19 @@ export default function EditarRegistro() {
         )}
 
         <div className="form-rodape">
-          <button type="button" className="btn btn-secundario" onClick={() => navegar('/producao')}>Cancelar</button>
-          <button type="submit" className="btn btn-sucesso" disabled={salvando}>
-            {salvando ? <><div className="spinner" style={{ borderTopColor: 'white' }} /> Salvando...</> : '✓ Salvar Alterações'}
+          <button type="button" className="btn btn-secundario" onClick={() => navegar('/producao')}>
+            {soLeitura ? '← Voltar' : 'Cancelar'}
           </button>
+          {!soLeitura && (
+            <button type="submit" className="btn btn-sucesso" disabled={salvando}>
+              {salvando ? <><div className="spinner" style={{ borderTopColor: 'white' }} /> Salvando...</> : '✓ Salvar Alterações'}
+            </button>
+          )}
+          {soLeitura && (
+            <button type="button" className="btn btn-primario" onClick={() => navegar(`/producao/${id}/editar`)}>
+              Editar
+            </button>
+          )}
         </div>
       </form>
     </div>
