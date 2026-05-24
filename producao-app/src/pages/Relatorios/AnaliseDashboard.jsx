@@ -29,6 +29,18 @@ function fmtData(d) {
 const MESES = ['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez']
 const MESES_FULL = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro']
 
+// Contratos TO (17=SUL, 18=CENTRO, 19=NORTE) agrupados como "Faixa Tocantins"
+const IDS_FAIXA_TO = new Set([17, 18, 19])
+const CHAVE_FAIXA_TO = 'faixa-tocantins'
+const NOME_FAIXA_TO = 'Faixa Tocantins'
+function chaveContrato(id) { return IDS_FAIXA_TO.has(Number(id)) ? CHAVE_FAIXA_TO : String(id) }
+function nomeContrato(id, desc) { return IDS_FAIXA_TO.has(Number(id)) ? NOME_FAIXA_TO : (desc || `Contrato ${id}`) }
+function matchFiltro(contrato_id, filtro) {
+  if (filtro === 'todos') return true
+  if (filtro === CHAVE_FAIXA_TO) return IDS_FAIXA_TO.has(Number(contrato_id))
+  return String(contrato_id) === filtro
+}
+
 function corPerc(perc) {
   if (perc === null || perc === undefined) return { bg: '#f3f4f6', text: '#6b7280' }
   if (perc >= 150) return { bg: '#14532d', text: '#ffffff' }
@@ -191,13 +203,15 @@ export default function AnaliseDashboard() {
     }
   }
 
-  // Contratos únicos derivados da view
+  // Contratos únicos derivados da view (17/18/19 agrupados como "Faixa Tocantins")
   const contratos = useMemo(() => {
     const map = {}
-    viewRows.forEach(v => { if (v.contrato_id && !map[v.contrato_id]) map[v.contrato_id] = v.desc_contrato })
-    return Object.entries(map)
-      .map(([id, descricao]) => ({ id: Number(id), descricao }))
-      .sort((a, b) => a.descricao?.localeCompare(b.descricao))
+    viewRows.forEach(v => {
+      if (!v.contrato_id) return
+      const chave = chaveContrato(v.contrato_id)
+      if (!map[chave]) map[chave] = { id: chave, descricao: nomeContrato(v.contrato_id, v.desc_contrato) }
+    })
+    return Object.values(map).sort((a, b) => a.descricao?.localeCompare(b.descricao))
   }, [viewRows])
 
   // Reconstrói registros a partir de viewRows (uma linha por atividade → agrupa por registro_id)
@@ -295,7 +309,7 @@ export default function AnaliseDashboard() {
   // Registros filtrados (todos os filtros — usado em abas 1, 2, 3 e tabela do painel)
   const regsFiltrados = useMemo(() => {
     return registros.filter(r => {
-      if (filtroContrato !== 'todos' && String(r.contrato_id) !== filtroContrato) return false
+      if (!matchFiltro(r.contrato_id, filtroContrato)) return false
       if (filtroMes !== 0 && Number(r.data_producao?.split('-')[1]) !== filtroMes) return false
       if (filtroEquipe && equipeByReg[r.id] !== filtroEquipe) return false
       return true
@@ -311,13 +325,13 @@ export default function AnaliseDashboard() {
   }), [registros, filtroMes, filtroEquipe, equipeByReg])
 
   const regsExclMes = useMemo(() => registros.filter(r => {
-    if (filtroContrato !== 'todos' && String(r.contrato_id) !== filtroContrato) return false
+    if (!matchFiltro(r.contrato_id, filtroContrato)) return false
     if (filtroEquipe && equipeByReg[r.id] !== filtroEquipe) return false
     return true
   }), [registros, filtroContrato, filtroEquipe, equipeByReg])
 
   const regsExclEquipe = useMemo(() => registros.filter(r => {
-    if (filtroContrato !== 'todos' && String(r.contrato_id) !== filtroContrato) return false
+    if (!matchFiltro(r.contrato_id, filtroContrato)) return false
     if (filtroMes !== 0 && Number(r.data_producao?.split('-')[1]) !== filtroMes) return false
     return true
   }), [registros, filtroContrato, filtroMes])
@@ -328,11 +342,10 @@ export default function AnaliseDashboard() {
     regsExclContrato.forEach(r => {
       const v = valorReg(r)
       if (!v) return
-      const c = contratos.find(c => String(c.id) === String(r.contrato_id))
-      const nome = c?.descricao || `Contrato ${r.contrato_id}`
-      const id = String(r.contrato_id)
-      if (!map[id]) map[id] = { name: nome, value: 0, id }
-      map[id].value += v
+      const chave = chaveContrato(r.contrato_id)
+      const nome = nomeContrato(r.contrato_id, contratos.find(c => c.id === chave)?.descricao)
+      if (!map[chave]) map[chave] = { name: nome, value: 0, id: chave }
+      map[chave].value += v
     })
     return Object.values(map).sort((a, b) => b.value - a.value)
   }, [regsExclContrato, contratos])
@@ -384,7 +397,7 @@ export default function AnaliseDashboard() {
     const prodMap = {} // equipeNome -> { mes: valor }
     registros.forEach(r => {
       const cid = String(r.contrato_id)
-      if (filtroContrato !== 'todos' && cid !== filtroContrato) return
+      if (!matchFiltro(r.contrato_id, filtroContrato)) return
       const nome = equipeByReg[r.id]
       if (!nome) return
       const mes = Number(r.data_producao?.split('-')[1])
@@ -396,8 +409,8 @@ export default function AnaliseDashboard() {
     // agrupar por contrato
     const contratoMap = {}
     Object.entries(prodMap).forEach(([nome, dados]) => {
-      const cid = dados.cid
-      const cnome = contratos.find(c => String(c.id) === cid)?.descricao || `Contrato ${cid}`
+      const cid = chaveContrato(dados.cid)
+      const cnome = nomeContrato(dados.cid, contratos.find(c => c.id === cid)?.descricao)
       if (!contratoMap[cnome]) contratoMap[cnome] = { cid, equipes: [] }
       const tid = dados.tid
       const mesesValores = {}
@@ -425,7 +438,7 @@ export default function AnaliseDashboard() {
     const prodEquipe = {}   // equipeNome -> { prod, tid, cid }
 
     registros.forEach(r => {
-      if (filtroContrato !== 'todos' && String(r.contrato_id) !== filtroContrato) return
+      if (!matchFiltro(r.contrato_id, filtroContrato)) return
       if (mesAtivo && Number(r.data_producao?.split('-')[1]) !== mesAtivo) return
       const nome = equipeByReg[r.id]
       if (!nome) return

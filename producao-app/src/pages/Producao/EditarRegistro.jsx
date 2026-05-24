@@ -236,13 +236,13 @@ export default function EditarRegistro() {
       setColaboradores(todosColabs)
 
       // Reconstruir presença a partir do que foi salvo
+      // overrideEquipeId sempre vem de f_prod_colaboradores.equipe_id (fonte de verdade)
+      // d_colaboradores.equipe_id é só usado para facilitar adição de novos colaboradores
       if (reg.d_contratos?.logica_contrato) {
         const adics = (fpc || []).map(entrada => {
           const colab = todosColabs.find(c => c.id === entrada.colaborador_id)
           if (!colab) return null
-          const overrideEquipeId = String(entrada.equipe_id) !== String(colab.equipe_id)
-            ? String(entrada.equipe_id) : null
-          return { ...colab, overrideEquipeId }
+          return { ...colab, overrideEquipeId: entrada.equipe_id ? String(entrada.equipe_id) : null }
         }).filter(Boolean)
         setAdicionados(adics)
       } else {
@@ -251,10 +251,11 @@ export default function EditarRegistro() {
         ;(fpc || []).forEach(entrada => {
           const colab = todosColabs.find(c => c.id === entrada.colaborador_id)
           if (!colab) return
+          const comEquipe = { ...colab, overrideEquipeId: entrada.equipe_id ? String(entrada.equipe_id) : null }
           if (String(colab.equipe_id) === equipeIdSel) {
-            listaPres.push(colab)
+            listaPres.push(comEquipe)
           } else {
-            externs.push(colab)
+            externs.push(comEquipe)
           }
         })
         setPresentesList(listaPres)
