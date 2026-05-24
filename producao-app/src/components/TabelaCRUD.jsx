@@ -360,16 +360,19 @@ export default function TabelaCRUD({
               {erros._geral}
             </div>
           )}
-          {colunas.filter(c => !c.somenteLeitura).map(c => (
-            <CampoForm
-              key={c.nome}
-              campo={c}
-              valor={form[c.nome]}
-              erro={erros[c.nome]}
-              opcoes={opcoesSelect[c.nome] || []}
-              onChange={v => setForm(prev => ({ ...prev, [c.nome]: v }))}
-            />
-          ))}
+          {colunas.filter(c => !c.somenteLeitura).map(c => {
+            if (c.visibleWhen && String(form[c.visibleWhen.campo]) !== String(c.visibleWhen.valor)) return null
+            return (
+              <CampoForm
+                key={c.nome}
+                campo={c}
+                valor={form[c.nome]}
+                erro={erros[c.nome]}
+                opcoes={opcoesSelect[c.nome] || []}
+                onChange={v => setForm(prev => ({ ...prev, [c.nome]: v }))}
+              />
+            )
+          })}
           <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', marginTop: 16 }}>
             <button className="btn btn-secundario" onClick={() => setModal(null)}>Cancelar</button>
             <button className="btn btn-primario" onClick={salvar} disabled={salvando}>

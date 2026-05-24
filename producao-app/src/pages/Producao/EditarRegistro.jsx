@@ -5,6 +5,9 @@ import { useCamposDinamicos } from '../../hooks/useCamposDinamicos'
 import CampoDinamico from '../../components/CampoDinamico'
 import SelectPesquisavel from '../../components/SelectPesquisavel'
 
+const IDS_FAIXA_TO = new Set([17, 18, 19])
+function contratoParaEquipes(cid) { return IDS_FAIXA_TO.has(Number(cid)) ? 17 : Number(cid) }
+
 function formatarValorMeta(v) {
   if (v === null || v === undefined || v === '') return <span style={{ color: '#9ca3af' }}>—</span>
   if (typeof v === 'boolean') return v ? 'Sim' : 'Não'
@@ -133,21 +136,10 @@ export default function EditarRegistro() {
     const { data: fpc } = await supabase
       .from('f_prod_colaboradores').select('colaborador_id, equipe_id').eq('registro_id', id)
 
-    // Equipes do contrato
+    // Equipes do contrato (contratos 17/18/19 compartilham as equipes do 17)
     let { data: eqs } = await supabase
       .from('d_equipes').select('tipo_equipe_id, id, equipe, d_tipo_equipe(id, descricao)')
-      .eq('contrato_id', reg.contrato_id).eq('is_ativo', true)
-
-    // Fallback: se o contrato não tem equipes cadastradas, buscar pelo contrato real da equipe do registro
-    if ((!eqs || eqs.length === 0) && reg.equipe_id) {
-      const { data: eqBase } = await supabase.from('d_equipes').select('contrato_id').eq('id', reg.equipe_id).single()
-      if (eqBase?.contrato_id && eqBase.contrato_id !== reg.contrato_id) {
-        const { data: eqsAlt } = await supabase
-          .from('d_equipes').select('tipo_equipe_id, id, equipe, d_tipo_equipe(id, descricao)')
-          .eq('contrato_id', eqBase.contrato_id).eq('is_ativo', true)
-        eqs = eqsAlt || []
-      }
-    }
+      .eq('contrato_id', contratoParaEquipes(reg.contrato_id)).eq('is_ativo', true)
 
     setEquipesContrato(eqs || [])
 
@@ -583,7 +575,14 @@ export default function EditarRegistro() {
 
       <div className="pagina-header">
         <h1 className="pagina-titulo">{soLeitura ? 'Visualizar' : 'Editar'} Lançamento #{id}</h1>
-        <button className="btn btn-secundario" onClick={() => navegar('/producao')}>← Voltar</button>
+        <div style={{ display: 'flex', gap: 8 }}>
+          {soLeitura && (
+            <button className="btn btn-primario" onClick={() => navegar(`/producao/${id}/editar`)}>
+              Editar
+            </button>
+          )}
+          <button className="btn btn-secundario" onClick={() => navegar('/producao')}>← Voltar</button>
+        </div>
       </div>
 
       {erro && <div className="alerta alerta-erro">{erro}</div>}
@@ -681,84 +680,145 @@ export default function EditarRegistro() {
               {'{ }'}
             </button>
           </div>
-          {itens.map((item, idx) => {
-            const opcoesAtividades = atividades.map(a => ({
-              valor: a.id,
-              label: a.codigo_op ? `[${a.codigo_op}] ${a.DESCRICAO_BASICA_SISTEMA}` : a.DESCRICAO_BASICA_SISTEMA,
-            }))
-            const atvSel = atividades.find(a => String(a.id) === String(item.atividade_id))
-            const temDadosLC = Number(item.comprimento) > 0 || Number(item.largura) > 0
-            const usaLC = atvSel?.comprimento_lagura && (temDadosLC || !item.id)
-            return (
-              <div key={idx} className="atividade-item">
-                <div className="atividade-item-header">
-                  <span className="atividade-numero">#{idx + 1}</span>
-                  {itens.length > 1 && (
-                    <button type="button" className="btn btn-perigo"
-                      style={{ padding: '4px 10px', fontSize: 12 }}
-                      onClick={() => removerAtividade(idx)}>Remover</button>
-                  )}
-                </div>
-                <div className="campos-grid">
-                  <div className="campo-grupo" style={{ gridColumn: 'span 2' }}>
-                    <label className="campo-label">Atividade <span className="obrigatorio">*</span></label>
-                    <SelectPesquisavel opcoes={opcoesAtividades} valor={item.atividade_id}
-                      onChange={v => alterarItemAtividade(idx, 'atividade_id', v)}
-                      placeholder="Pesquise a atividade..."
-                      erro={errosCampos[`at_${idx}_atividade`]} />
-                  </div>
-                  {usaLC ? (
-                    <>
-                      <div className="campo-grupo">
-                        <label className="campo-label">Largura (m) <span className="obrigatorio">*</span></label>
-                        <input type="number" step="0.000001" min="0"
-                          className={`campo-input${errosCampos[`at_${idx}_qtd`] ? ' erro' : ''}`}
-                          value={item.largura}
-                          onChange={e => alterarItemAtividade(idx, 'largura', e.target.value)} placeholder="0" />
-                      </div>
-                      <div className="campo-grupo">
-                        <label className="campo-label">Comprimento (m) <span className="obrigatorio">*</span></label>
-                        <input type="number" step="0.000001" min="0"
-                          className={`campo-input${errosCampos[`at_${idx}_qtd`] ? ' erro' : ''}`}
-                          value={item.comprimento}
-                          onChange={e => alterarItemAtividade(idx, 'comprimento', e.target.value)} placeholder="0" />
-                      </div>
-                      <div className="campo-grupo">
-                        <label className="campo-label">Quantidade (m²)</label>
-                        <input type="number" className="campo-input" readOnly
-                          value={(Number(item.largura || 0) * Number(item.comprimento || 0)) || ''} />
-                      </div>
-                      {errosCampos[`at_${idx}_qtd`] && <div className="campo-erro-msg" style={{ gridColumn: 'span 2' }}>{errosCampos[`at_${idx}_qtd`]}</div>}
-                    </>
-                  ) : (
-                    <div className="campo-grupo">
-                      <label className="campo-label">Quantidade <span className="obrigatorio">*</span></label>
-                      <input type="number" step="0.000001" min="0"
-                        className={`campo-input${errosCampos[`at_${idx}_qtd`] ? ' erro' : ''}`}
-                        value={item.quantidade} onChange={e => alterarItemAtividade(idx, 'quantidade', e.target.value)} />
-                      {errosCampos[`at_${idx}_qtd`] && <div className="campo-erro-msg">{errosCampos[`at_${idx}_qtd`]}</div>}
-                    </div>
-                  )}
-                  {camposAtividade.filter(c => !['comprimento', 'largura'].includes(c.config_campos.nome)).map(c => (
-                    <CampoDinamico key={c.id} campo={c} valor={item.meta[c.config_campos.nome]}
-                      onChange={(nome, valor) => alterarMetaAtividade(idx, nome, valor)}
-                      erro={errosCampos[`at_${idx}_${c.config_campos.nome}`]} />
-                  ))}
-                </div>
-                {(() => {
-                  const vals = calcularValores(item)
-                  return vals !== null ? (
-                    <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 20, fontSize: 13, color: '#374151', marginTop: 6, paddingTop: 6, borderTop: '1px solid #e5e7eb' }}>
-                      <span>UPE: <strong>{vals.upe.toLocaleString('pt-BR', { minimumFractionDigits: 4, maximumFractionDigits: 4 })}</strong></span>
-                      <span>Preço UPE: <strong>R$ {vals.precoUpe.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</strong></span>
-                      <span>Valor estimado: <strong>R$ {vals.total.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</strong></span>
-                    </div>
+          {soLeitura ? (
+            <div className="tabela-container" style={{ marginTop: 8 }}>
+              <table className="tabela">
+                <thead>
+                  <tr>
+                    <th>#</th>
+                    <th>Atividade</th>
+                    <th style={{ textAlign: 'right' }}>Quantidade</th>
+                    <th style={{ textAlign: 'right' }}>UPE</th>
+                    <th style={{ textAlign: 'right' }}>Preço UPE</th>
+                    <th style={{ textAlign: 'right' }}>Valor Estimado</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {itens.map((item, idx) => {
+                    const atvSel = atividades.find(a => String(a.id) === String(item.atividade_id))
+                    const temDadosLC = Number(item.comprimento) > 0 || Number(item.largura) > 0
+                    const usaLC = atvSel?.comprimento_lagura && (temDadosLC || !item.id)
+                    const qtd = usaLC
+                      ? Number(item.largura || 0) * Number(item.comprimento || 0)
+                      : Number(item.quantidade || 0)
+                    const vals = calcularValores(item)
+                    const nomeAtv = atvSel
+                      ? (atvSel.codigo_op ? `[${atvSel.codigo_op}] ${atvSel.DESCRICAO_BASICA_SISTEMA}` : atvSel.DESCRICAO_BASICA_SISTEMA)
+                      : '-'
+                    return (
+                      <tr key={idx}>
+                        <td>{idx + 1}</td>
+                        <td>{nomeAtv}</td>
+                        <td style={{ textAlign: 'right' }}>
+                          {usaLC
+                            ? `${Number(item.comprimento || 0).toLocaleString('pt-BR')} × ${Number(item.largura || 0).toLocaleString('pt-BR')} = ${qtd.toLocaleString('pt-BR')} m²`
+                            : qtd.toLocaleString('pt-BR')}
+                        </td>
+                        <td style={{ textAlign: 'right' }}>{vals ? vals.upe.toLocaleString('pt-BR', { minimumFractionDigits: 4, maximumFractionDigits: 4 }) : '-'}</td>
+                        <td style={{ textAlign: 'right' }}>{vals ? `R$ ${vals.precoUpe.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : '-'}</td>
+                        <td style={{ textAlign: 'right', fontWeight: 500 }}>{vals ? `R$ ${vals.total.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : '-'}</td>
+                      </tr>
+                    )
+                  })}
+                </tbody>
+                {itens.length > 1 && (() => {
+                  const totalGeral = itens.reduce((acc, item) => {
+                    const vals = calcularValores(item)
+                    return acc + (vals ? vals.total : 0)
+                  }, 0)
+                  return totalGeral > 0 ? (
+                    <tfoot>
+                      <tr>
+                        <td colSpan={5} style={{ textAlign: 'right', fontWeight: 600, color: '#374151' }}>Total</td>
+                        <td style={{ textAlign: 'right', fontWeight: 700 }}>R$ {totalGeral.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+                      </tr>
+                    </tfoot>
                   ) : null
                 })()}
-              </div>
-            )
-          })}
-          <button type="button" className="btn btn-secundario" onClick={adicionarAtividade}>+ Adicionar Atividade</button>
+              </table>
+            </div>
+          ) : (
+            <>
+              {itens.map((item, idx) => {
+                const opcoesAtividades = atividades.map(a => ({
+                  valor: a.id,
+                  label: a.codigo_op ? `[${a.codigo_op}] ${a.DESCRICAO_BASICA_SISTEMA}` : a.DESCRICAO_BASICA_SISTEMA,
+                })).sort((a, b) => a.label.localeCompare(b.label, 'pt-BR'))
+                const atvSel = atividades.find(a => String(a.id) === String(item.atividade_id))
+                const temDadosLC = Number(item.comprimento) > 0 || Number(item.largura) > 0
+                const usaLC = atvSel?.comprimento_lagura && (temDadosLC || !item.id)
+                return (
+                  <div key={idx} className="atividade-item">
+                    <div className="atividade-item-header">
+                      <span className="atividade-numero">#{idx + 1}</span>
+                      {itens.length > 1 && (
+                        <button type="button" className="btn btn-perigo"
+                          style={{ padding: '4px 10px', fontSize: 12 }}
+                          onClick={() => removerAtividade(idx)}>Remover</button>
+                      )}
+                    </div>
+                    <div className="campos-grid">
+                      <div className="campo-grupo" style={{ gridColumn: 'span 2' }}>
+                        <label className="campo-label">Atividade <span className="obrigatorio">*</span></label>
+                        <SelectPesquisavel opcoes={opcoesAtividades} valor={item.atividade_id}
+                          onChange={v => alterarItemAtividade(idx, 'atividade_id', v)}
+                          placeholder="Pesquise a atividade..."
+                          erro={errosCampos[`at_${idx}_atividade`]} />
+                      </div>
+                      {usaLC ? (
+                        <>
+                          <div className="campo-grupo">
+                            <label className="campo-label">Largura (m) <span className="obrigatorio">*</span></label>
+                            <input type="number" step="0.000001" min="0"
+                              className={`campo-input${errosCampos[`at_${idx}_qtd`] ? ' erro' : ''}`}
+                              value={item.largura}
+                              onChange={e => alterarItemAtividade(idx, 'largura', e.target.value)} placeholder="0" />
+                          </div>
+                          <div className="campo-grupo">
+                            <label className="campo-label">Comprimento (m) <span className="obrigatorio">*</span></label>
+                            <input type="number" step="0.000001" min="0"
+                              className={`campo-input${errosCampos[`at_${idx}_qtd`] ? ' erro' : ''}`}
+                              value={item.comprimento}
+                              onChange={e => alterarItemAtividade(idx, 'comprimento', e.target.value)} placeholder="0" />
+                          </div>
+                          <div className="campo-grupo">
+                            <label className="campo-label">Quantidade (m²)</label>
+                            <input type="number" className="campo-input" readOnly
+                              value={(Number(item.largura || 0) * Number(item.comprimento || 0)) || ''} />
+                          </div>
+                          {errosCampos[`at_${idx}_qtd`] && <div className="campo-erro-msg" style={{ gridColumn: 'span 2' }}>{errosCampos[`at_${idx}_qtd`]}</div>}
+                        </>
+                      ) : (
+                        <div className="campo-grupo">
+                          <label className="campo-label">Quantidade <span className="obrigatorio">*</span></label>
+                          <input type="number" step="0.000001" min="0"
+                            className={`campo-input${errosCampos[`at_${idx}_qtd`] ? ' erro' : ''}`}
+                            value={item.quantidade} onChange={e => alterarItemAtividade(idx, 'quantidade', e.target.value)} />
+                          {errosCampos[`at_${idx}_qtd`] && <div className="campo-erro-msg">{errosCampos[`at_${idx}_qtd`]}</div>}
+                        </div>
+                      )}
+                      {camposAtividade.filter(c => !['comprimento', 'largura'].includes(c.config_campos.nome)).map(c => (
+                        <CampoDinamico key={c.id} campo={c} valor={item.meta[c.config_campos.nome]}
+                          onChange={(nome, valor) => alterarMetaAtividade(idx, nome, valor)}
+                          erro={errosCampos[`at_${idx}_${c.config_campos.nome}`]} />
+                      ))}
+                    </div>
+                    {(() => {
+                      const vals = calcularValores(item)
+                      return vals !== null ? (
+                        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 20, fontSize: 13, color: '#374151', marginTop: 6, paddingTop: 6, borderTop: '1px solid #e5e7eb' }}>
+                          <span>UPE: <strong>{vals.upe.toLocaleString('pt-BR', { minimumFractionDigits: 4, maximumFractionDigits: 4 })}</strong></span>
+                          <span>Preço UPE: <strong>R$ {vals.precoUpe.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</strong></span>
+                          <span>Valor estimado: <strong>R$ {vals.total.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</strong></span>
+                        </div>
+                      ) : null
+                    })()}
+                  </div>
+                )
+              })}
+              <button type="button" className="btn btn-secundario" onClick={adicionarAtividade}>+ Adicionar Atividade</button>
+            </>
+          )}
         </div>
 
         {/* Colaboradores */}
@@ -801,15 +861,17 @@ export default function EditarRegistro() {
                         >
                           {equipesContrato.map(e => <option key={e.id} value={e.id}>{e.equipe}</option>)}
                         </select>
-                        <button type="button" className="btn btn-secundario"
-                          style={{ padding: '3px 10px', fontSize: 12, flexShrink: 0 }}
-                          onClick={() => removerAdicionado(c.id)}>× Remover</button>
+                        {!soLeitura && (
+                          <button type="button" className="btn btn-secundario"
+                            style={{ padding: '3px 10px', fontSize: 12, flexShrink: 0 }}
+                            onClick={() => removerAdicionado(c.id)}>× Remover</button>
+                        )}
                       </div>
                     ))}
                   </div>
                 )}
 
-                <div style={{ display: 'flex', gap: 8, alignItems: 'flex-end' }}>
+                {!soLeitura && <div style={{ display: 'flex', gap: 8, alignItems: 'flex-end' }}>
                   <div style={{ flex: 1 }}>
                     <label className="campo-label">Adicionar colaborador individual</label>
                     <SelectPesquisavel
@@ -823,7 +885,7 @@ export default function EditarRegistro() {
                     onClick={adicionarIndividual} disabled={!selectExternoId}>
                     + Adicionar
                   </button>
-                </div>
+                </div>}
               </>
             ) : (
               <>
@@ -844,9 +906,9 @@ export default function EditarRegistro() {
                       >
                         {equipesContrato.map(e => <option key={e.id} value={e.id}>{e.equipe}</option>)}
                       </select>
-                      <button type="button" className="btn btn-secundario"
+                      {!soLeitura && <button type="button" className="btn btn-secundario"
                         style={{ padding: '3px 10px', fontSize: 12 }}
-                        onClick={() => removerPresente(c.id)}>× Remover</button>
+                        onClick={() => removerPresente(c.id)}>× Remover</button>}
                     </div>
                   ))}
                   {adicionados.map(c => (
@@ -861,14 +923,14 @@ export default function EditarRegistro() {
                       >
                         {equipesContrato.map(e => <option key={e.id} value={e.id}>{e.equipe}</option>)}
                       </select>
-                      <button type="button" className="btn btn-secundario"
+                      {!soLeitura && <button type="button" className="btn btn-secundario"
                         style={{ padding: '3px 10px', fontSize: 12 }}
-                        onClick={() => removerAdicionado(c.id)}>× Remover</button>
+                        onClick={() => removerAdicionado(c.id)}>× Remover</button>}
                     </div>
                   ))}
                 </div>
 
-                <div style={{ display: 'flex', gap: 8, alignItems: 'flex-end' }}>
+                {!soLeitura && <div style={{ display: 'flex', gap: 8, alignItems: 'flex-end' }}>
                   <div style={{ flex: 1 }}>
                     <label className="campo-label">Adicionar colaborador</label>
                     <SelectPesquisavel
@@ -882,27 +944,22 @@ export default function EditarRegistro() {
                     onClick={adicionarExterno} disabled={!selectExternoId}>
                     + Adicionar
                   </button>
-                </div>
+                </div>}
               </>
             )}
           </div>
         )}
 
-        <div className="form-rodape">
-          <button type="button" className="btn btn-secundario" onClick={() => navegar('/producao')}>
-            {soLeitura ? '← Voltar' : 'Cancelar'}
-          </button>
-          {!soLeitura && (
+        {!soLeitura && (
+          <div className="form-rodape">
+            <button type="button" className="btn btn-secundario" onClick={() => navegar('/producao')}>
+              Cancelar
+            </button>
             <button type="submit" className="btn btn-sucesso" disabled={salvando}>
               {salvando ? <><div className="spinner" style={{ borderTopColor: 'white' }} /> Salvando...</> : '✓ Salvar Alterações'}
             </button>
-          )}
-          {soLeitura && (
-            <button type="button" className="btn btn-primario" onClick={() => navegar(`/producao/${id}/editar`)}>
-              Editar
-            </button>
-          )}
-        </div>
+          </div>
+        )}
       </form>
     </div>
   )

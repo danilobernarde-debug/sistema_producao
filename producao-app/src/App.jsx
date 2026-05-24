@@ -69,6 +69,13 @@ function RotaSuperAdmin({ children }) {
   return children
 }
 
+function RotaDanilo({ children }) {
+  const { usuario, carregando } = useAuth()
+  if (carregando) return null
+  if (usuario?.email !== 'danilobernarde@gmail.com') return <Navigate to="/configuracoes" replace />
+  return children
+}
+
 export default function App() {
   return (
     <BrowserRouter>
@@ -138,7 +145,7 @@ export default function App() {
         <Route path="/configuracoes/obras" element={<RotaProtegida><Obras /></RotaProtegida>} />
         <Route path="/configuracoes/contratos-preco-upe" element={<RotaProtegida><RotaSuperAdmin><ContratosPrecoUpe /></RotaSuperAdmin></RotaProtegida>} />
         <Route path="/configuracoes/usuarios" element={<RotaProtegida><RotaSuperAdmin><GerenciarUsuarios /></RotaSuperAdmin></RotaProtegida>} />
-        <Route path="/configuracoes/logins" element={<RotaProtegida><RotaSuperAdmin><UltimosLogins /></RotaSuperAdmin></RotaProtegida>} />
+        <Route path="/configuracoes/logins" element={<RotaProtegida><RotaDanilo><UltimosLogins /></RotaDanilo></RotaProtegida>} />
         <Route path="/configuracoes/atividades" element={<RotaProtegida><RotaSuperAdmin><Atividades /></RotaSuperAdmin></RotaProtegida>} />
         <Route path="/configuracoes/form-builder" element={<RotaProtegida><RotaSuperAdmin><FormBuilder /></RotaSuperAdmin></RotaProtegida>} />
 

@@ -6,6 +6,9 @@ import { useCamposDinamicos } from '../../hooks/useCamposDinamicos'
 import CampoDinamico from '../../components/CampoDinamico'
 import SelectPesquisavel from '../../components/SelectPesquisavel'
 
+const IDS_FAIXA_TO = new Set([17, 18, 19])
+function contratoParaEquipes(cid) { return IDS_FAIXA_TO.has(Number(cid)) ? 17 : Number(cid) }
+
 export default function NovoRegistro() {
   const navegar = useNavigate()
   const { usuario } = useAuth()
@@ -90,7 +93,7 @@ export default function NovoRegistro() {
 
     supabase
       .from('d_equipes').select('tipo_equipe_id, d_tipo_equipe(id, descricao)')
-      .eq('contrato_id', contratoId).eq('is_ativo', true)
+      .eq('contrato_id', contratoParaEquipes(contratoId)).eq('is_ativo', true)
       .then(({ data }) => {
         const vistos = new Set()
         const tipos = (data || [])
@@ -104,7 +107,7 @@ export default function NovoRegistro() {
     if (!tipoEquipeId || !contratoId) { setEquipes([]); setAtividades([]); return }
 
     supabase.from('d_equipes').select('id, equipe')
-      .eq('contrato_id', contratoId).eq('tipo_equipe_id', tipoEquipeId).eq('is_ativo', true).order('equipe')
+      .eq('contrato_id', contratoParaEquipes(contratoId)).eq('tipo_equipe_id', tipoEquipeId).eq('is_ativo', true).order('equipe')
       .then(({ data }) => setEquipes(data || []))
 
     async function carregarAtividades() {
@@ -133,7 +136,7 @@ export default function NovoRegistro() {
     if (!contratoId || !tipoEquipeId) { setColaboradores([]); setEquipesContrato([]); return }
     async function carregar() {
       const { data: eqs } = await supabase
-        .from('d_equipes').select('id, equipe').eq('contrato_id', contratoId).eq('is_ativo', true)
+        .from('d_equipes').select('id, equipe').eq('contrato_id', contratoParaEquipes(contratoId)).eq('is_ativo', true)
 
       setEquipesContrato(eqs || [])
       const eqMap = {}
@@ -535,7 +538,7 @@ export default function NovoRegistro() {
               const opcoesAtividades = atividades.map(a => ({
                 valor: a.id,
                 label: a.codigo_op ? `[${a.codigo_op}] ${a.DESCRICAO_BASICA_SISTEMA}` : a.DESCRICAO_BASICA_SISTEMA,
-              }))
+              })).sort((a, b) => a.label.localeCompare(b.label, 'pt-BR'))
               const atvSel = atividades.find(a => String(a.id) === String(item.atividade_id))
               const usaLC = atvSel?.comprimento_lagura
               return (

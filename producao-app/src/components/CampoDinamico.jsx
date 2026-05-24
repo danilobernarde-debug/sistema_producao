@@ -63,6 +63,27 @@ export default function CampoDinamico({ campo, valor, onChange, erro }) {
   const classeInput = `campo-input${erro ? ' erro' : ''}`
   const classeSelect = `campo-select${erro ? ' erro' : ''}`
 
+  if (tipo === 'select') {
+    const opcoesList = (cfg.opcoes || '').split(',').map(o => o.trim()).filter(Boolean)
+    return (
+      <div className="campo-grupo">
+        <label className="campo-label">
+          {label} {obrigatorio && <span className="obrigatorio">*</span>}
+        </label>
+        <select
+          className={classeSelect}
+          value={valor ?? ''}
+          onChange={e => emitir(e.target.value)}
+          required={obrigatorio}
+        >
+          <option value="">Selecione...</option>
+          {opcoesList.map(op => <option key={op} value={op}>{op}</option>)}
+        </select>
+        {erro && <div className="campo-erro-msg">{erro}</div>}
+      </div>
+    )
+  }
+
   if (tipo === 'dropdown') {
     return (
       <CampoDropdown

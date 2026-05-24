@@ -9,6 +9,7 @@ const TIPOS_CAMPO = [
   { valor: 'hora',         label: 'Hora' },
   { valor: 'textarea',     label: 'Texto longo' },
   { valor: 'checkbox',     label: 'Checkbox (Sim/Não)' },
+  { valor: 'select',       label: 'Select (opções fixas)' },
   { valor: 'dropdown',     label: 'Dropdown (tabela)' },
 ]
 
@@ -33,12 +34,18 @@ const COLUNAS = [
     ajuda: 'Formato usando: 9 = dígito, a = letra, * = letra ou número. Exemplos: 99/99/9999 (data), (99) 99999-9999 (telefone), AAA-9999 (placa antiga), AAA-9*99 (placa Mercosul)' },
   { nome: 'placeholder',       label: 'Placeholder',        tipo: 'texto',    ocultarLista: true,
     ajuda: 'Texto de exemplo exibido dentro do campo quando está vazio, orientando o usuário sobre o formato esperado' },
+  { nome: 'opcoes',            label: 'Opções',             tipo: 'texto',    ocultarLista: true,
+    visibleWhen: { campo: 'tipo', valor: 'select' },
+    ajuda: 'Lista de opções separadas por vírgula (ex: MONOFASICA,TRIFASICA). O usuário verá um dropdown com esses valores.' },
   { nome: 'tabela_ref',        label: 'Tabela ref.',        tipo: 'texto',    ocultarLista: true,
-    ajuda: 'Usado apenas para tipo Dropdown. Nome da tabela no banco de dados de onde serão carregadas as opções (ex: d_colaboradores)' },
+    visibleWhen: { campo: 'tipo', valor: 'dropdown' },
+    ajuda: 'Nome da tabela no banco de dados de onde serão carregadas as opções (ex: d_colaboradores)' },
   { nome: 'coluna_valor',      label: 'Coluna valor',       tipo: 'texto',    ocultarLista: true,
-    ajuda: 'Usado apenas para tipo Dropdown. Nome da coluna cujo valor será salvo ao selecionar uma opção (geralmente id)' },
+    visibleWhen: { campo: 'tipo', valor: 'dropdown' },
+    ajuda: 'Nome da coluna cujo valor será salvo ao selecionar uma opção (geralmente id)' },
   { nome: 'coluna_label',      label: 'Coluna label',       tipo: 'texto',    ocultarLista: true,
-    ajuda: 'Usado apenas para tipo Dropdown. Nome da coluna que será exibida ao usuário na lista de opções (ex: nome, descricao)' },
+    visibleWhen: { campo: 'tipo', valor: 'dropdown' },
+    ajuda: 'Nome da coluna que será exibida ao usuário na lista de opções (ex: nome, descricao)' },
 ]
 
 export default function ConfigCampos() {

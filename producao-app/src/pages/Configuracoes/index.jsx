@@ -12,14 +12,17 @@ const SECOES = [
   { caminho: '/configuracoes/config-campos',            icone: '🔧', titulo: 'Campos',                descricao: 'Definição dos campos dinâmicos',                           superAdmin: true },
   { caminho: '/configuracoes/form-builder',             icone: '🧩', titulo: 'Editor de Formulário',  descricao: 'Configure os campos do formulário por contrato e equipe',  superAdmin: true },
   { caminho: '/configuracoes/usuarios',                 icone: '🔐', titulo: 'Usuários',              descricao: 'Criar usuários, perfis e acessos por contrato',            superAdmin: true },
-  { caminho: '/configuracoes/logins',                   icone: '🕐', titulo: 'Últimos Logins',        descricao: 'Histórico de acessos ao sistema',                          superAdmin: true },
+  { caminho: '/configuracoes/logins',                   icone: '🕐', titulo: 'Últimos Logins',        descricao: 'Histórico de acessos ao sistema',                          soDanilo: true },
 ]
 
 export default function Configuracoes() {
   const navegar = useNavigate()
-  const { perfil } = useAuth()
+  const { perfil, usuario } = useAuth()
   const isSuperAdmin = perfil?.d_auth_roles?.name === 'Super Admin'
-  const secoesFiltradas = SECOES.filter(s => !s.superAdmin || isSuperAdmin)
+  const isDanilo = usuario?.email === 'danilobernarde@gmail.com'
+  const secoesFiltradas = SECOES.filter(s =>
+    (!s.superAdmin || isSuperAdmin) && (!s.soDanilo || isDanilo)
+  )
 
   return (
     <div className="pagina">

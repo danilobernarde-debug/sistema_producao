@@ -18,6 +18,7 @@ export default function ListaRegistros() {
   const [equipeColabMap, setEquipeColabMap] = useState({})
   const [carregando, setCarregando] = useState(true)
   const [total, setTotal] = useState(0)
+  const [confirmarExcluir, setConfirmarExcluir] = useState(null) // id do registro a excluir
   const [pagina, setPagina] = useState(1)
 
   const saved = lerFiltrosSalvos()
@@ -131,11 +132,11 @@ export default function ListaRegistros() {
   }
 
   async function excluir(id) {
-    if (!window.confirm(`Excluir o registro #${id}? Esta ação não pode ser desfeita.`)) return
     const { error } = await supabase.from('f_prod_registro').delete().eq('id', id)
     if (error) { alert(`Erro ao excluir: ${error.message}`); return }
     setRegistrosRaw(prev => prev.filter(r => r.id !== id))
     setTotal(prev => prev - 1)
+    setConfirmarExcluir(null)
   }
 
   function limpar() {
@@ -263,7 +264,7 @@ export default function ListaRegistros() {
                         <MenuAcoes
                           onVisualizar={() => navegar(`/producao/${r.id}/editar?modo=visualizar`)}
                           onEditar={() => navegar(`/producao/${r.id}/editar`)}
-                          onExcluir={() => excluir(r.id)}
+                          onExcluir={() => setConfirmarExcluir(r.id)}
                         />
                       </td>
                     </tr>
@@ -299,6 +300,24 @@ export default function ListaRegistros() {
           </>
         )}
       </div>
+    {/* Modal confirmação de exclusão */}
+    {confirmarExcluir !== null && (
+      <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.45)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}>
+        <div style={{ background: 'white', borderRadius: 10, padding: 28, maxWidth: 400, width: '100%', boxShadow: '0 8px 32px rgba(0,0,0,0.2)' }}>
+          <h2 style={{ margin: '0 0 12px', fontSize: 16, fontWeight: 600, color: '#1e2a3b' }}>Confirmar exclusão</h2>
+          <p style={{ margin: '0 0 20px', color: '#374151', fontSize: 14 }}>
+            Excluir o registro <strong>#{confirmarExcluir}</strong>? Esta ação não pode ser desfeita.
+          </p>
+          <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
+            <button className="btn btn-secundario" onClick={() => setConfirmarExcluir(null)}>Cancelar</button>
+            <button className="btn btn-primario" style={{ background: '#dc2626', borderColor: '#dc2626' }}
+              onClick={() => excluir(confirmarExcluir)}>
+              Excluir
+            </button>
+          </div>
+        </div>
+      </div>
+    )}
     </div>
   )
 }
