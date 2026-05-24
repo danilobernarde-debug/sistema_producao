@@ -314,6 +314,7 @@ export default function NovoRegistro() {
           regional_id: regionalId ? Number(regionalId) : null,
           metadata_registro: metaRegistro,
           criado_por_id: usuario.id,
+          origem: 'sistema-claude',
         }).select('id').single()
       if (erReg) throw erReg
 
@@ -335,6 +336,7 @@ export default function NovoRegistro() {
             upe: vals ? vals.upe : null,
             preco_upe: vals ? vals.precoUpe : null,
             metadata_atividades: meta,
+            origem: 'sistema-claude',
           }
         })
       )
@@ -345,11 +347,12 @@ export default function NovoRegistro() {
           registro_id: reg.id,
           colaborador_id: Number(c.id),
           equipe_id: c.overrideEquipeId ? Number(c.overrideEquipeId) : (c.equipe_id ? Number(c.equipe_id) : null),
+          origem: 'sistema-claude',
         }))
       } else {
         presenca = [
-          ...presentesList.map(c => ({ registro_id: reg.id, colaborador_id: Number(c.id), equipe_id: c.overrideEquipeId ? Number(c.overrideEquipeId) : (c.equipe_id ? Number(c.equipe_id) : null) })),
-          ...adicionados.map(c => ({ registro_id: reg.id, colaborador_id: Number(c.id), equipe_id: c.overrideEquipeId ? Number(c.overrideEquipeId) : (c.equipe_id ? Number(c.equipe_id) : null) })),
+          ...presentesList.map(c => ({ registro_id: reg.id, colaborador_id: Number(c.id), equipe_id: c.overrideEquipeId ? Number(c.overrideEquipeId) : (c.equipe_id ? Number(c.equipe_id) : null), origem: 'sistema-claude' })),
+          ...adicionados.map(c => ({ registro_id: reg.id, colaborador_id: Number(c.id), equipe_id: c.overrideEquipeId ? Number(c.overrideEquipeId) : (c.equipe_id ? Number(c.equipe_id) : null), origem: 'sistema-claude' })),
         ]
       }
       if (presenca.length > 0) {

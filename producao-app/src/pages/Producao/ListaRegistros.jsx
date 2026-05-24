@@ -1,8 +1,14 @@
 import { useState, useEffect, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../../supabaseClient'
+import SelectPesquisavel from '../../components/SelectPesquisavel'
 
 const POR_PAGINA = 30
+const FILTROS_KEY = 'lista-registros-filtros'
+
+function lerFiltrosSalvos() {
+  try { return JSON.parse(sessionStorage.getItem(FILTROS_KEY) || '{}') } catch { return {} }
+}
 
 export default function ListaRegistros() {
   const navegar = useNavigate()
@@ -14,11 +20,20 @@ export default function ListaRegistros() {
   const [total, setTotal] = useState(0)
   const [pagina, setPagina] = useState(1)
 
-  const [filtroContrato, setFiltroContrato] = useState('')
-  const [filtroData, setFiltroData] = useState('')
-  const [filtroId, setFiltroId] = useState('')
-  const [filtroEquipe, setFiltroEquipe] = useState('')
-  const [filtroObservacoes, setFiltroObservacoes] = useState('')
+  const saved = lerFiltrosSalvos()
+  const [filtroContrato, setFiltroContrato] = useState(saved.contrato || '')
+  const [filtroData, setFiltroData] = useState(saved.data || '')
+  const [filtroId, setFiltroId] = useState(saved.id || '')
+  const [filtroEquipe, setFiltroEquipe] = useState(saved.equipe || '')
+  const [filtroObservacoes, setFiltroObservacoes] = useState(saved.observacoes || '')
+  const [filtroOrigem, setFiltroOrigem] = useState(saved.origem || '')
+
+  useEffect(() => {
+    sessionStorage.setItem(FILTROS_KEY, JSON.stringify({
+      contrato: filtroContrato, data: filtroData, id: filtroId,
+      equipe: filtroEquipe, observacoes: filtroObservacoes, origem: filtroOrigem,
+    }))
+  }, [filtroContrato, filtroData, filtroId, filtroEquipe, filtroObservacoes, filtroOrigem])
 
   const [contratos, setContratos] = useState([])
   const [tiposEquipe, setTiposEquipe] = useState([])
@@ -48,11 +63,12 @@ export default function ListaRegistros() {
   })), [registrosRaw, encMap, totalMap, equipeColabMap, equipes, contratos])
 
   function aplicarFiltros(q) {
-    if (filtroContrato) q = q.eq('contrato_id', filtroContrato)
-    if (filtroData)     q = q.eq('data_producao', filtroData)
-    if (filtroId)       q = q.eq('id', Number(filtroId))
+    if (filtroContrato)    q = q.eq('contrato_id', filtroContrato)
+    if (filtroData)        q = q.eq('data_producao', filtroData)
+    if (filtroId)          q = q.eq('id', Number(filtroId))
     if (filtroEquipe)      q = q.eq('equipe_id', filtroEquipe)
     if (filtroObservacoes) q = q.ilike('metadata_registro->>observacoes', `%${filtroObservacoes}%`)
+    if (filtroOrigem)      q = q.eq('origem', filtroOrigem)
     return q
   }
 
@@ -128,6 +144,8 @@ export default function ListaRegistros() {
     setFiltroId('')
     setFiltroEquipe('')
     setFiltroObservacoes('')
+    setFiltroOrigem('')
+    sessionStorage.removeItem(FILTROS_KEY)
     if (pagina === 1) buscar(1)
     else setPagina(1)
   }
@@ -170,20 +188,29 @@ export default function ListaRegistros() {
             <label className="campo-label">Data</label>
             <input type="date" className="campo-input" value={filtroData} onChange={e => setFiltroData(e.target.value)} />
           </div>
-          <div className="campo-grupo" style={{ marginBottom: 0, minWidth: 160 }}>
+          <div className="campo-grupo" style={{ marginBottom: 0, minWidth: 180 }}>
             <label className="campo-label">Equipe</label>
-            <select className="campo-select" value={filtroEquipe} onChange={e => setFiltroEquipe(e.target.value)}>
-              <option value="">Todas</option>
-              {(filtroContrato
-                ? equipes.filter(e => String(e.contrato_id) === String(filtroContrato))
-                : equipes
-              ).map(e => <option key={e.id} value={e.id}>{e.equipe}</option>)}
-            </select>
+            <SelectPesquisavel
+              opcoes={(filtroContrato ? equipes.filter(e => String(e.contrato_id) === String(filtroContrato)) : equipes)
+                .map(e => ({ valor: e.id, label: e.equipe }))}
+              valor={filtroEquipe}
+              onChange={v => setFiltroEquipe(v)}
+              placeholder="Todas"
+            />
           </div>
           <div className="campo-grupo" style={{ marginBottom: 0, minWidth: 160 }}>
             <label className="campo-label">Observações</label>
             <input type="text" className="campo-input" value={filtroObservacoes}
               onChange={e => setFiltroObservacoes(e.target.value)} placeholder="Pesquisar..." />
+          </div>
+          <div className="campo-grupo" style={{ marginBottom: 0, minWidth: 140 }}>
+            <label className="campo-label">Origem</label>
+            <select className="campo-select" value={filtroOrigem} onChange={e => setFiltroOrigem(e.target.value)}>
+              <option value="">Todas</option>
+              <option value="Coletum">Coletum</option>
+              <option value="sistema-claude">Sistema</option>
+              <option value="sistema-weweb">WeWeb</option>
+            </select>
           </div>
           <button className="btn btn-primario" onClick={filtrar}>Filtrar</button>
           <button className="btn btn-secundario" onClick={limpar}>Limpar</button>

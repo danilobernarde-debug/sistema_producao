@@ -5,6 +5,34 @@ import { useCamposDinamicos } from '../../hooks/useCamposDinamicos'
 import CampoDinamico from '../../components/CampoDinamico'
 import SelectPesquisavel from '../../components/SelectPesquisavel'
 
+function formatarValorMeta(v) {
+  if (v === null || v === undefined || v === '') return <span style={{ color: '#9ca3af' }}>—</span>
+  if (typeof v === 'boolean') return v ? 'Sim' : 'Não'
+  if (typeof v === 'object') return JSON.stringify(v)
+  return String(v)
+}
+
+function MetaTabela({ dados }) {
+  const entradas = Object.entries(dados).filter(([, v]) => v !== null && v !== undefined && v !== '')
+  if (entradas.length === 0) return <p style={{ color: '#9ca3af', fontSize: 12, margin: 0 }}>Sem dados.</p>
+  return (
+    <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
+      <tbody>
+        {entradas.map(([chave, valor]) => (
+          <tr key={chave} style={{ borderBottom: '1px solid #f3f4f6' }}>
+            <td style={{ padding: '5px 10px 5px 0', color: '#6b7280', whiteSpace: 'nowrap', verticalAlign: 'top', width: 1 }}>
+              {chave.replace(/_/g, ' ')}
+            </td>
+            <td style={{ padding: '5px 0', fontWeight: 500, color: '#111827', wordBreak: 'break-word' }}>
+              {formatarValorMeta(valor)}
+            </td>
+          </tr>
+        ))}
+      </tbody>
+    </table>
+  )
+}
+
 export default function EditarRegistro() {
   const { id } = useParams()
   const navegar = useNavigate()
@@ -33,6 +61,7 @@ export default function EditarRegistro() {
   const [dataProducao, setDataProducao] = useState('')
   const [metaRegistro, setMetaRegistro] = useState({})
   const [itens, setItens] = useState([])
+  const [modalMeta, setModalMeta] = useState(null) // 'registro' | 'atividades' | null
 
   // logica=false: lista da equipe (auto-preenchida) + externos adicionados
   const [presentesList, setPresentesList] = useState([])
@@ -104,16 +133,32 @@ export default function EditarRegistro() {
       .from('f_prod_colaboradores').select('colaborador_id, equipe_id').eq('registro_id', id)
 
     // Equipes do contrato
-    const { data: eqs } = await supabase
+    let { data: eqs } = await supabase
       .from('d_equipes').select('tipo_equipe_id, id, equipe, d_tipo_equipe(id, descricao)')
       .eq('contrato_id', reg.contrato_id).eq('is_ativo', true)
+
+    // Fallback: se o contrato não tem equipes cadastradas, buscar pelo contrato real da equipe do registro
+    if ((!eqs || eqs.length === 0) && reg.equipe_id) {
+      const { data: eqBase } = await supabase.from('d_equipes').select('contrato_id').eq('id', reg.equipe_id).single()
+      if (eqBase?.contrato_id && eqBase.contrato_id !== reg.contrato_id) {
+        const { data: eqsAlt } = await supabase
+          .from('d_equipes').select('tipo_equipe_id, id, equipe, d_tipo_equipe(id, descricao)')
+          .eq('contrato_id', eqBase.contrato_id).eq('is_ativo', true)
+        eqs = eqsAlt || []
+      }
+    }
 
     setEquipesContrato(eqs || [])
 
     const vistos = new Set()
-    setTiposEquipe((eqs || [])
+    const tipos = (eqs || [])
       .filter(e => { if (vistos.has(e.tipo_equipe_id)) return false; vistos.add(e.tipo_equipe_id); return true })
-      .map(e => e.d_tipo_equipe).filter(Boolean))
+      .map(e => e.d_tipo_equipe).filter(Boolean)
+    if (reg.tipo_equipe_id && !tipos.some(t => String(t.id) === String(reg.tipo_equipe_id))) {
+      const { data: teFallback } = await supabase.from('d_tipo_equipe').select('id, descricao').eq('id', reg.tipo_equipe_id).single()
+      if (teFallback) tipos.unshift(teFallback)
+    }
+    setTiposEquipe(tipos)
 
     let equipesFiltradas = (eqs || [])
       .filter(e => String(e.tipo_equipe_id) === String(reg.tipo_equipe_id))
@@ -138,19 +183,51 @@ export default function EditarRegistro() {
       ? qAtiv.or(`tipo_equipe_id.is.null,tipo_equipe_id.eq.0,tipo_equipe_id.eq.${grupoAtiv}`)
       : qAtiv.or(`tipo_equipe_id.is.null,tipo_equipe_id.eq.0`)
     const { data: ativsData } = await qAtiv
-    setAtividades(ativsData || [])
+    const ativsCarregadas = ativsData || []
+
+    // Buscar atividades referenciadas pelos itens mas não carregadas (ex: fallback de outro contrato)
+    const idsCarregados = new Set(ativsCarregadas.map(a => String(a.id)))
+    const idsExtras = [...new Set((ats || []).map(a => String(a.atividade_id)).filter(id => id && !idsCarregados.has(id)))]
+    if (idsExtras.length > 0) {
+      const { data: extrasData } = await supabase.from('d_atividades').select(campos).in('id', idsExtras)
+      ativsCarregadas.push(...(extrasData || []))
+    }
+
+    setAtividades(ativsCarregadas)
 
     // Todos colaboradores do contrato
     const eqMap = {}
     const equipeIds = (eqs || []).map(e => { eqMap[e.id] = e.equipe; return e.id })
 
-    if (equipeIds.length > 0) {
-      const { data: colabs } = await supabase
-        .from('d_colaboradores').select('id, matricula_nome, equipe_id')
-        .in('equipe_id', equipeIds).eq('is_ativo', true).order('matricula_nome')
+    // Garantir que a equipe do registro está incluída mesmo se for de outro contrato
+    if (reg.equipe_id && !equipeIds.some(id => String(id) === String(reg.equipe_id))) {
+      equipeIds.push(Number(reg.equipe_id))
+      const eqNomeFallback = equipesFiltradas.find(e => String(e.id) === String(reg.equipe_id))?.equipe
+      if (eqNomeFallback) eqMap[reg.equipe_id] = eqNomeFallback
+    }
 
+    {
       const equipeIdSel = reg.equipe_id ? String(reg.equipe_id) : ''
-      const sorted = [...(colabs || [])].sort((a, b) => {
+      let colabs = []
+      if (equipeIds.length > 0) {
+        const { data } = await supabase
+          .from('d_colaboradores').select('id, matricula_nome, equipe_id')
+          .in('equipe_id', equipeIds).eq('is_ativo', true).order('matricula_nome')
+        colabs = data || []
+      }
+
+      // Buscar colaboradores do fpc que não estão na lista (ex: equipe mudou de contrato)
+      const fpcIds = (fpc || []).map(e => e.colaborador_id)
+      const colabsCarregadosIds = new Set(colabs.map(c => c.id))
+      const idsExtrasColab = fpcIds.filter(cid => !colabsCarregadosIds.has(cid))
+      if (idsExtrasColab.length > 0) {
+        const { data: extrasColab } = await supabase
+          .from('d_colaboradores').select('id, matricula_nome, equipe_id')
+          .in('id', idsExtrasColab)
+        colabs = [...colabs, ...(extrasColab || [])]
+      }
+
+      const sorted = [...colabs].sort((a, b) => {
         const aHome = equipeIdSel && String(a.equipe_id) === equipeIdSel
         const bHome = equipeIdSel && String(b.equipe_id) === equipeIdSel
         return aHome === bHome ? 0 : aHome ? -1 : 1
@@ -338,7 +415,8 @@ export default function EditarRegistro() {
       await supabase.from('f_prod_atividades').delete().eq('registro_id', id)
       await supabase.from('f_prod_atividades').insert(itens.map(it => {
         const atv = atividades.find(a => String(a.id) === String(it.atividade_id))
-        const usaLC = atv?.comprimento_lagura
+        const temDadosLCSave = Number(it.comprimento) > 0 || Number(it.largura) > 0
+        const usaLC = atv?.comprimento_lagura && (temDadosLCSave || !it.id)
         const qtd = usaLC
           ? Number(it.largura || 0) * Number(it.comprimento || 0)
           : Number(it.quantidade)
@@ -353,6 +431,7 @@ export default function EditarRegistro() {
           upe: vals ? vals.upe : null,
           preco_upe: vals ? vals.precoUpe : null,
           metadata_atividades: meta,
+          origem: 'sistema-claude',
         }
       }))
 
@@ -364,11 +443,12 @@ export default function EditarRegistro() {
           registro_id: Number(id),
           colaborador_id: Number(c.id),
           equipe_id: c.overrideEquipeId ? Number(c.overrideEquipeId) : (c.equipe_id ? Number(c.equipe_id) : null),
+          origem: 'sistema-claude',
         }))
       } else {
         presenca = [
-          ...presentesList.map(c => ({ registro_id: Number(id), colaborador_id: Number(c.id), equipe_id: c.overrideEquipeId ? Number(c.overrideEquipeId) : (c.equipe_id ? Number(c.equipe_id) : null) })),
-          ...adicionados.map(c => ({ registro_id: Number(id), colaborador_id: Number(c.id), equipe_id: c.overrideEquipeId ? Number(c.overrideEquipeId) : (c.equipe_id ? Number(c.equipe_id) : null) })),
+          ...presentesList.map(c => ({ registro_id: Number(id), colaborador_id: Number(c.id), equipe_id: c.overrideEquipeId ? Number(c.overrideEquipeId) : (c.equipe_id ? Number(c.equipe_id) : null), origem: 'sistema-claude' })),
+          ...adicionados.map(c => ({ registro_id: Number(id), colaborador_id: Number(c.id), equipe_id: c.overrideEquipeId ? Number(c.overrideEquipeId) : (c.equipe_id ? Number(c.equipe_id) : null), origem: 'sistema-claude' })),
         ]
       }
       if (presenca.length > 0) {
@@ -410,7 +490,9 @@ export default function EditarRegistro() {
     if (!item.atividade_id) return null
     const atv = atividades.find(a => String(a.id) === String(item.atividade_id))
     if (!atv) return null
-    const qtd = atv.comprimento_lagura
+    const temDadosLC = Number(item.comprimento) > 0 || Number(item.largura) > 0
+    const usaLC = atv.comprimento_lagura && (temDadosLC || !item.id)
+    const qtd = usaLC
       ? Number(item.largura || 0) * Number(item.comprimento || 0)
       : Number(item.quantidade || 0)
     if (qtd <= 0) return null
@@ -437,6 +519,41 @@ export default function EditarRegistro() {
 
   return (
     <div className="pagina">
+      {modalMeta && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 2000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}>
+          <div style={{ background: 'white', borderRadius: 10, padding: 24, maxWidth: 680, width: '100%', maxHeight: '80vh', display: 'flex', flexDirection: 'column', boxShadow: '0 8px 32px rgba(0,0,0,0.2)' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+              <span style={{ fontWeight: 600, fontSize: 15 }}>
+                {modalMeta === 'registro' ? 'Metadados — Identificação' : 'Metadados — Atividades'}
+              </span>
+              <button type="button" onClick={() => setModalMeta(null)}
+                style={{ background: 'none', border: 'none', fontSize: 20, cursor: 'pointer', color: '#6b7280', lineHeight: 1 }}>×</button>
+            </div>
+            <div style={{ overflowY: 'auto', flex: 1 }}>
+              {modalMeta === 'registro' ? (
+                Object.keys(metaRegistro).length === 0
+                  ? <p style={{ color: '#6b7280', fontSize: 13 }}>Nenhum metadado armazenado.</p>
+                  : <MetaTabela dados={metaRegistro} />
+              ) : (
+                itens.length === 0
+                  ? <p style={{ color: '#6b7280', fontSize: 13 }}>Nenhuma atividade.</p>
+                  : itens.map((it, idx) => (
+                    <div key={idx} style={{ marginBottom: 16 }}>
+                      <div style={{ fontSize: 12, fontWeight: 600, color: '#374151', marginBottom: 6 }}>
+                        Atividade #{idx + 1}{it.atividade_id ? ` — ID ${it.atividade_id}` : ''}
+                      </div>
+                      {Object.keys(it.meta || {}).length === 0
+                        ? <p style={{ color: '#9ca3af', fontSize: 12, margin: 0 }}>Sem metadados.</p>
+                        : <MetaTabela dados={it.meta} />
+                      }
+                    </div>
+                  ))
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
       {dialogTroca && (
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.45)', zIndex: 2000, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
           <div style={{ background: 'white', borderRadius: 10, padding: 28, maxWidth: 400, width: '90%', boxShadow: '0 8px 32px rgba(0,0,0,0.2)' }}>
@@ -472,7 +589,13 @@ export default function EditarRegistro() {
       <form onSubmit={salvar}>
         {/* Identificação */}
         <div className="card">
-          <div className="card-titulo">Identificação</div>
+          <div className="card-titulo" style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            Identificação
+            <button type="button" title="Ver metadados brutos" onClick={() => setModalMeta('registro')}
+              style={{ background: 'none', border: '1px solid #d1d5db', borderRadius: 5, padding: '1px 7px', fontSize: 11, color: '#6b7280', cursor: 'pointer', fontFamily: 'monospace', lineHeight: 1.6 }}>
+              {'{ }'}
+            </button>
+          </div>
           <div className="campos-grid">
             <div className="campo-grupo">
               <label className="campo-label">Data da Produção <span className="obrigatorio">*</span></label>
@@ -548,14 +671,21 @@ export default function EditarRegistro() {
 
         {/* Atividades */}
         <div className="card">
-          <div className="card-titulo">Atividades Executadas</div>
+          <div className="card-titulo" style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            Atividades Executadas
+            <button type="button" title="Ver metadados brutos" onClick={() => setModalMeta('atividades')}
+              style={{ background: 'none', border: '1px solid #d1d5db', borderRadius: 5, padding: '1px 7px', fontSize: 11, color: '#6b7280', cursor: 'pointer', fontFamily: 'monospace', lineHeight: 1.6 }}>
+              {'{ }'}
+            </button>
+          </div>
           {itens.map((item, idx) => {
             const opcoesAtividades = atividades.map(a => ({
               valor: a.id,
               label: a.codigo_op ? `[${a.codigo_op}] ${a.DESCRICAO_BASICA_SISTEMA}` : a.DESCRICAO_BASICA_SISTEMA,
             }))
             const atvSel = atividades.find(a => String(a.id) === String(item.atividade_id))
-            const usaLC = atvSel?.comprimento_lagura
+            const temDadosLC = Number(item.comprimento) > 0 || Number(item.largura) > 0
+            const usaLC = atvSel?.comprimento_lagura && (temDadosLC || !item.id)
             return (
               <div key={idx} className="atividade-item">
                 <div className="atividade-item-header">
