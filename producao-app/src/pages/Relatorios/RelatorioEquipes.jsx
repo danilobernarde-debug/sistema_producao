@@ -24,7 +24,8 @@ function inicioMes() {
 }
 
 async function lerMetas(dataInicio, dataFim) {
-  const resp = await fetch('/Metas_por_tipo_equipe_id.xlsm')
+  const { data: { publicUrl } } = supabase.storage.from('Metas').getPublicUrl('Metas_por_tipo_equipe_id.xlsm')
+  const resp = await fetch(publicUrl)
   const buffer = await resp.arrayBuffer()
   const wb = XLSX.read(buffer, { type: 'array' })
   const ws = wb.Sheets['Metas']

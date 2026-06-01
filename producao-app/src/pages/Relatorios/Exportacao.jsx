@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import * as XLSX from 'xlsx'
 import { supabase } from '../../supabaseClient'
@@ -21,13 +21,65 @@ function expandirMetadata(rows) {
   })
 }
 
+const EXCEL_EPOCH = Date.UTC(1899, 11, 30) // 30/12/1899 UTC — epoch do Excel
+
+function isoToExcelSerial(str) {
+  const m = str.match(/^(\d{4})-(\d{2})-(\d{2})$/)
+  if (!m) return null
+  return (Date.UTC(Number(m[1]), Number(m[2]) - 1, Number(m[3])) - EXCEL_EPOCH) / 86400000
+}
+
 function exportarXLSX(dados, colunas, nomeArquivo) {
+  // detecta colunas com datas ISO (YYYY-MM-DD)
+  const dateCols = new Set()
+  for (const col of colunas) {
+    for (const row of dados.slice(0, 20)) {
+      if (typeof row[col] === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(row[col])) {
+        dateCols.add(col); break
+      }
+    }
+  }
+
   const linhas = dados.map(row => {
     const obj = {}
-    colunas.forEach(col => { obj[col] = row[col] ?? '' })
+    colunas.forEach(col => {
+      const val = row[col] ?? ''
+      if (dateCols.has(col) && typeof val === 'string') {
+        const serial = isoToExcelSerial(val)
+        obj[col] = serial !== null ? serial : val
+      } else {
+        obj[col] = val
+      }
+    })
     return obj
   })
+
   const ws = XLSX.utils.json_to_sheet(linhas)
+
+  // aplica formato de data nas colunas detectadas
+  if (ws['!ref']) {
+    const range = XLSX.utils.decode_range(ws['!ref'])
+    const dateColIdx = []
+    for (let C = range.s.c; C <= range.e.c; C++) {
+      const h = ws[XLSX.utils.encode_cell({ r: 0, c: C })]
+      if (h && dateCols.has(String(h.v))) dateColIdx.push(C)
+    }
+    for (let R = 1; R <= range.e.r; R++) {
+      for (const C of dateColIdx) {
+        const cell = ws[XLSX.utils.encode_cell({ r: R, c: C })]
+        if (cell && cell.t === 'n') cell.z = 'dd/mm/yyyy'
+      }
+    }
+  }
+
+  ws['!cols'] = colunas.map(col => {
+    const maxLen = Math.max(
+      col.length,
+      ...dados.slice(0, 200).map(row => String(row[col] ?? '').length)
+    )
+    return { wch: Math.min(maxLen + 2, 60) }
+  })
+
   const wb = XLSX.utils.book_new()
   XLSX.utils.book_append_sheet(wb, ws, 'Dados')
   XLSX.writeFile(wb, `${nomeArquivo}_${new Date().toISOString().slice(0, 10)}.xlsx`)
@@ -53,6 +105,8 @@ export default function Exportacao() {
   const [totalRegistros, setTotalRegistros]   = useState(0)
   const [erro, setErro]                       = useState('')
 
+  const cancelarRef = useRef(false)
+
   const anos = []
   for (let y = 2023; y <= hoje.getFullYear() + 1; y++) anos.push(String(y))
 
@@ -69,7 +123,13 @@ export default function Exportacao() {
     return { inicio, fim }
   }
 
+  function cancelar() {
+    cancelarRef.current = true
+    setCarregando(false)
+  }
+
   async function carregar() {
+    cancelarRef.current = false
     setErro('')
     setCarregando(true)
     setDados(null)
@@ -91,6 +151,8 @@ export default function Exportacao() {
           p_offset:      from,
         })
 
+        if (cancelarRef.current) { setCarregando(false); return }
+
         if (error) {
           setErro(`Erro: ${error.message}`)
           setCarregando(false)
@@ -102,7 +164,7 @@ export default function Exportacao() {
         todos.push(...linhas)
         from += CHUNK
         if (total === null) total = linhas.length < CHUNK ? from : null
-        setProgresso({ atual: from, total: total ?? from + 1 })
+        setProgresso({ atual: from, total: total ?? from + CHUNK })
         if (linhas.length < CHUNK) { total = from; break }
       }
     } catch (e) {
@@ -119,7 +181,7 @@ export default function Exportacao() {
     }
 
     const expandido = expandirMetadata(todos)
-    setTotalRegistros(total ?? todos.length)
+    setTotalRegistros(expandido.length)
 
     function ocultarColuna(k) {
       if (k === 'metadata_registro' || k === 'metadata_atividades') return true
@@ -169,7 +231,7 @@ export default function Exportacao() {
   const todasColunas = [...colunasBase, ...colunasMeta]
   const colunasParaExportar = todasColunas.filter(c => selecionadas.has(c))
   const previewLinhas = dados ? dados.slice(0, 50) : []
-  const pct = progresso.total > 0 ? Math.round((progresso.atual / progresso.total) * 100) : 0
+  const pct = progresso.total > 0 ? Math.min(Math.round((progresso.atual / progresso.total) * 100), carregando ? 99 : 100) : 0
 
   const selectStyle = { padding: '6px 10px', borderRadius: 6, border: '1px solid #d1d5db', fontSize: 13, background: 'white', color: '#1e2a3b' }
 
@@ -215,9 +277,14 @@ export default function Exportacao() {
               {contratos.map(c => <option key={c.id} value={c.id}>{c.descricao}</option>)}
             </select>
           </div>
-          <button className="btn btn-primario" onClick={carregar} disabled={carregando} style={{ alignSelf: 'flex-end' }}>
-            {carregando ? 'Carregando...' : dados ? 'Recarregar' : 'Carregar Dados'}
-          </button>
+          <div style={{ display: 'flex', gap: 8, alignSelf: 'flex-end' }}>
+            <button className="btn btn-primario" onClick={carregar} disabled={carregando}>
+              {carregando ? 'Carregando...' : dados ? 'Recarregar' : 'Carregar Dados'}
+            </button>
+            {carregando && (
+              <button className="btn btn-secundario" onClick={cancelar}>Cancelar</button>
+            )}
+          </div>
         </div>
 
         {/* Barra de progresso */}

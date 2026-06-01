@@ -24,6 +24,7 @@ import GerenciarUsuarios from './pages/Configuracoes/GerenciarUsuarios'
 import UltimosLogins from './pages/Configuracoes/UltimosLogins'
 import Atividades from './pages/Configuracoes/Atividades'
 import FormBuilder from './pages/Configuracoes/FormBuilder'
+import Metas from './pages/Configuracoes/Metas'
 import Planejamento from './pages/Planejamento'
 
 function RotaProtegida({ children }) {
@@ -148,6 +149,7 @@ export default function App() {
         <Route path="/configuracoes/logins" element={<RotaProtegida><RotaDanilo><UltimosLogins /></RotaDanilo></RotaProtegida>} />
         <Route path="/configuracoes/atividades" element={<RotaProtegida><RotaSuperAdmin><Atividades /></RotaSuperAdmin></RotaProtegida>} />
         <Route path="/configuracoes/form-builder" element={<RotaProtegida><RotaSuperAdmin><FormBuilder /></RotaSuperAdmin></RotaProtegida>} />
+        <Route path="/configuracoes/metas" element={<RotaProtegida><RotaSuperAdmin><Metas /></RotaSuperAdmin></RotaProtegida>} />
 
         <Route path="/planejamento" element={
           <RotaProtegida>

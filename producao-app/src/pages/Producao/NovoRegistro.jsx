@@ -4,6 +4,7 @@ import { supabase } from '../../supabaseClient'
 import { useAuth } from '../../hooks/useAuth'
 import { useCamposDinamicos } from '../../hooks/useCamposDinamicos'
 import CampoDinamico from '../../components/CampoDinamico'
+import BotaoCoordsMap from '../../components/BotaoCoordsMap'
 import SelectPesquisavel from '../../components/SelectPesquisavel'
 
 const IDS_FAIXA_TO = new Set([17, 18, 19])
@@ -598,6 +599,30 @@ export default function NovoRegistro() {
                         erro={errosCampos[`at_${idx}_${c.config_campos.nome}`]} />
                     ))}
                   </div>
+                  {(() => {
+                    const fix = v => v ? String(v).replace(',', '.') : null
+                    const lat1 = fix(item.meta?.latitude_inicial), lng1 = fix(item.meta?.longitude_inicial)
+                    const lat2 = fix(item.meta?.latitude_final),  lng2 = fix(item.meta?.longitude_final)
+                    if (!lat1 && !lat2) return null
+                    let distancia = null
+                    if (lat1 && lng1 && lat2 && lng2) {
+                      const R = 6371000
+                      const toRad = d => d * Math.PI / 180
+                      const dLat = toRad(lat2 - lat1), dLng = toRad(lng2 - lng1)
+                      const a = Math.sin(dLat/2)**2 + Math.cos(toRad(+lat1)) * Math.cos(toRad(+lat2)) * Math.sin(dLng/2)**2
+                      const m = R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a))
+                      distancia = m >= 1000 ? `${(m/1000).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} km` : `${Math.round(m)} m`
+                    }
+                    return (
+                      <div style={{ marginTop: 6, display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                        {lat1 && lng1 && <BotaoCoordsMap lat={lat1} lng={lng1} label="Ponto Inicial" />}
+                        {lat2 && lng2 && <BotaoCoordsMap lat={lat2} lng={lng2} label="Ponto Final" />}
+                        {distancia && (
+                          <span style={{ fontSize: 12, color: '#6b7280' }}>↔ {distancia} (linha reta)</span>
+                        )}
+                      </div>
+                    )
+                  })()}
                   {(() => {
                     const vals = calcularValores(item)
                     return vals !== null ? (

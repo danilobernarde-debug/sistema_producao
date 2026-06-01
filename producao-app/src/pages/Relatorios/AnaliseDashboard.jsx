@@ -53,7 +53,8 @@ const CORES_PIE = ['#1a56db','#7e3af2','#0e9f6e','#f05252','#ff5a1f','#c27803','
 
 async function lerMetasAnuais(ano) {
   try {
-    const resp = await fetch('/Metas_por_tipo_equipe_id.xlsm')
+    const { data: { publicUrl } } = supabase.storage.from('Metas').getPublicUrl('Metas_por_tipo_equipe_id.xlsm')
+    const resp = await fetch(publicUrl)
     const buffer = await resp.arrayBuffer()
     const wb = XLSX.read(buffer, { type: 'array' })
     const ws = wb.Sheets['Metas']
@@ -85,7 +86,8 @@ async function fetchAllPages(buildQuery, pageSize = 1000) {
   let from = 0
   while (true) {
     const { data, error } = await buildQuery().range(from, from + pageSize - 1)
-    if (error || !data?.length) break
+    if (error) throw new Error(error.message || JSON.stringify(error))
+    if (!data?.length) break
     all.push(...data)
     if (data.length < pageSize) break
     from += pageSize
@@ -186,9 +188,7 @@ export default function AnaliseDashboard() {
     try {
       const [viewData, resMetas] = await Promise.all([
         fetchAllPages(() =>
-          supabase.from('vw_producao_dashboard')
-            .select('registro_id, contrato_id, desc_contrato, tipo_equipe_id, data_producao_original, equipe_id, desc_equipe, desc_atividade, atividade_id, quantidade, upe, preco_upe, valor_producao, justificativa')
-            .gte('data_producao_original', ini).lte('data_producao_original', fim)
+          supabase.rpc('get_mat_producao_powerbi', { p_ini: ini, p_fim: fim })
             .order('data_producao_original', { ascending: true })
         ),
         lerMetasAnuais(ano),
