@@ -81,7 +81,7 @@
         </div>
         <div class="campo">
           <label>OS</label>
-          <select id="f-os"><option value="">Todas</option></select>
+          <input type="text" id="f-os" placeholder="Pesquisar OS..." style="min-width:180px">
         </div>
         <div class="campo">
           <label>Tipo de Rede</label>
@@ -168,7 +168,6 @@ function popularFiltros() {
   document.getElementById('f-inicio').value = datas[0] || ''
   document.getElementById('f-fim').value    = datas[datas.length-1] || ''
   sel('f-equipe', uniq(todasLinhas.map(l=>l[1])))
-  sel('f-os',     uniq(todasLinhas.map(l=>l[2])))
   sel('f-rede',   uniq(todasLinhas.map(l=>l[3])))
 }
 
@@ -186,7 +185,8 @@ function limpar() {
   const datas = todasLinhas.map(l=>l[0]).filter(Boolean).sort()
   document.getElementById('f-inicio').value = datas[0] || ''
   document.getElementById('f-fim').value    = datas[datas.length-1] || ''
-  ;['f-equipe','f-os','f-rede'].forEach(id => document.getElementById(id).value = '')
+  ;['f-equipe','f-rede'].forEach(id => document.getElementById(id).value = '')
+  document.getElementById('f-os').value = ''
   aplicar()
 }
 
@@ -201,7 +201,7 @@ function aplicar() {
     if (ini  && l[0] < ini)  return false
     if (fim  && l[0] > fim)  return false
     if (eq   && l[1] !== eq) return false
-    if (os   && l[2] !== os) return false
+    if (os   && !String(l[2]).toLowerCase().includes(os.toLowerCase())) return false
     if (rede && l[3] !== rede) return false
     return true
   })
