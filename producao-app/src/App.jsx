@@ -1,4 +1,4 @@
-import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom'
+import { BrowserRouter, Routes, Route, Navigate, Outlet, useLocation } from 'react-router-dom'
 import { useState } from 'react'
 import { useAuth } from './hooks/useAuth'
 import Sidebar from './components/Sidebar'
@@ -27,7 +27,7 @@ import FormBuilder from './pages/Configuracoes/FormBuilder'
 import Metas from './pages/Configuracoes/Metas'
 import Planejamento from './pages/Planejamento'
 
-function RotaProtegida({ children }) {
+function RotaProtegida() {
   const { usuario, perfil, carregando } = useAuth()
   const { pathname } = useLocation()
   const [sidebarAberta, setSidebarAberta] = useState(false)
@@ -57,7 +57,7 @@ function RotaProtegida({ children }) {
       )}
       <div className="layout-conteudo">
         <button className="btn-menu-mobile" onClick={() => setSidebarAberta(true)}>☰</button>
-        {children}
+        <Outlet />
       </div>
     </div>
   )
@@ -83,79 +83,35 @@ export default function App() {
       <Routes>
         <Route path="/login" element={<Login />} />
 
-        <Route path="/" element={
-          <RotaProtegida>
-            <Dashboard />
-          </RotaProtegida>
-        } />
+        <Route element={<RotaProtegida />}>
+          <Route path="/" element={<Dashboard />} />
 
-        <Route path="/producao" element={
-          <RotaProtegida>
-            <ListaRegistros />
-          </RotaProtegida>
-        } />
+          <Route path="/producao" element={<ListaRegistros />} />
+          <Route path="/producao/novo" element={<NovoRegistro />} />
+          <Route path="/producao/:id/editar" element={<EditarRegistro />} />
 
-        <Route path="/producao/novo" element={
-          <RotaProtegida>
-            <NovoRegistro />
-          </RotaProtegida>
-        } />
+          <Route path="/relatorios" element={<Relatorios />} />
+          <Route path="/relatorios/exportacao" element={<Exportacao />} />
+          <Route path="/relatorios/bonificacoes" element={<Bonificacoes />} />
+          <Route path="/relatorios/equipes" element={<RelatorioEquipes />} />
+          <Route path="/relatorios/dashboard" element={<AnaliseDashboard />} />
 
-        <Route path="/producao/:id/editar" element={
-          <RotaProtegida>
-            <EditarRegistro />
-          </RotaProtegida>
-        } />
+          <Route path="/configuracoes" element={<Configuracoes />} />
+          <Route path="/configuracoes/contratos" element={<RotaSuperAdmin><Contratos /></RotaSuperAdmin>} />
+          <Route path="/configuracoes/tipos-equipe" element={<RotaSuperAdmin><TiposEquipe /></RotaSuperAdmin>} />
+          <Route path="/configuracoes/equipes" element={<Equipes />} />
+          <Route path="/configuracoes/colaboradores" element={<Colaboradores />} />
+          <Route path="/configuracoes/config-campos" element={<RotaSuperAdmin><ConfigCampos /></RotaSuperAdmin>} />
+          <Route path="/configuracoes/obras" element={<Obras />} />
+          <Route path="/configuracoes/contratos-preco-upe" element={<RotaSuperAdmin><ContratosPrecoUpe /></RotaSuperAdmin>} />
+          <Route path="/configuracoes/usuarios" element={<RotaSuperAdmin><GerenciarUsuarios /></RotaSuperAdmin>} />
+          <Route path="/configuracoes/logins" element={<RotaDanilo><UltimosLogins /></RotaDanilo>} />
+          <Route path="/configuracoes/atividades" element={<RotaSuperAdmin><Atividades /></RotaSuperAdmin>} />
+          <Route path="/configuracoes/form-builder" element={<RotaSuperAdmin><FormBuilder /></RotaSuperAdmin>} />
+          <Route path="/configuracoes/metas" element={<RotaSuperAdmin><Metas /></RotaSuperAdmin>} />
 
-        <Route path="/relatorios" element={
-          <RotaProtegida>
-            <Relatorios />
-          </RotaProtegida>
-        } />
-
-<Route path="/relatorios/exportacao" element={
-          <RotaProtegida>
-            <Exportacao />
-          </RotaProtegida>
-        } />
-
-        <Route path="/relatorios/bonificacoes" element={
-          <RotaProtegida>
-            <Bonificacoes />
-          </RotaProtegida>
-        } />
-
-        <Route path="/relatorios/equipes" element={
-          <RotaProtegida>
-            <RelatorioEquipes />
-          </RotaProtegida>
-        } />
-
-        <Route path="/relatorios/dashboard" element={
-          <RotaProtegida>
-            <AnaliseDashboard />
-          </RotaProtegida>
-        } />
-
-<Route path="/configuracoes" element={<RotaProtegida><Configuracoes /></RotaProtegida>} />
-        <Route path="/configuracoes/contratos" element={<RotaProtegida><RotaSuperAdmin><Contratos /></RotaSuperAdmin></RotaProtegida>} />
-        <Route path="/configuracoes/tipos-equipe" element={<RotaProtegida><RotaSuperAdmin><TiposEquipe /></RotaSuperAdmin></RotaProtegida>} />
-        <Route path="/configuracoes/equipes" element={<RotaProtegida><Equipes /></RotaProtegida>} />
-        <Route path="/configuracoes/colaboradores" element={<RotaProtegida><Colaboradores /></RotaProtegida>} />
-        <Route path="/configuracoes/config-campos" element={<RotaProtegida><RotaSuperAdmin><ConfigCampos /></RotaSuperAdmin></RotaProtegida>} />
-        <Route path="/configuracoes/obras" element={<RotaProtegida><Obras /></RotaProtegida>} />
-        <Route path="/configuracoes/contratos-preco-upe" element={<RotaProtegida><RotaSuperAdmin><ContratosPrecoUpe /></RotaSuperAdmin></RotaProtegida>} />
-        <Route path="/configuracoes/usuarios" element={<RotaProtegida><RotaSuperAdmin><GerenciarUsuarios /></RotaSuperAdmin></RotaProtegida>} />
-        <Route path="/configuracoes/logins" element={<RotaProtegida><RotaDanilo><UltimosLogins /></RotaDanilo></RotaProtegida>} />
-        <Route path="/configuracoes/atividades" element={<RotaProtegida><RotaSuperAdmin><Atividades /></RotaSuperAdmin></RotaProtegida>} />
-        <Route path="/configuracoes/form-builder" element={<RotaProtegida><RotaSuperAdmin><FormBuilder /></RotaSuperAdmin></RotaProtegida>} />
-        <Route path="/configuracoes/metas" element={<RotaProtegida><RotaSuperAdmin><Metas /></RotaSuperAdmin></RotaProtegida>} />
-
-        <Route path="/planejamento" element={
-          <RotaProtegida>
-            <Planejamento />
-          </RotaProtegida>
-        } />
+          <Route path="/planejamento" element={<Planejamento />} />
+        </Route>
 
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
