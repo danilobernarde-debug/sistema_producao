@@ -1,0 +1,285 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Relatório Faixa Tocantins — Coletum</title>
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+<style>
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#f1f5f9;color:#1e293b;font-size:14px}
+  header{background:#1e2a3b;color:white;padding:14px 24px;display:flex;align-items:center;gap:16px;flex-wrap:wrap}
+  header h1{font-size:17px;font-weight:600}
+  .sub{font-size:12px;color:#94a3b8;margin-top:2px}
+  .container{padding:20px 24px;max-width:1800px;margin:0 auto}
+  .card{background:white;border-radius:10px;box-shadow:0 1px 3px rgba(0,0,0,.08);padding:16px;margin-bottom:16px}
+  .filtros{display:flex;flex-wrap:wrap;gap:12px;align-items:flex-end}
+  .campo{display:flex;flex-direction:column;gap:4px}
+  .campo label{font-size:11px;color:#64748b;font-weight:600;text-transform:uppercase;letter-spacing:.04em}
+  .campo input,.campo select{padding:7px 10px;border:1px solid #e2e8f0;border-radius:6px;font-size:13px;color:#1e293b;background:white;outline:none}
+  .campo input:focus,.campo select:focus{border-color:#2563eb}
+  .btn{padding:8px 18px;border:none;border-radius:6px;font-size:13px;cursor:pointer;font-weight:500;display:inline-flex;align-items:center;gap:6px}
+  .btn-primary{background:#2563eb;color:white}.btn-primary:hover{background:#1d4ed8}
+  .btn-green{background:#16a34a;color:white;font-size:14px;padding:9px 20px}.btn-green:hover{background:#15803d}
+  .btn-outline{background:white;color:#475569;border:1px solid #e2e8f0}.btn-outline:hover{background:#f8fafc}
+  .resumos{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:12px;margin-bottom:16px}
+  .card-num{background:white;border-radius:10px;padding:14px 16px;box-shadow:0 1px 3px rgba(0,0,0,.08)}
+  .card-num .valor{font-size:22px;font-weight:700;color:#1e2a3b}
+  .card-num .label{font-size:11px;color:#64748b;margin-top:3px;text-transform:uppercase;letter-spacing:.04em}
+  .tabela-wrap{border-radius:10px;box-shadow:0 1px 3px rgba(0,0,0,.08);overflow:hidden}
+  .tabela-scroll{overflow-x:auto;max-height:520px;overflow-y:auto}
+  table{width:100%;border-collapse:collapse;background:white;font-size:12px}
+  thead th{background:#f8fafc;padding:9px 10px;text-align:left;font-weight:600;color:#475569;white-space:nowrap;position:sticky;top:0;border-bottom:2px solid #e2e8f0;font-size:11px;text-transform:uppercase;letter-spacing:.04em;z-index:1}
+  tbody tr:hover{background:#f8fafc}
+  tbody td{padding:7px 10px;border-bottom:1px solid #f1f5f9;white-space:nowrap}
+  .paginacao{display:flex;align-items:center;gap:8px;margin-top:12px;justify-content:space-between}
+  .pag-info{font-size:13px;color:#64748b}
+  .loading{display:flex;flex-direction:column;align-items:center;justify-content:center;height:300px;gap:16px;color:#64748b}
+  .spin{width:36px;height:36px;border:3px solid #e2e8f0;border-top-color:#2563eb;border-radius:50%;animation:spin .8s linear infinite}
+  @keyframes spin{to{transform:rotate(360deg)}}
+  .info-bar{font-size:12px;color:#64748b;margin-bottom:8px}
+  .erro{background:#fef2f2;color:#dc2626;padding:16px;border-radius:8px;margin-bottom:16px}
+</style>
+</head>
+<body>
+
+<header>
+  <div style="flex:1">
+    <h1>Relatório Faixa Tocantins</h1>
+    <div class="sub">Dados Coletum · <span id="info-gerado"></span></div>
+  </div>
+  <button class="btn btn-green" onclick="exportarXLSX()" id="btn-exportar" style="display:none">
+    ⬇ Exportar XLSX
+  </button>
+</header>
+
+<div class="container">
+
+  <div id="area-loading" class="loading">
+    <div class="spin"></div>
+    <div>Carregando dados...</div>
+  </div>
+
+  <div id="area-erro" class="erro" style="display:none"></div>
+
+  <div id="conteudo" style="display:none">
+
+    <!-- Filtros -->
+    <div class="card">
+      <div class="filtros">
+        <div class="campo">
+          <label>Data início</label>
+          <input type="date" id="f-inicio">
+        </div>
+        <div class="campo">
+          <label>Data fim</label>
+          <input type="date" id="f-fim">
+        </div>
+        <div class="campo">
+          <label>Equipe</label>
+          <select id="f-equipe"><option value="">Todas</option></select>
+        </div>
+        <div class="campo">
+          <label>OS</label>
+          <select id="f-os"><option value="">Todas</option></select>
+        </div>
+        <div class="campo">
+          <label>Tipo de Rede</label>
+          <select id="f-rede"><option value="">Todas</option></select>
+        </div>
+        <div style="display:flex;gap:8px;align-self:flex-end">
+          <button class="btn btn-primary" onclick="aplicar()">Filtrar</button>
+          <button class="btn btn-outline" onclick="limpar()">Limpar</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Resumo -->
+    <div class="resumos" id="resumos"></div>
+
+    <!-- Tabela -->
+    <div class="info-bar" id="info-bar"></div>
+    <div class="tabela-wrap">
+      <div class="tabela-scroll">
+        <table>
+          <thead>
+            <tr>
+              <th>DATA</th><th>EQUIPE</th><th>OS</th><th>TIPO DE REDE</th>
+              <th>ABERTURA</th><th>SERVICO</th>
+              <th>LATITUDE INICIAL</th><th>LONGITUDE INICIAL</th>
+              <th>LATITUDE FINAL</th><th>LONGITUDE FINAL</th>
+              <th>EXTENSAO</th><th>ARVORES ISOLADAS</th>
+            </tr>
+          </thead>
+          <tbody id="tbody"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Paginação -->
+    <div class="paginacao">
+      <div class="pag-info" id="pag-info"></div>
+      <div style="display:flex;gap:8px">
+        <button class="btn btn-outline" id="btn-ant" onclick="mudarPag(-1)">← Anterior</button>
+        <button class="btn btn-outline" id="btn-prox" onclick="mudarPag(1)">Próxima →</button>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<script>
+const POR_PAGINA = 100
+// Índices das colunas no array de linha:
+// 0=data 1=equipe 2=os 3=tipoRede 4=abertura 5=servico
+// 6=latInicial 7=lonInicial 8=latFinal 9=lonFinal 10=extensao 11=arvores
+
+let todasLinhas = []
+let filtradas   = []
+let pagina      = 1
+
+async function init() {
+  try {
+    const res = await fetch('./coletum_faixato.json')
+    if (!res.ok) throw new Error(`HTTP ${res.status}`)
+    const json = await res.json()
+
+    todasLinhas = json.linhas || []
+
+    const d = new Date(json.gerado)
+    document.getElementById('info-gerado').textContent =
+      `${todasLinhas.length.toLocaleString('pt-BR')} trechos · atualizado ${d.toLocaleDateString('pt-BR')}`
+
+    popularFiltros()
+    aplicar()
+
+    document.getElementById('area-loading').style.display = 'none'
+    document.getElementById('conteudo').style.display     = 'block'
+    document.getElementById('btn-exportar').style.display = 'inline-flex'
+  } catch(e) {
+    document.getElementById('area-loading').style.display = 'none'
+    document.getElementById('area-erro').style.display    = 'block'
+    document.getElementById('area-erro').textContent      = 'Erro ao carregar dados: ' + e.message
+  }
+}
+
+function popularFiltros() {
+  const datas   = todasLinhas.map(l=>l[0]).filter(Boolean).sort()
+  document.getElementById('f-inicio').value = datas[0] || ''
+  document.getElementById('f-fim').value    = datas[datas.length-1] || ''
+  sel('f-equipe', uniq(todasLinhas.map(l=>l[1])))
+  sel('f-os',     uniq(todasLinhas.map(l=>l[2])))
+  sel('f-rede',   uniq(todasLinhas.map(l=>l[3])))
+}
+
+function sel(id, vals) {
+  const el = document.getElementById(id)
+  el.innerHTML = '<option value="">Todas</option>' +
+    vals.map(v=>`<option value="${v}">${v}</option>`).join('')
+}
+
+function uniq(arr) {
+  return [...new Set(arr.filter(Boolean))].sort()
+}
+
+function limpar() {
+  const datas = todasLinhas.map(l=>l[0]).filter(Boolean).sort()
+  document.getElementById('f-inicio').value = datas[0] || ''
+  document.getElementById('f-fim').value    = datas[datas.length-1] || ''
+  ;['f-equipe','f-os','f-rede'].forEach(id => document.getElementById(id).value = '')
+  aplicar()
+}
+
+function aplicar() {
+  const ini  = document.getElementById('f-inicio').value
+  const fim  = document.getElementById('f-fim').value
+  const eq   = document.getElementById('f-equipe').value
+  const os   = document.getElementById('f-os').value
+  const rede = document.getElementById('f-rede').value
+
+  filtradas = todasLinhas.filter(l => {
+    if (ini  && l[0] < ini)  return false
+    if (fim  && l[0] > fim)  return false
+    if (eq   && l[1] !== eq) return false
+    if (os   && l[2] !== os) return false
+    if (rede && l[3] !== rede) return false
+    return true
+  })
+
+  pagina = 1
+  renderResumo()
+  renderTabela()
+}
+
+function renderResumo() {
+  const regs = new Set()
+  let ext = 0, arv = 0
+  filtradas.forEach(l => {
+    ext += Number(l[10]) || 0
+    arv += Number(l[11]) || 0
+  })
+
+  document.getElementById('resumos').innerHTML = `
+    <div class="card-num"><div class="valor">${filtradas.length.toLocaleString('pt-BR')}</div><div class="label">Trechos</div></div>
+    <div class="card-num"><div class="valor">${(ext/1000).toLocaleString('pt-BR',{maximumFractionDigits:1})} km</div><div class="label">Extensão total</div></div>
+    <div class="card-num"><div class="valor">${arv.toLocaleString('pt-BR')}</div><div class="label">Árvores Isoladas</div></div>
+    <div class="card-num"><div class="valor">${uniq(filtradas.map(l=>l[1])).length}</div><div class="label">Equipes</div></div>
+  `
+}
+
+function renderTabela() {
+  const total   = filtradas.length
+  const paginas = Math.max(1, Math.ceil(total / POR_PAGINA))
+  const slice   = filtradas.slice((pagina-1)*POR_PAGINA, pagina*POR_PAGINA)
+
+  document.getElementById('info-bar').textContent = `${total.toLocaleString('pt-BR')} linhas encontradas`
+
+  document.getElementById('tbody').innerHTML = slice.map(l => `
+    <tr>
+      <td>${l[0]||'—'}</td>
+      <td>${l[1]||'—'}</td>
+      <td>${l[2]||'—'}</td>
+      <td>${l[3]||'—'}</td>
+      <td style="text-align:right">${l[4]!==''?Number(l[4]).toLocaleString('pt-BR'):'—'}</td>
+      <td style="max-width:280px;overflow:hidden;text-overflow:ellipsis">${l[5]||'—'}</td>
+      <td>${l[6]||'—'}</td>
+      <td>${l[7]||'—'}</td>
+      <td>${l[8]||'—'}</td>
+      <td>${l[9]||'—'}</td>
+      <td style="text-align:right">${l[10]!==''?Number(l[10]).toLocaleString('pt-BR'):'—'}</td>
+      <td style="text-align:right">${l[11]!==''?Number(l[11]).toLocaleString('pt-BR'):'—'}</td>
+    </tr>`).join('')
+
+  document.getElementById('pag-info').textContent = `Página ${pagina} de ${paginas} · ${total.toLocaleString('pt-BR')} trechos`
+  document.getElementById('btn-ant').disabled  = pagina === 1
+  document.getElementById('btn-prox').disabled = pagina === paginas
+}
+
+function mudarPag(dir) {
+  const paginas = Math.ceil(filtradas.length / POR_PAGINA)
+  pagina = Math.max(1, Math.min(paginas, pagina + dir))
+  renderTabela()
+  window.scrollTo(0, 0)
+}
+
+function exportarXLSX() {
+  const COLS = ['DATA','EQUIPE','OS','TIPO DE REDE','ABERTURA','SERVICO',
+                'LATITUDE INICIAL','LONGITUDE INICIAL','LATITUDE FINAL',
+                'LONGITUDE FINAL','EXTENSAO','ARVORES ISOLADAS']
+  const dados = filtradas.map(l => {
+    const obj = {}
+    COLS.forEach((c, i) => { obj[c] = l[i] ?? '' })
+    return obj
+  })
+
+  const ws = XLSX.utils.json_to_sheet(dados)
+  ws['!cols'] = COLS.map(c => ({ wch: Math.max(c.length, 16) }))
+  const wb = XLSX.utils.book_new()
+  XLSX.utils.book_append_sheet(wb, ws, 'Faixa TO')
+  XLSX.writeFile(wb, `faixa_to_coletum_${new Date().toISOString().slice(0,10)}.xlsx`)
+}
+
+init()
+</script>
+</body>
+</html>
