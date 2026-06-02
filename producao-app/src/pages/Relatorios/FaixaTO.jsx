@@ -51,13 +51,16 @@ function preparar(dados) {
 const TH = { whiteSpace: 'nowrap', fontSize: 12, position: 'sticky', top: 0, background: '#f9fafb', zIndex: 1 }
 const TD = { fontSize: 12, whiteSpace: 'nowrap', maxWidth: 180, overflow: 'hidden', textOverflow: 'ellipsis' }
 
-export default function FaixaTO({ dataInicio, dataFim }) {
+const INPUT = { padding: '6px 10px', borderRadius: 6, border: '1px solid #d1d5db', fontSize: 13, background: 'white', color: '#1e2a3b' }
+
+export default function FaixaTO({ dataInicio, dataFim, setDataInicio, setDataFim }) {
   const cancelarRef               = useRef(false)
   const [dados, setDados]         = useState(null)
   const [carregando, setCarregando] = useState(false)
   const [progresso, setProgresso] = useState({ atual: 0, total: 0 })
   const [erro, setErro]           = useState('')
   const [exportando, setExportando] = useState(false)
+  const [filtroOS, setFiltroOS]     = useState('')
 
   const pct = progresso.total > 0
     ? Math.min(Math.round((progresso.atual / progresso.total) * 100), carregando ? 99 : 100)
@@ -76,6 +79,7 @@ export default function FaixaTO({ dataInicio, dataFim }) {
     setErro('')
     setCarregando(true)
     setDados(null)
+    setFiltroOS('')
     setProgresso({ atual: 0, total: 0 })
 
     const todos = []
@@ -117,25 +121,46 @@ export default function FaixaTO({ dataInicio, dataFim }) {
     setCarregando(false)
   }
 
-  function fazerExport() {
-    if (!dados || dados.length === 0) return
-    setExportando(true)
-    setTimeout(() => { exportarXLSX(dados, HEADERS, 'relatorio_faixa_to'); setExportando(false) }, 50)
-  }
+  const osValues      = dados ? [...new Set(dados.map(r => r['OS']).filter(Boolean))].sort() : []
+  const dadosFiltrado = dados && filtroOS ? dados.filter(r => r['OS'] === filtroOS) : (dados || [])
+  const preview       = dadosFiltrado.slice(0, 50)
 
-  const preview = dados ? dados.slice(0, 50) : []
+  function fazerExport() {
+    if (!dadosFiltrado.length) return
+    setExportando(true)
+    setTimeout(() => { exportarXLSX(dadosFiltrado, HEADERS, 'relatorio_faixa_to'); setExportando(false) }, 50)
+  }
 
   return (
     <>
       <div className="card" style={{ marginBottom: 16 }}>
-        <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
-          <button className="btn btn-primario" onClick={carregar} disabled={carregando}>
-            {carregando ? 'Carregando...' : dados ? 'Recarregar' : 'Carregar Dados'}
-          </button>
-          {carregando && <button className="btn btn-secundario" onClick={cancelar}>Cancelar</button>}
+        <div style={{ display: 'flex', gap: 12, alignItems: 'flex-end', flexWrap: 'wrap' }}>
+          <div>
+            <div style={{ fontSize: 12, color: '#6b7280', marginBottom: 4 }}>Data início</div>
+            <input type="date" style={INPUT} value={dataInicio} onChange={e => setDataInicio(e.target.value)} />
+          </div>
+          <div>
+            <div style={{ fontSize: 12, color: '#6b7280', marginBottom: 4 }}>Data fim</div>
+            <input type="date" style={INPUT} value={dataFim} onChange={e => setDataFim(e.target.value)} />
+          </div>
           {dados && !carregando && (
-            <span style={{ fontSize: 13, color: '#6b7280' }}>
-              {dados.length} registros · {HEADERS.length} colunas fixas
+            <div>
+              <div style={{ fontSize: 12, color: '#6b7280', marginBottom: 4 }}>OS</div>
+              <select value={filtroOS} onChange={e => setFiltroOS(e.target.value)} style={INPUT}>
+                <option value="">Todas</option>
+                {osValues.map(os => <option key={os} value={os}>{os}</option>)}
+              </select>
+            </div>
+          )}
+          <div style={{ display: 'flex', gap: 8 }}>
+            <button className="btn btn-primario" onClick={carregar} disabled={carregando}>
+              {carregando ? 'Carregando...' : dados ? 'Recarregar' : 'Carregar Dados'}
+            </button>
+            {carregando && <button className="btn btn-secundario" onClick={cancelar}>Cancelar</button>}
+          </div>
+          {dados && !carregando && (
+            <span style={{ fontSize: 13, color: '#6b7280', alignSelf: 'center' }}>
+              {dadosFiltrado.length} registros
             </span>
           )}
         </div>
@@ -162,7 +187,7 @@ export default function FaixaTO({ dataInicio, dataFim }) {
         </div>
       )}
 
-      {dados && dados.length > 0 && (
+      {dados && dadosFiltrado.length > 0 && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
           <div>
             <button className="btn btn-primario" onClick={fazerExport} disabled={exportando}>
@@ -171,7 +196,7 @@ export default function FaixaTO({ dataInicio, dataFim }) {
           </div>
           <div className="card" style={{ padding: 0 }}>
             <div style={{ padding: '12px 16px', borderBottom: '1px solid #f3f4f6', fontSize: 13, color: '#6b7280' }}>
-              Prévia — primeiras {preview.length} de {dados.length} linhas
+              Prévia — primeiras {preview.length} de {dadosFiltrado.length} linhas
             </div>
             <div style={{ overflowX: 'auto', maxHeight: 420 }}>
               <table className="tabela">

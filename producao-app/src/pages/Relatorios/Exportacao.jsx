@@ -186,8 +186,8 @@ export default function Exportacao() {
         </div>
       )}
 
-      {/* Filtros de data (compartilhado) */}
-      {relatorioAtivo && (
+      {/* Filtros de data — só para Relatório Geral (FTO tem o seu próprio) */}
+      {relatorioAtivo === 'geral' && (
         <div className="card" style={{ marginBottom: 16 }}>
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: 12, alignItems: 'flex-end' }}>
             <div>
@@ -381,7 +381,10 @@ export default function Exportacao() {
 
       {/* Conteúdo: Faixa Tocantins */}
       {relatorioAtivo === 'faixa-to' && (
-        <FaixaTO dataInicio={dataInicio} dataFim={dataFim} />
+        <FaixaTO
+          dataInicio={dataInicio} dataFim={dataFim}
+          setDataInicio={setDataInicio} setDataFim={setDataFim}
+        />
       )}
 
     </div>

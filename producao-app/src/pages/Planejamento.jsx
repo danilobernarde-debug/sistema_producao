@@ -11,6 +11,11 @@ const ABAS = [
     src: '/planejamento_RIP.html',
     planilha: 'https://docs.google.com/spreadsheets/d/1v98fOa7OlNYrIp12dF19qyt0FSLTO6jnBB-pCmZokHo/edit?usp=sharing',
   },
+  {
+    label: 'Planejamento MEC',
+    src: '/planejamento_MEC.html',
+    planilha: '',
+  },
 ]
 
 export default function Planejamento() {
