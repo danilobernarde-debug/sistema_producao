@@ -11,9 +11,18 @@ const COLUNAS_FAIXA_TO = [
   { campo: 'registro_id',            header: 'REGISTRO ID' },
   { campo: 'data_producao_original', header: 'DATA' },
   { campo: 'os',                     header: 'OS' },
-  { campo: 'tipo_rede',              header: 'TIPO DE REDE' },
+  { campo: 'tipo_rede',    header: 'TIPO DE REDE',
+    transform: v => v === 'MONOFASICA' ? 'M' : v === 'TRIFASICA' ? 'T' : (v ?? '') },
   { campo: 'largura',                header: 'ABERTURA' },
-  { campo: 'desc_atividade',         header: 'SERVICO' },
+  { campo: 'desc_atividade', header: 'SERVICO',
+    transform: (v, row) => {
+      const cod = row.cod_atividade
+      if (cod === '102')   return 'TRECHO LIVRE'
+      if (cod === '11508') return 'ÁRVORE ISOLADA'
+      if (cod === '1593')  return 'LIMPEZA DE FAIXA'
+      if (cod === '1594')  return 'REABERTURA DE FAIXA'
+      return v ?? ''
+    } },
   { campo: 'latitude_inicial',       header: 'LATITUDE INICIAL' },
   { campo: 'longitude_inicial',      header: 'LONGITUDE INICIAL' },
   { campo: 'latitude_final',         header: 'LATITUDE FINAL' },
@@ -30,6 +39,8 @@ function prepararFaixaTO(dados) {
       for (const col of COLUNAS_FAIXA_TO) {
         if (col.apenasAtividade) {
           novo[col.header] = row.cod_atividade === String(col.apenasAtividade) ? (row[col.campo] ?? '') : ''
+        } else if (col.transform) {
+          novo[col.header] = col.transform(row[col.campo], row)
         } else {
           novo[col.header] = row[col.campo] ?? ''
         }
