@@ -85,6 +85,8 @@ export default function Bonificacoes() {
 
   async function buscar() {
     if (!inicio || !fim) return
+    const dias = (new Date(fim) - new Date(inicio)) / (1000 * 60 * 60 * 24)
+    if (dias > 31) { alert('O período máximo permitido é de 31 dias.'); return }
     setCarregando(true)
     setBuscou(false)
     setExpandidos({})

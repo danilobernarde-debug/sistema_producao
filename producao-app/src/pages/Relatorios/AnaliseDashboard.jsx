@@ -148,7 +148,15 @@ export default function AnaliseDashboard() {
   const [colaboradoresDrill, setColabsDrill] = useState({ lista: [], porDia: {} })
   const [metadataDrill, setMetadataDrill] = useState({}) // registro_id -> metadata_registro (carregado sob demanda)
   const [telaCheia, setTelaCheia] = useState(false)
+  const [anoMinimo, setAnoMinimo] = useState(anoAtual - 1)
   const containerRef = useRef(null)
+
+  useEffect(() => {
+    supabase.from('f_prod_registro').select('data_producao').order('data_producao', { ascending: true }).limit(1)
+      .then(({ data }) => {
+        if (data?.[0]?.data_producao) setAnoMinimo(new Date(data[0].data_producao).getFullYear())
+      })
+  }, [])
 
   useEffect(() => {
     function onChange() { setTelaCheia(!!document.fullscreenElement) }
@@ -189,7 +197,9 @@ export default function AnaliseDashboard() {
       const [viewData, resMetas] = await Promise.all([
         fetchAllPages(() =>
           supabase.rpc('get_mat_producao_powerbi', { p_ini: ini, p_fim: fim })
-            .order('data_producao_original', { ascending: true })
+            .order('registro_id', { ascending: true })
+            .order('f_prod_atividade_id', { ascending: true })
+            .order('equipe_id', { ascending: true })
         ),
         lerMetasAnuais(ano),
       ])
@@ -634,7 +644,7 @@ export default function AnaliseDashboard() {
           <div className="campo-grupo" style={{ marginBottom: 0 }}>
             <label className="campo-label">Ano</label>
             <select className="campo-input" value={ano} onChange={e => setAno(Number(e.target.value))} style={{ width: 100 }}>
-              {[anoAtual - 1, anoAtual, anoAtual + 1].map(a => <option key={a} value={a}>{a}</option>)}
+              {Array.from({ length: anoAtual + 1 - anoMinimo + 1 }, (_, i) => anoMinimo + i).map(a => <option key={a} value={a}>{a}</option>)}
             </select>
           </div>
           <div className="campo-grupo" style={{ marginBottom: 0 }}>
