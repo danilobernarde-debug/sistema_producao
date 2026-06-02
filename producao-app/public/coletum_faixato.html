@@ -81,7 +81,8 @@
         </div>
         <div class="campo">
           <label>OS</label>
-          <input type="text" id="f-os" placeholder="Pesquisar OS..." style="min-width:180px">
+          <input type="text" id="f-os" placeholder="Pesquisar OS..." style="min-width:180px" list="os-opcoes">
+          <datalist id="os-opcoes"></datalist>
         </div>
         <div class="campo">
           <label>Tipo de Rede</label>
@@ -169,6 +170,8 @@ function popularFiltros() {
   document.getElementById('f-fim').value    = datas[datas.length-1] || ''
   sel('f-equipe', uniq(todasLinhas.map(l=>l[1])))
   sel('f-rede',   uniq(todasLinhas.map(l=>l[3])))
+  const dl = document.getElementById('os-opcoes')
+  dl.innerHTML = uniq(todasLinhas.map(l=>l[2])).map(v=>`<option value="${v}">`).join('')
 }
 
 function sel(id, vals) {
