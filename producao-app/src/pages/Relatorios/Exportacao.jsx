@@ -5,6 +5,39 @@ import { supabase } from '../../supabaseClient'
 
 const CHUNK = 500
 
+const IDS_FAIXA_TO = new Set([17, 18, 19])
+
+const COLUNAS_FAIXA_TO = [
+  { campo: 'registro_id',            header: 'REGISTRO ID' },
+  { campo: 'data_producao_original', header: 'DATA' },
+  { campo: 'os',                     header: 'OS' },
+  { campo: 'tipo_rede',              header: 'TIPO DE REDE' },
+  { campo: 'largura',                header: 'ABERTURA' },
+  { campo: 'desc_atividade',         header: 'SERVICO' },
+  { campo: 'latitude_inicial',       header: 'LATITUDE INICIAL' },
+  { campo: 'longitude_inicial',      header: 'LONGITUDE INICIAL' },
+  { campo: 'latitude_final',         header: 'LATITUDE FINAL' },
+  { campo: 'longitude_final',        header: 'LONGITUDE FINAL' },
+  { campo: 'comprimento',            header: 'EXTENSAO' },
+  { campo: 'quantidade',             header: 'ARVORES ISOLADAS', apenasAtividade: 11508 },
+]
+
+function prepararFaixaTO(dados) {
+  return dados
+    .filter(row => IDS_FAIXA_TO.has(Number(row.contrato_id)) && row.justificativa == null)
+    .map(row => {
+      const novo = {}
+      for (const col of COLUNAS_FAIXA_TO) {
+        if (col.apenasAtividade) {
+          novo[col.header] = row.cod_atividade === String(col.apenasAtividade) ? (row[col.campo] ?? '') : ''
+        } else {
+          novo[col.header] = row[col.campo] ?? ''
+        }
+      }
+      return novo
+    })
+}
+
 const MESES = [
   { v: '01', l: 'Janeiro' }, { v: '02', l: 'Fevereiro' }, { v: '03', l: 'Março' },
   { v: '04', l: 'Abril' },   { v: '05', l: 'Maio' },      { v: '06', l: 'Junho' },
@@ -86,15 +119,16 @@ function exportarXLSX(dados, colunas, nomeArquivo) {
 }
 
 export default function Exportacao() {
-  const navegar   = useNavigate()
-  const hoje      = new Date()
-  const [mes, setMes]                         = useState(String(hoje.getMonth() + 1).padStart(2, '0'))
-  const [ano, setAno]                         = useState(String(hoje.getFullYear()))
-  const [mesAte, setMesAte]                   = useState(String(hoje.getMonth() + 1).padStart(2, '0'))
-  const [anoAte, setAnoAte]                   = useState(String(hoje.getFullYear()))
+  const navegar    = useNavigate()
+  const hoje       = new Date()
+  const primDiaMes = `${hoje.getFullYear()}-${String(hoje.getMonth() + 1).padStart(2, '0')}-01`
+  const hojeISO    = hoje.toISOString().slice(0, 10)
+  const [dataInicio, setDataInicio]           = useState(primDiaMes)
+  const [dataFim, setDataFim]                 = useState(hojeISO)
+  const [relatorioAtivo, setRelatorioAtivo]   = useState(null)
+  const [aba, setAba]                         = useState('geral')
   const [contratoId, setContratoId]           = useState('')
   const [contratos, setContratos]             = useState([])
-  const [aba, setAba]                         = useState('geral')
   const [carregando, setCarregando]           = useState(false)
   const [progresso, setProgresso]             = useState({ atual: 0, total: 0 })
   const [dados, setDados]                     = useState(null)
@@ -105,10 +139,13 @@ export default function Exportacao() {
   const [totalRegistros, setTotalRegistros]   = useState(0)
   const [erro, setErro]                       = useState('')
 
-  const cancelarRef = useRef(false)
+  const cancelarRef    = useRef(false)
+  const cancelarFTORef = useRef(false)
 
-  const anos = []
-  for (let y = 2023; y <= hoje.getFullYear() + 1; y++) anos.push(String(y))
+  const [dadosFTO, setDadosFTO]           = useState(null)
+  const [carregandoFTO, setCarregandoFTO] = useState(false)
+  const [progressoFTO, setProgressoFTO]   = useState({ atual: 0, total: 0 })
+  const [erroFTO, setErroFTO]             = useState('')
 
   useEffect(() => {
     supabase.from('d_contratos').select('id, descricao').order('descricao')
@@ -116,16 +153,66 @@ export default function Exportacao() {
   }, [])
 
   function calcularPeriodo() {
-    const inicio = `${ano}-${mes}-01`
-    const mesProx = Number(mesAte) === 12 ? '01' : String(Number(mesAte) + 1).padStart(2, '0')
-    const anoProx = Number(mesAte) === 12 ? String(Number(anoAte) + 1) : anoAte
-    const fim = `${anoProx}-${mesProx}-01`
-    return { inicio, fim }
+    const d = new Date(dataFim + 'T00:00:00')
+    d.setDate(d.getDate() + 1)
+    return { inicio: dataInicio, fim: d.toISOString().slice(0, 10) }
   }
 
   function cancelar() {
     cancelarRef.current = true
     setCarregando(false)
+  }
+
+  function cancelarFTO() {
+    cancelarFTORef.current = true
+    setCarregandoFTO(false)
+  }
+
+  async function carregarFaixaTO() {
+    cancelarFTORef.current = false
+    setErroFTO('')
+    setCarregandoFTO(true)
+    setDadosFTO(null)
+    setProgressoFTO({ atual: 0, total: 0 })
+
+    const { inicio, fim } = calcularPeriodo()
+    const todos = []
+    let from = 0
+
+    try {
+      while (true) {
+        const { data, error } = await supabase.rpc('exportar_r07', {
+          p_inicio:      inicio,
+          p_fim:         fim,
+          p_contrato_id: null,
+          p_limit:       CHUNK,
+          p_offset:      from,
+        })
+
+        if (cancelarFTORef.current) { setCarregandoFTO(false); return }
+        if (error) { setErroFTO(`Erro: ${error.message}`); setCarregandoFTO(false); return }
+
+        const linhas = data || []
+        todos.push(...linhas)
+        from += CHUNK
+        setProgressoFTO({ atual: from, total: linhas.length < CHUNK ? from : from + CHUNK })
+        if (linhas.length < CHUNK) break
+      }
+    } catch (e) {
+      setErroFTO(`Erro inesperado: ${e.message}`)
+      setCarregandoFTO(false)
+      return
+    }
+
+    if (todos.length === 0) {
+      setErroFTO(`Nenhum registro Faixa TO encontrado para o período.`)
+      setDadosFTO([])
+      setCarregandoFTO(false)
+      return
+    }
+
+    setDadosFTO(prepararFaixaTO(expandirMetadata(todos)))
+    setCarregandoFTO(false)
   }
 
   async function carregar() {
@@ -222,120 +309,167 @@ export default function Exportacao() {
   function selecionarTodas() { setSelecionadas(new Set([...colunasBase, ...colunasMeta])) }
   function limparTodas()     { setSelecionadas(new Set()) }
 
-  function fazerExport(colunas, nome) {
-    if (!dados || dados.length === 0) return
+  function fazerExport(dadosParam, colunas, nome) {
+    if (!dadosParam || dadosParam.length === 0) return
     setExportando(true)
-    setTimeout(() => { exportarXLSX(dados, colunas, nome); setExportando(false) }, 50)
+    setTimeout(() => { exportarXLSX(dadosParam, colunas, nome); setExportando(false) }, 50)
   }
 
-  const todasColunas = [...colunasBase, ...colunasMeta]
+  const todasColunas        = [...colunasBase, ...colunasMeta]
   const colunasParaExportar = todasColunas.filter(c => selecionadas.has(c))
-  const previewLinhas = dados ? dados.slice(0, 50) : []
-  const pct = progresso.total > 0 ? Math.min(Math.round((progresso.atual / progresso.total) * 100), carregando ? 99 : 100) : 0
+  const previewLinhas       = dados ? dados.slice(0, 50) : []
+  const pct    = progresso.total    > 0 ? Math.min(Math.round((progresso.atual    / progresso.total)    * 100), carregando    ? 99 : 100) : 0
+  const pctFTO = progressoFTO.total > 0 ? Math.min(Math.round((progressoFTO.atual / progressoFTO.total) * 100), carregandoFTO ? 99 : 100) : 0
 
   const selectStyle = { padding: '6px 10px', borderRadius: 6, border: '1px solid #d1d5db', fontSize: 13, background: 'white', color: '#1e2a3b' }
 
   return (
     <div className="pagina">
+
+      {/* Header */}
       <div className="pagina-header">
         <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-          <button className="btn btn-secundario" onClick={() => navegar(-1)}
-            style={{ padding: '6px 12px', fontSize: 13 }}>← Voltar</button>
-          <h1 className="pagina-titulo" style={{ margin: 0 }}>Exportação de Dados</h1>
+          {relatorioAtivo ? (
+            <button className="btn btn-secundario"
+              onClick={() => { setRelatorioAtivo(null); setDados(null); setDadosFTO(null); setErro(''); setErroFTO('') }}
+              style={{ padding: '6px 12px', fontSize: 13 }}>← Relatórios</button>
+          ) : (
+            <button className="btn btn-secundario" onClick={() => navegar(-1)}
+              style={{ padding: '6px 12px', fontSize: 13 }}>← Voltar</button>
+          )}
+          <h1 className="pagina-titulo" style={{ margin: 0 }}>
+            {relatorioAtivo === 'geral' ? 'Relatório Geral'
+              : relatorioAtivo === 'faixa-to' ? 'Faixa Tocantins'
+              : 'Exportação de Dados'}
+          </h1>
         </div>
       </div>
 
-      {/* Filtros */}
-      <div className="card" style={{ marginBottom: 16 }}>
-        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 12, alignItems: 'flex-end' }}>
-          <div>
-            <div style={{ fontSize: 12, color: '#6b7280', marginBottom: 4 }}>De</div>
-            <div style={{ display: 'flex', gap: 6 }}>
-              <select style={selectStyle} value={mes} onChange={e => setMes(e.target.value)}>
-                {MESES.map(m => <option key={m.v} value={m.v}>{m.l}</option>)}
-              </select>
-              <select style={selectStyle} value={ano} onChange={e => setAno(e.target.value)}>
-                {anos.map(a => <option key={a} value={a}>{a}</option>)}
-              </select>
-            </div>
-          </div>
-          <div>
-            <div style={{ fontSize: 12, color: '#6b7280', marginBottom: 4 }}>Até</div>
-            <div style={{ display: 'flex', gap: 6 }}>
-              <select style={selectStyle} value={mesAte} onChange={e => setMesAte(e.target.value)}>
-                {MESES.map(m => <option key={m.v} value={m.v}>{m.l}</option>)}
-              </select>
-              <select style={selectStyle} value={anoAte} onChange={e => setAnoAte(e.target.value)}>
-                {anos.map(a => <option key={a} value={a}>{a}</option>)}
-              </select>
-            </div>
-          </div>
-          <div>
-            <div style={{ fontSize: 12, color: '#6b7280', marginBottom: 4 }}>Contrato</div>
-            <select style={{ ...selectStyle, minWidth: 200 }} value={contratoId} onChange={e => setContratoId(e.target.value)}>
-              <option value="">Todos os contratos</option>
-              {contratos.map(c => <option key={c.id} value={c.id}>{c.descricao}</option>)}
-            </select>
-          </div>
-          <div style={{ display: 'flex', gap: 8, alignSelf: 'flex-end' }}>
-            <button className="btn btn-primario" onClick={carregar} disabled={carregando}>
-              {carregando ? 'Carregando...' : dados ? 'Recarregar' : 'Carregar Dados'}
-            </button>
-            {carregando && (
-              <button className="btn btn-secundario" onClick={cancelar}>Cancelar</button>
-            )}
-          </div>
-        </div>
-
-        {/* Barra de progresso */}
-        {carregando && progresso.total > 0 && (
-          <div style={{ marginTop: 12 }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, color: '#6b7280', marginBottom: 4 }}>
-              <span>Carregando registros...</span>
-              <span>{progresso.atual} / {progresso.total} ({pct}%)</span>
-            </div>
-            <div style={{ background: '#e5e7eb', borderRadius: 4, height: 6 }}>
-              <div style={{ background: '#2563eb', borderRadius: 4, height: 6, width: `${pct}%`, transition: 'width 0.3s' }} />
-            </div>
-          </div>
-        )}
-        {erro && <div className="erro-mensagem" style={{ marginTop: 8 }}>{erro}</div>}
-      </div>
-
-      {/* Abas */}
-      {dados && (
-        <div style={{ display: 'flex', gap: 0, marginBottom: 16, borderBottom: '2px solid #e5e7eb' }}>
+      {/* Tela de seleção */}
+      {!relatorioAtivo && (
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: 16, maxWidth: 620 }}>
           {[
-            { id: 'geral',         label: 'Relatório Geral' },
-            { id: 'personalizado', label: 'Exportação Personalizada' },
-          ].map(a => (
-            <button key={a.id} onClick={() => setAba(a.id)}
-              style={{
-                padding: '8px 20px', border: 'none', background: 'none', cursor: 'pointer',
-                fontSize: 14, fontWeight: aba === a.id ? 600 : 400,
-                color: aba === a.id ? '#2563eb' : '#6b7280',
-                borderBottom: aba === a.id ? '2px solid #2563eb' : '2px solid transparent',
-                marginBottom: -2,
-              }}>
-              {a.label}
+            { id: 'geral',    icone: '📊', titulo: 'Relatório Geral',
+              desc: 'Exportação completa com todas as colunas. Filtro por contrato e seleção de colunas personalizável.' },
+            { id: 'faixa-to', icone: '📍', titulo: 'Faixa Tocantins',
+              desc: 'Colunas fixas para os contratos TO Norte, Sul e Centro. Atividades de justificativa excluídas automaticamente.' },
+          ].map(r => (
+            <button key={r.id} onClick={() => setRelatorioAtivo(r.id)}
+              style={{ textAlign: 'left', padding: 24, borderRadius: 12, border: '2px solid #e5e7eb', background: 'white', cursor: 'pointer', display: 'flex', flexDirection: 'column', gap: 8 }}
+              onMouseEnter={e => e.currentTarget.style.borderColor = '#2563eb'}
+              onMouseLeave={e => e.currentTarget.style.borderColor = '#e5e7eb'}>
+              <div style={{ fontSize: 32 }}>{r.icone}</div>
+              <div style={{ fontWeight: 700, fontSize: 17, color: '#1e2a3b' }}>{r.titulo}</div>
+              <div style={{ fontSize: 13, color: '#6b7280', lineHeight: 1.5 }}>{r.desc}</div>
             </button>
           ))}
         </div>
       )}
 
-      {/* Sem dados */}
-      {!carregando && !dados && !erro && (
-        <div className="card" style={{ textAlign: 'center', padding: 48, color: '#9ca3af' }}>
-          <div style={{ fontSize: 36, marginBottom: 12 }}>📊</div>
-          <div style={{ fontSize: 15, marginBottom: 4 }}>Selecione o período e clique em Carregar Dados</div>
-          <div style={{ fontSize: 13 }}>Os campos dinâmicos do metadata serão expandidos automaticamente.</div>
+      {/* Filtros (compartilhado) */}
+      {relatorioAtivo && (
+        <div className="card" style={{ marginBottom: 16 }}>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 12, alignItems: 'flex-end' }}>
+            <div>
+              <div style={{ fontSize: 12, color: '#6b7280', marginBottom: 4 }}>Data início</div>
+              <input type="date" style={selectStyle} value={dataInicio} onChange={e => setDataInicio(e.target.value)} />
+            </div>
+            <div>
+              <div style={{ fontSize: 12, color: '#6b7280', marginBottom: 4 }}>Data fim</div>
+              <input type="date" style={selectStyle} value={dataFim} onChange={e => setDataFim(e.target.value)} />
+            </div>
+            {relatorioAtivo === 'geral' && (
+              <div>
+                <div style={{ fontSize: 12, color: '#6b7280', marginBottom: 4 }}>Contrato</div>
+                <select style={{ ...selectStyle, minWidth: 200 }} value={contratoId} onChange={e => setContratoId(e.target.value)}>
+                  <option value="">Todos os contratos</option>
+                  {contratos.map(c => <option key={c.id} value={c.id}>{c.descricao}</option>)}
+                </select>
+              </div>
+            )}
+            <div style={{ display: 'flex', gap: 8, alignSelf: 'flex-end' }}>
+              {relatorioAtivo === 'geral' && (
+                <>
+                  <button className="btn btn-primario" onClick={carregar} disabled={carregando}>
+                    {carregando ? 'Carregando...' : dados ? 'Recarregar' : 'Carregar Dados'}
+                  </button>
+                  {carregando && <button className="btn btn-secundario" onClick={cancelar}>Cancelar</button>}
+                </>
+              )}
+              {relatorioAtivo === 'faixa-to' && (
+                <>
+                  <button className="btn btn-primario" onClick={carregarFaixaTO} disabled={carregandoFTO}>
+                    {carregandoFTO ? 'Carregando...' : dadosFTO ? 'Recarregar' : 'Carregar Dados'}
+                  </button>
+                  {carregandoFTO && <button className="btn btn-secundario" onClick={cancelarFTO}>Cancelar</button>}
+                </>
+              )}
+            </div>
+          </div>
+
+          {relatorioAtivo === 'geral' && carregando && progresso.total > 0 && (
+            <div style={{ marginTop: 12 }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, color: '#6b7280', marginBottom: 4 }}>
+                <span>Carregando registros...</span><span>{progresso.atual} / {progresso.total} ({pct}%)</span>
+              </div>
+              <div style={{ background: '#e5e7eb', borderRadius: 4, height: 6 }}>
+                <div style={{ background: '#2563eb', borderRadius: 4, height: 6, width: `${pct}%`, transition: 'width 0.3s' }} />
+              </div>
+            </div>
+          )}
+          {relatorioAtivo === 'geral' && erro && <div className="erro-mensagem" style={{ marginTop: 8 }}>{erro}</div>}
+
+          {relatorioAtivo === 'faixa-to' && carregandoFTO && progressoFTO.total > 0 && (
+            <div style={{ marginTop: 12 }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, color: '#6b7280', marginBottom: 4 }}>
+                <span>Carregando registros...</span><span>{progressoFTO.atual} / {progressoFTO.total} ({pctFTO}%)</span>
+              </div>
+              <div style={{ background: '#e5e7eb', borderRadius: 4, height: 6 }}>
+                <div style={{ background: '#2563eb', borderRadius: 4, height: 6, width: `${pctFTO}%`, transition: 'width 0.3s' }} />
+              </div>
+            </div>
+          )}
+          {relatorioAtivo === 'faixa-to' && erroFTO && <div className="erro-mensagem" style={{ marginTop: 8 }}>{erroFTO}</div>}
+          {relatorioAtivo === 'faixa-to' && dadosFTO && !carregandoFTO && (
+            <div style={{ marginTop: 8, fontSize: 13, color: '#6b7280' }}>
+              {dadosFTO.length} registros · {COLUNAS_FAIXA_TO.length} colunas fixas
+            </div>
+          )}
         </div>
       )}
 
-      {!carregando && dados && (
+      {/* Conteúdo: Relatório Geral */}
+      {relatorioAtivo === 'geral' && !carregando && (
         <>
-          {/* Aba: Relatório Geral */}
-          {aba === 'geral' && (
+          {dados && (
+            <div style={{ display: 'flex', gap: 0, marginBottom: 16, borderBottom: '2px solid #e5e7eb' }}>
+              {[
+                { id: 'geral',         label: 'Relatório Geral' },
+                { id: 'personalizado', label: 'Exportação Personalizada' },
+              ].map(a => (
+                <button key={a.id} onClick={() => setAba(a.id)}
+                  style={{
+                    padding: '8px 20px', border: 'none', background: 'none', cursor: 'pointer',
+                    fontSize: 14, fontWeight: aba === a.id ? 600 : 400,
+                    color: aba === a.id ? '#2563eb' : '#6b7280',
+                    borderBottom: aba === a.id ? '2px solid #2563eb' : '2px solid transparent',
+                    marginBottom: -2,
+                  }}>
+                  {a.label}
+                </button>
+              ))}
+            </div>
+          )}
+
+          {!dados && !erro && (
+            <div className="card" style={{ textAlign: 'center', padding: 48, color: '#9ca3af' }}>
+              <div style={{ fontSize: 36, marginBottom: 12 }}>📊</div>
+              <div style={{ fontSize: 15, marginBottom: 4 }}>Selecione o período e clique em Carregar Dados</div>
+              <div style={{ fontSize: 13 }}>Os campos dinâmicos do metadata serão expandidos automaticamente.</div>
+            </div>
+          )}
+
+          {dados && aba === 'geral' && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
               <div className="card">
                 <div style={{ fontWeight: 600, fontSize: 15, color: '#1e2a3b' }}>Exportar todos os dados</div>
@@ -344,44 +478,42 @@ export default function Exportacao() {
                   {colunasMeta.length > 0 && ` (${colunasBase.length} da view + ${colunasMeta.length} do metadata)`}
                 </div>
               </div>
-
               {previewLinhas.length > 0 && (
                 <>
                   <div>
-                    <button className="btn btn-primario" onClick={() => fazerExport(todasColunas, 'relatorio_geral')} disabled={exportando || dados.length === 0}>
+                    <button className="btn btn-primario" onClick={() => fazerExport(dados, todasColunas, 'relatorio_geral')} disabled={exportando || dados.length === 0}>
                       {exportando ? 'Gerando...' : '⬇ Exportar XLSX'}
                     </button>
                   </div>
                   <div className="card" style={{ padding: 0 }}>
-                  <div style={{ padding: '12px 16px', borderBottom: '1px solid #f3f4f6', fontSize: 13, color: '#6b7280' }}>
-                    Prévia — primeiras {previewLinhas.length} de {totalRegistros} linhas
+                    <div style={{ padding: '12px 16px', borderBottom: '1px solid #f3f4f6', fontSize: 13, color: '#6b7280' }}>
+                      Prévia — primeiras {previewLinhas.length} de {totalRegistros} linhas
+                    </div>
+                    <div style={{ overflowX: 'auto', maxHeight: 420 }}>
+                      <table className="tabela">
+                        <thead>
+                          <tr>{todasColunas.map(c => <th key={c} style={{ whiteSpace: 'nowrap', fontSize: 12, position: 'sticky', top: 0, background: '#f9fafb', zIndex: 1 }}>{c}</th>)}</tr>
+                        </thead>
+                        <tbody>
+                          {previewLinhas.map((row, i) => (
+                            <tr key={i}>
+                              {todasColunas.map(c => (
+                                <td key={c} style={{ fontSize: 12, whiteSpace: 'nowrap', maxWidth: 180, overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                                  {row[c] === null || row[c] === undefined ? '' : String(row[c])}
+                                </td>
+                              ))}
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
                   </div>
-                  <div style={{ overflowX: 'auto', maxHeight: 420 }}>
-                    <table className="tabela">
-                      <thead>
-                        <tr>{todasColunas.map(c => <th key={c} style={{ whiteSpace: 'nowrap', fontSize: 12 }}>{c}</th>)}</tr>
-                      </thead>
-                      <tbody>
-                        {previewLinhas.map((row, i) => (
-                          <tr key={i}>
-                            {todasColunas.map(c => (
-                              <td key={c} style={{ fontSize: 12, whiteSpace: 'nowrap', maxWidth: 180, overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                                {row[c] === null || row[c] === undefined ? '' : String(row[c])}
-                              </td>
-                            ))}
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                </div>
                 </>
               )}
             </div>
           )}
 
-          {/* Aba: Exportação Personalizada */}
-          {aba === 'personalizado' && (
+          {dados && aba === 'personalizado' && (
             <div style={{ display: 'grid', gridTemplateColumns: '260px 1fr', gap: 16, alignItems: 'start' }}>
               <div className="card" style={{ padding: 0, position: 'sticky', top: 16 }}>
                 <div style={{ padding: '12px 14px', borderBottom: '1px solid #f3f4f6' }}>
@@ -416,46 +548,44 @@ export default function Exportacao() {
                   )}
                 </div>
               </div>
-
               <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
                 <div className="card">
                   <div style={{ fontSize: 13, color: '#6b7280' }}>
                     {colunasParaExportar.length} coluna{colunasParaExportar.length !== 1 ? 's' : ''} selecionada{colunasParaExportar.length !== 1 ? 's' : ''} · {totalRegistros} registros
                   </div>
                 </div>
-
                 {colunasParaExportar.length > 0 && previewLinhas.length > 0 ? (
                   <>
                     <div>
                       <button className="btn btn-primario"
-                        onClick={() => fazerExport(colunasParaExportar, 'exportacao_personalizada')}
+                        onClick={() => fazerExport(dados, colunasParaExportar, 'exportacao_personalizada')}
                         disabled={exportando || colunasParaExportar.length === 0}>
                         {exportando ? 'Gerando...' : '⬇ Exportar XLSX'}
                       </button>
                     </div>
-                  <div className="card" style={{ padding: 0 }}>
-                    <div style={{ padding: '12px 16px', borderBottom: '1px solid #f3f4f6', fontSize: 13, color: '#6b7280' }}>
-                      Prévia — primeiras {previewLinhas.length} de {totalRegistros} linhas
+                    <div className="card" style={{ padding: 0 }}>
+                      <div style={{ padding: '12px 16px', borderBottom: '1px solid #f3f4f6', fontSize: 13, color: '#6b7280' }}>
+                        Prévia — primeiras {previewLinhas.length} de {totalRegistros} linhas
+                      </div>
+                      <div style={{ overflowX: 'auto', maxHeight: 420 }}>
+                        <table className="tabela">
+                          <thead>
+                            <tr>{colunasParaExportar.map(c => <th key={c} style={{ whiteSpace: 'nowrap', fontSize: 12, position: 'sticky', top: 0, background: '#f9fafb', zIndex: 1 }}>{c}</th>)}</tr>
+                          </thead>
+                          <tbody>
+                            {previewLinhas.map((row, i) => (
+                              <tr key={i}>
+                                {colunasParaExportar.map(c => (
+                                  <td key={c} style={{ fontSize: 12, whiteSpace: 'nowrap', maxWidth: 180, overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                                    {row[c] === null || row[c] === undefined ? '' : String(row[c])}
+                                  </td>
+                                ))}
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
                     </div>
-                    <div style={{ overflowX: 'auto', maxHeight: 420 }}>
-                      <table className="tabela">
-                        <thead>
-                          <tr>{colunasParaExportar.map(c => <th key={c} style={{ whiteSpace: 'nowrap', fontSize: 12 }}>{c}</th>)}</tr>
-                        </thead>
-                        <tbody>
-                          {previewLinhas.map((row, i) => (
-                            <tr key={i}>
-                              {colunasParaExportar.map(c => (
-                                <td key={c} style={{ fontSize: 12, whiteSpace: 'nowrap', maxWidth: 180, overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                                  {row[c] === null || row[c] === undefined ? '' : String(row[c])}
-                                </td>
-                              ))}
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
-                  </div>
                   </>
                 ) : (
                   <div className="card" style={{ textAlign: 'center', padding: 32, color: '#9ca3af' }}>
@@ -467,6 +597,58 @@ export default function Exportacao() {
           )}
         </>
       )}
+
+      {/* Conteúdo: Faixa Tocantins */}
+      {relatorioAtivo === 'faixa-to' && !carregandoFTO && (() => {
+        const colunasFTO = COLUNAS_FAIXA_TO.map(c => c.header)
+        const previewFTO = dadosFTO ? dadosFTO.slice(0, 50) : []
+        return (
+          <>
+            {!dadosFTO && !erroFTO && (
+              <div className="card" style={{ textAlign: 'center', padding: 48, color: '#9ca3af' }}>
+                <div style={{ fontSize: 36, marginBottom: 12 }}>📍</div>
+                <div style={{ fontSize: 15, marginBottom: 4 }}>Selecione o período e clique em Carregar Dados</div>
+                <div style={{ fontSize: 13 }}>Atividades de justificativa são excluídas automaticamente.</div>
+              </div>
+            )}
+            {dadosFTO && dadosFTO.length > 0 && (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+                <div>
+                  <button className="btn btn-primario"
+                    onClick={() => fazerExport(dadosFTO, colunasFTO, 'relatorio_faixa_to')}
+                    disabled={exportando}>
+                    {exportando ? 'Gerando...' : '⬇ Exportar XLSX'}
+                  </button>
+                </div>
+                <div className="card" style={{ padding: 0 }}>
+                  <div style={{ padding: '12px 16px', borderBottom: '1px solid #f3f4f6', fontSize: 13, color: '#6b7280' }}>
+                    Prévia — primeiras {previewFTO.length} de {dadosFTO.length} linhas
+                  </div>
+                  <div style={{ overflowX: 'auto', maxHeight: 420 }}>
+                    <table className="tabela">
+                      <thead>
+                        <tr>{colunasFTO.map(c => <th key={c} style={{ whiteSpace: 'nowrap', fontSize: 12, position: 'sticky', top: 0, background: '#f9fafb', zIndex: 1 }}>{c}</th>)}</tr>
+                      </thead>
+                      <tbody>
+                        {previewFTO.map((row, i) => (
+                          <tr key={i}>
+                            {colunasFTO.map(c => (
+                              <td key={c} style={{ fontSize: 12, whiteSpace: 'nowrap', maxWidth: 180, overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                                {row[c] === null || row[c] === undefined ? '' : String(row[c])}
+                              </td>
+                            ))}
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              </div>
+            )}
+          </>
+        )
+      })()}
+
     </div>
   )
 }
