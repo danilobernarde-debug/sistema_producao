@@ -3,6 +3,39 @@ import { useNavigate } from 'react-router-dom'
 import { supabase } from '../../supabaseClient'
 import { CHUNK, expandirMetadata, exportarXLSX } from './exportUtils'
 import FaixaTO from './FaixaTO'
+import SelectPesquisavel from '../../components/SelectPesquisavel'
+
+const CAMPOS_DIN = [
+  { key: 'registro_id',   label: 'ID',            tipo: 'numero'      },
+  { key: 'equipe_id',      label: 'Equipe',        tipo: 'sel_equipe'  },
+  { key: 'tipo_equipe_id', label: 'Tipo de Equipe', tipo: 'sel_tequipe' },
+  { key: 'encarregado_id', label: 'Encarregado',   tipo: 'sel_enc'     },
+  { key: 'origem',         label: 'Origem',         tipo: 'sel_origem'  },
+  { key: 'obra_id',        label: 'Nr. Obra',       tipo: 'texto'       },
+  { key: 'obs',            label: 'Observações',    tipo: 'texto'       },
+]
+const OPERADORES_TEXTO = [
+  { value: 'contem',     label: 'Contém'      },
+  { value: 'nao_contem', label: 'Não Contém'  },
+  { value: 'igual',      label: 'Igual a'     },
+]
+const OPERADORES_EXATO = [
+  { value: 'igual',     label: 'Selecionado'     },
+  { value: 'diferente', label: 'Não Selecionado' },
+]
+const OPERADORES_NUMERO = [
+  { value: 'igual', label: 'Igual a'   },
+  { value: 'maior', label: 'Maior que' },
+  { value: 'menor', label: 'Menor que' },
+]
+function opsDoCampo(tipo) {
+  if (tipo === 'numero') return OPERADORES_NUMERO
+  return tipo.startsWith('sel_') ? OPERADORES_EXATO : OPERADORES_TEXTO
+}
+function novoFiltro(campo = 'equipe_id') {
+  const def = CAMPOS_DIN.find(c => c.key === campo) || CAMPOS_DIN[0]
+  return { _id: Date.now() + Math.random(), campo, operador: opsDoCampo(def.tipo)[0].value, valor: '' }
+}
 
 const RELATORIOS = [
   { id: 'geral',    icone: '📊', titulo: 'Relatório Geral',
@@ -34,9 +67,20 @@ export default function Exportacao() {
   const [erro, setErro]                     = useState('')
   const cancelarRef = useRef(false)
 
+  const [filtrosDin, setFiltrosDin]         = useState([])
+  const [tiposEquipe, setTiposEquipe]       = useState([])
+  const [equipes, setEquipes]               = useState([])
+  const [encarregados, setEncarregados]     = useState([])
+
   useEffect(() => {
     supabase.from('d_contratos').select('id, descricao').order('descricao')
       .then(({ data }) => setContratos(data || []))
+    supabase.from('d_tipo_equipe').select('id, descricao')
+      .then(({ data }) => setTiposEquipe(data || []))
+    supabase.from('d_equipes').select('id, equipe').order('equipe')
+      .then(({ data }) => setEquipes((data || []).map(e => ({ valor: e.id, label: e.equipe }))))
+    supabase.from('d_colaboradores').select('id, matricula_nome').not('id', 'is', null).order('matricula_nome')
+      .then(({ data }) => setEncarregados((data || []).map(e => ({ valor: e.id, label: e.matricula_nome }))))
   }, [])
 
   function calcularPeriodo() {
@@ -46,6 +90,39 @@ export default function Exportacao() {
   }
 
   function cancelar() { cancelarRef.current = true; setCarregando(false) }
+
+  function alterarFiltrosDin(idx, chave, valor) {
+    setFiltrosDin(prev => {
+      const novo = [...prev]
+      if (chave === 'campo') {
+        const def = CAMPOS_DIN.find(c => c.key === valor) || CAMPOS_DIN[0]
+        novo[idx] = { ...novo[idx], campo: valor, operador: opsDoCampo(def.tipo)[0].value, valor: '' }
+      } else {
+        novo[idx] = { ...novo[idx], [chave]: valor }
+      }
+      return novo
+    })
+  }
+
+  function aplicarFiltrosDin(rows) {
+    if (filtrosDin.length === 0) return rows
+    return rows.filter(row =>
+      filtrosDin.every(({ campo, operador, valor }) => {
+        if (!valor && valor !== 0) return true
+        const col = campo === 'obs' ? 'observacoes' : campo
+        const colVal = row[col]
+        const v = String(colVal ?? '')
+        const fv = String(valor)
+        if (operador === 'igual')      return colVal != null && colVal == valor
+        if (operador === 'diferente')  return colVal == null || colVal != valor
+        if (operador === 'maior')      return colVal != null && Number(colVal) > Number(valor)
+        if (operador === 'menor')      return colVal != null && Number(colVal) < Number(valor)
+        if (operador === 'contem')     return v.toLowerCase().includes(fv.toLowerCase())
+        if (operador === 'nao_contem') return !v.toLowerCase().includes(fv.toLowerCase())
+        return true
+      })
+    )
+  }
 
   async function carregar() {
     cancelarRef.current = false
@@ -94,7 +171,7 @@ export default function Exportacao() {
       return
     }
 
-    const expandido = expandirMetadata(todos)
+    const expandido = aplicarFiltrosDin(expandirMetadata(todos))
     setTotalRegistros(expandido.length)
 
     function ocultarColuna(k) {
@@ -186,9 +263,11 @@ export default function Exportacao() {
         </div>
       )}
 
-      {/* Filtros de data — só para Relatório Geral (FTO tem o seu próprio) */}
+      {/* Filtros — só para Relatório Geral (FTO tem o seu próprio) */}
       {relatorioAtivo === 'geral' && (
         <div className="card" style={{ marginBottom: 16 }}>
+
+          {/* Filtros fixos */}
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: 12, alignItems: 'flex-end' }}>
             <div>
               <div style={{ fontSize: 12, color: '#6b7280', marginBottom: 4 }}>Data início</div>
@@ -198,26 +277,84 @@ export default function Exportacao() {
               <div style={{ fontSize: 12, color: '#6b7280', marginBottom: 4 }}>Data fim</div>
               <input type="date" style={selectStyle} value={dataFim} onChange={e => setDataFim(e.target.value)} />
             </div>
-            {relatorioAtivo === 'geral' && (
-              <>
-                <div>
-                  <div style={{ fontSize: 12, color: '#6b7280', marginBottom: 4 }}>Contrato</div>
-                  <select style={{ ...selectStyle, minWidth: 200 }} value={contratoId} onChange={e => setContratoId(e.target.value)}>
-                    <option value="">Todos os contratos</option>
-                    {contratos.map(c => <option key={c.id} value={c.id}>{c.descricao}</option>)}
-                  </select>
-                </div>
-                <div style={{ display: 'flex', gap: 8, alignSelf: 'flex-end' }}>
-                  <button className="btn btn-primario" onClick={carregar} disabled={carregando}>
-                    {carregando ? 'Carregando...' : dados ? 'Recarregar' : 'Carregar Dados'}
-                  </button>
-                  {carregando && <button className="btn btn-secundario" onClick={cancelar}>Cancelar</button>}
-                </div>
-              </>
-            )}
+            <div>
+              <div style={{ fontSize: 12, color: '#6b7280', marginBottom: 4 }}>Contrato</div>
+              <select style={{ ...selectStyle, minWidth: 200 }} value={contratoId} onChange={e => setContratoId(e.target.value)}>
+                <option value="">Todos os contratos</option>
+                {contratos.map(c => <option key={c.id} value={c.id}>{c.descricao}</option>)}
+              </select>
+            </div>
           </div>
 
-          {relatorioAtivo === 'geral' && carregando && progresso.total > 0 && (
+          {/* Filtros dinâmicos */}
+          {filtrosDin.length > 0 && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 12, paddingTop: 12, borderTop: '1px solid #f3f4f6' }}>
+              {filtrosDin.map((f, idx) => {
+                const def = CAMPOS_DIN.find(c => c.key === f.campo) || CAMPOS_DIN[0]
+                const ops = opsDoCampo(def.tipo)
+                return (
+                  <div key={f._id} style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+                    <select value={f.campo} onChange={e => alterarFiltrosDin(idx, 'campo', e.target.value)} style={{ ...selectStyle, minWidth: 160 }}>
+                      {CAMPOS_DIN.map(c => <option key={c.key} value={c.key}>{c.label}</option>)}
+                    </select>
+                    <select value={f.operador} onChange={e => alterarFiltrosDin(idx, 'operador', e.target.value)} style={{ ...selectStyle, minWidth: 140 }}>
+                      {ops.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+                    </select>
+                    {def.tipo === 'numero' ? (
+                      <input type="number" value={f.valor} onChange={e => alterarFiltrosDin(idx, 'valor', e.target.value)} style={{ ...selectStyle, minWidth: 120 }} placeholder="Digite..." />
+                    ) : def.tipo === 'sel_equipe' ? (
+                      <div style={{ minWidth: 220 }}>
+                        <SelectPesquisavel opcoes={equipes} valor={f.valor} onChange={v => alterarFiltrosDin(idx, 'valor', v)} placeholder="Pesquisar equipe..." />
+                      </div>
+                    ) : def.tipo === 'sel_tequipe' ? (
+                      <select value={f.valor} onChange={e => alterarFiltrosDin(idx, 'valor', e.target.value)} style={{ ...selectStyle, minWidth: 180 }}>
+                        <option value="">Selecione...</option>
+                        {tiposEquipe.map(t => <option key={t.id} value={t.id}>{t.descricao}</option>)}
+                      </select>
+                    ) : def.tipo === 'sel_enc' ? (
+                      <div style={{ minWidth: 220 }}>
+                        <SelectPesquisavel opcoes={encarregados} valor={f.valor} onChange={v => alterarFiltrosDin(idx, 'valor', v)} placeholder="Pesquisar encarregado..." />
+                      </div>
+                    ) : def.tipo === 'sel_origem' ? (
+                      <select value={f.valor} onChange={e => alterarFiltrosDin(idx, 'valor', e.target.value)} style={{ ...selectStyle, minWidth: 160 }}>
+                        <option value="">Selecione...</option>
+                        <option value="sistema-claude">Sistema</option>
+                        <option value="sistema-weweb">WeWeb</option>
+                        <option value="Coletum">Coletum</option>
+                      </select>
+                    ) : (
+                      <input type="text" value={f.valor} onChange={e => alterarFiltrosDin(idx, 'valor', e.target.value)} style={{ ...selectStyle, minWidth: 200 }} placeholder="Digite..." />
+                    )}
+                    <button onClick={() => setFiltrosDin(p => p.filter((_, i) => i !== idx))}
+                      style={{ padding: '4px 10px', border: '1px solid #fca5a5', borderRadius: 6, background: '#fef2f2', color: '#dc2626', fontSize: 12, cursor: 'pointer', height: 34 }}>
+                      ✕ Remover
+                    </button>
+                  </div>
+                )
+              })}
+            </div>
+          )}
+
+          {/* Ações */}
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 12, flexWrap: 'wrap', gap: 8 }}>
+            <button className="btn btn-secundario" onClick={() => setFiltrosDin(p => [...p, novoFiltro()])} style={{ fontSize: 13 }}>
+              + Adicionar filtro
+            </button>
+            <div style={{ display: 'flex', gap: 8 }}>
+              {filtrosDin.length > 0 && (
+                <button className="btn btn-secundario" onClick={() => setFiltrosDin([])}
+                  style={{ fontSize: 13, color: '#dc2626', borderColor: '#fca5a5' }}>
+                  Limpar filtros
+                </button>
+              )}
+              <button className="btn btn-primario" onClick={carregar} disabled={carregando}>
+                {carregando ? 'Carregando...' : dados ? 'Recarregar' : 'Carregar Dados'}
+              </button>
+              {carregando && <button className="btn btn-secundario" onClick={cancelar}>Cancelar</button>}
+            </div>
+          </div>
+
+          {carregando && progresso.total > 0 && (
             <div style={{ marginTop: 12 }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, color: '#6b7280', marginBottom: 4 }}>
                 <span>Carregando registros...</span><span>{progresso.atual} / {progresso.total} ({pct}%)</span>
@@ -227,7 +364,7 @@ export default function Exportacao() {
               </div>
             </div>
           )}
-          {relatorioAtivo === 'geral' && erro && <div className="erro-mensagem" style={{ marginTop: 8 }}>{erro}</div>}
+          {erro && <div className="erro-mensagem" style={{ marginTop: 8 }}>{erro}</div>}
         </div>
       )}
 
