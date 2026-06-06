@@ -196,7 +196,7 @@ export default function AnaliseDashboard() {
     try {
       const [viewData, resMetas] = await Promise.all([
         fetchAllPages(() =>
-          supabase.rpc('get_mat_producao_powerbi', { p_ini: ini, p_fim: fim })
+          supabase.rpc('fn_prod_dados_anuais', { p_ini: ini, p_fim: fim })
             .order('registro_id', { ascending: true })
             .order('f_prod_atividade_id', { ascending: true })
             .order('equipe_id', { ascending: true })

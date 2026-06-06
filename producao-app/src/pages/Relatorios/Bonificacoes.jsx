@@ -95,7 +95,7 @@ export default function Bonificacoes() {
     setFiltroColab('')
 
     const { data, error } = await supabase
-      .from('view_powerbi_producao_colab')
+      .from('view_prod_relatorio_colaborador')
       .select('colaborador_id, nome_colaborador, contrato_id, desc_contrato, equipe_id, desc_equipe, tipo_equipe_id, quantidade_total_upe_por_colaborador, valor_por_colaborador, data_producao')
       .gte('data_producao', inicio)
       .lte('data_producao', fim)

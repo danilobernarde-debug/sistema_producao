@@ -139,7 +139,7 @@ export default function Exportacao() {
 
     try {
       while (true) {
-        const { data, error } = await supabase.rpc('exportar_r07', {
+        const { data, error } = await supabase.rpc('fn_prod_exportar', {
           p_inicio:      inicio,
           p_fim:         fim,
           p_contrato_id: contratoId ? Number(contratoId) : null,

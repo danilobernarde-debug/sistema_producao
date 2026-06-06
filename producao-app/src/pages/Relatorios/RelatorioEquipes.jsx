@@ -279,7 +279,7 @@ export default function RelatorioEquipes() {
         .gte('data_producao', dataInicio)
         .lte('data_producao', dataFim)
         .limit(100000),
-      supabase.from('view_r07_weweb_3')
+      supabase.from('view_prod_relatorio_equipes')
         .select('registro_id, data_producao, desc_equipe, desc_atividade, justificativa, metadata_registro')
         .gte('data_producao_original', dataInicio)
         .lte('data_producao_original', dataFim)

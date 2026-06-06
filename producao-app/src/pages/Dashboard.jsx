@@ -69,7 +69,7 @@ export default function Dashboard() {
       supabase.from('f_prod_registro').select('*', { count: 'exact', head: true }),
       supabase.from('f_prod_registro').select('*', { count: 'exact', head: true }).gte('criado_em', inicioHoje).lt('criado_em', fimHoje),
       supabase.from('f_prod_registro').select('*', { count: 'exact', head: true }).gte('criado_em', inicio7),
-      supabase.from('view_f_prod_id_editar')
+      supabase.from('view_prod_registro')
         .select('data_producao, valor_total, descricao_equipe')
         .gte('data_producao', dataIni7)
         .limit(5000),

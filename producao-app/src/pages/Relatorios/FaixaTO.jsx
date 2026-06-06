@@ -87,7 +87,7 @@ export default function FaixaTO({ dataInicio, dataFim, setDataInicio, setDataFim
 
     try {
       while (true) {
-        const { data, error } = await supabase.rpc('exportar_r07', {
+        const { data, error } = await supabase.rpc('fn_prod_exportar', {
           p_inicio:      dataInicio,
           p_fim:         calcularFim(),
           p_contrato_id: null,
