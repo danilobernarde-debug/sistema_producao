@@ -133,9 +133,17 @@ export default function AnaliseDashboard() {
 
   const [aba, setAba]               = useState(0)
   const [ano, setAno]               = useState(anoAtual)
-  const [filtroContrato, setFiltroContrato] = useState('todos')
-  const [filtroMes, setFiltroMes]   = useState(0)      // 0 = todos
-  const [filtroEquipe, setFiltroEquipe] = useState(null) // null = todas
+  const [filtrosPorAba, setFiltrosPorAba] = useState({
+    0: { contrato: 'todos', mes: 0, equipe: null },
+    1: { contrato: 'todos', mes: 0 },
+    2: { contrato: 'todos', mes: 0 },
+  })
+  function setFiltroAba(abaIdx, chave, valor) {
+    setFiltrosPorAba(prev => ({ ...prev, [abaIdx]: { ...prev[abaIdx], [chave]: valor } }))
+  }
+  const { contrato: f0Contrato, mes: f0Mes, equipe: f0Equipe } = filtrosPorAba[0]
+  const { contrato: f1Contrato, mes: f1Mes } = filtrosPorAba[1]
+  const { contrato: f2Contrato, mes: f2Mes } = filtrosPorAba[2]
 
   const [viewRows, setViewRows]       = useState([])
   const [metas, setMetas]             = useState({}) // tid -> { mes: valor }
@@ -316,35 +324,39 @@ export default function AnaliseDashboard() {
     })
   }, [drillEquipe, registros, equipeByReg])
 
-  // Registros filtrados (todos os filtros — usado em abas 1, 2, 3 e tabela do painel)
+  // Registros filtrados — aba 0 (Painel Principal)
   const regsFiltrados = useMemo(() => {
     return registros.filter(r => {
-      if (!matchFiltro(r.contrato_id, filtroContrato)) return false
-      if (filtroMes !== 0 && Number(r.data_producao?.split('-')[1]) !== filtroMes) return false
-      if (filtroEquipe && equipeByReg[r.id] !== filtroEquipe) return false
+      if (!matchFiltro(r.contrato_id, f0Contrato)) return false
+      if (f0Mes !== 0 && Number(r.data_producao?.split('-')[1]) !== f0Mes) return false
+      if (f0Equipe && equipeByReg[r.id] !== f0Equipe) return false
       return true
     })
-  }, [registros, filtroContrato, filtroMes, filtroEquipe, equipeByReg])
+  }, [registros, f0Contrato, f0Mes, f0Equipe, equipeByReg])
 
-  // Filtros parciais para cada gráfico do Painel Principal
-  // (cada gráfico exclui seu próprio filtro para continuar mostrando todos os itens)
+  // Filtros parciais para gráficos do Painel Principal (aba 0)
   const regsExclContrato = useMemo(() => registros.filter(r => {
-    if (filtroMes !== 0 && Number(r.data_producao?.split('-')[1]) !== filtroMes) return false
-    if (filtroEquipe && equipeByReg[r.id] !== filtroEquipe) return false
+    if (f0Mes !== 0 && Number(r.data_producao?.split('-')[1]) !== f0Mes) return false
+    if (f0Equipe && equipeByReg[r.id] !== f0Equipe) return false
     return true
-  }), [registros, filtroMes, filtroEquipe, equipeByReg])
+  }), [registros, f0Mes, f0Equipe, equipeByReg])
 
   const regsExclMes = useMemo(() => registros.filter(r => {
-    if (!matchFiltro(r.contrato_id, filtroContrato)) return false
-    if (filtroEquipe && equipeByReg[r.id] !== filtroEquipe) return false
+    if (!matchFiltro(r.contrato_id, f0Contrato)) return false
+    if (f0Equipe && equipeByReg[r.id] !== f0Equipe) return false
     return true
-  }), [registros, filtroContrato, filtroEquipe, equipeByReg])
+  }), [registros, f0Contrato, f0Equipe, equipeByReg])
 
   const regsExclEquipe = useMemo(() => registros.filter(r => {
-    if (!matchFiltro(r.contrato_id, filtroContrato)) return false
-    if (filtroMes !== 0 && Number(r.data_producao?.split('-')[1]) !== filtroMes) return false
+    if (!matchFiltro(r.contrato_id, f0Contrato)) return false
+    if (f0Mes !== 0 && Number(r.data_producao?.split('-')[1]) !== f0Mes) return false
     return true
-  }), [registros, filtroContrato, filtroMes])
+  }), [registros, f0Contrato, f0Mes])
+
+  // Filtro para aba 2 (Produção Detalhada) — independente do aba 0
+  const regsExclMes2 = useMemo(() => registros.filter(r =>
+    matchFiltro(r.contrato_id, f2Contrato)
+  ), [registros, f2Contrato])
 
   // ── Dados para Aba 0: Painel Principal ──────────────────────────────────────
   const dadosPizza = useMemo(() => {
@@ -369,6 +381,16 @@ export default function AnaliseDashboard() {
     })
     return Array.from({ length: 12 }, (_, i) => ({ mes: MESES[i], valor: map[i + 1] || 0, mesNum: i + 1 }))
   }, [regsExclMes])
+
+  const dadosBarMes2 = useMemo(() => {
+    const map = {}
+    regsExclMes2.forEach(r => {
+      const mes = Number(r.data_producao?.split('-')[1])
+      if (!mes) return
+      map[mes] = (map[mes] || 0) + valorReg(r)
+    })
+    return Array.from({ length: 12 }, (_, i) => ({ mes: MESES[i], valor: map[i + 1] || 0, mesNum: i + 1 }))
+  }, [regsExclMes2])
 
   const dadosTabelaMes = useMemo(() => {
     const map = {}
@@ -407,7 +429,7 @@ export default function AnaliseDashboard() {
     const prodMap = {} // equipeNome -> { mes: valor }
     registros.forEach(r => {
       const cid = String(r.contrato_id)
-      if (!matchFiltro(r.contrato_id, filtroContrato)) return
+      if (!matchFiltro(r.contrato_id, f1Contrato)) return
       const nome = equipeByReg[r.id]
       if (!nome) return
       const mes = Number(r.data_producao?.split('-')[1])
@@ -437,18 +459,18 @@ export default function AnaliseDashboard() {
         contrato: cnome, cid,
         equipes: eqs.sort((a, b) => a.nome.localeCompare(b.nome)),
       }))
-  }, [registros, contratos, metas, filtroContrato, equipeByReg])
+  }, [registros, contratos, metas, f1Contrato, equipeByReg])
 
   // ── Dados para Aba 2: Produção Detalhada ─────────────────────────────────────
   const dadosDetalhada = useMemo(() => {
-    const mesAtivo = filtroMes || null
+    const mesAtivo = f2Mes || null
 
 
     const atividadeMap = {} // equipeNome -> { [descAtiv]: { qtd, valor } }
     const prodEquipe = {}   // equipeNome -> { prod, tid, cid }
 
     registros.forEach(r => {
-      if (!matchFiltro(r.contrato_id, filtroContrato)) return
+      if (!matchFiltro(r.contrato_id, f2Contrato)) return
       if (mesAtivo && Number(r.data_producao?.split('-')[1]) !== mesAtivo) return
       const nome = equipeByReg[r.id]
       if (!nome) return
@@ -474,7 +496,7 @@ export default function AnaliseDashboard() {
           .sort((a, b) => b.valor - a.valor),
       }))
       .sort((a, b) => b.prod - a.prod)
-  }, [registros, equipeByReg, filtroContrato, filtroMes])
+  }, [registros, equipeByReg, f2Contrato, f2Mes])
 
   // ── Dados para Aba 3: Detalhe Equipe ─────────────────────────────────────────
   const dadosDetalheEquipe = useMemo(() => {
@@ -571,15 +593,16 @@ export default function AnaliseDashboard() {
   }
 
   function clicarBarMes(mesNum) {
-    setFiltroMes(prev => prev === mesNum ? 0 : mesNum)
+    const abaIdx = aba === 2 ? 2 : 0
+    setFiltroAba(abaIdx, 'mes', filtrosPorAba[abaIdx].mes === mesNum ? 0 : mesNum)
   }
 
   function clicarPizza(contratoId) {
-    setFiltroContrato(prev => prev === contratoId ? 'todos' : contratoId)
+    setFiltroAba(0, 'contrato', f0Contrato === contratoId ? 'todos' : contratoId)
   }
 
   function clicarEquipePainel(equipeNome) {
-    setFiltroEquipe(prev => prev === equipeNome ? null : equipeNome)
+    setFiltroAba(0, 'equipe', f0Equipe === equipeNome ? null : equipeNome)
   }
 
   // ── Render abas (tab 3 oculta, acessada só via drill-down) ───────────────────
@@ -638,7 +661,7 @@ export default function AnaliseDashboard() {
         </div>
       </div>
 
-      {/* Filtros globais */}
+      {/* Filtros por aba — independentes entre abas */}
       <div className="card" style={{ marginBottom: 16, padding: '12px 16px' }}>
         <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', alignItems: 'flex-end' }}>
           <div className="campo-grupo" style={{ marginBottom: 0 }}>
@@ -647,27 +670,32 @@ export default function AnaliseDashboard() {
               {Array.from({ length: anoAtual + 1 - anoMinimo + 1 }, (_, i) => anoMinimo + i).map(a => <option key={a} value={a}>{a}</option>)}
             </select>
           </div>
-          <div className="campo-grupo" style={{ marginBottom: 0 }}>
-            <label className="campo-label">Contrato</label>
-            <select className="campo-input" value={filtroContrato} onChange={e => setFiltroContrato(e.target.value)} style={{ width: 200 }}>
-              <option value="todos">Todos</option>
-              {contratos.map(c => <option key={c.id} value={String(c.id)}>{c.descricao}</option>)}
-            </select>
-          </div>
-          <div className="campo-grupo" style={{ marginBottom: 0 }}>
-            <label className="campo-label">Mês</label>
-            <select className="campo-input" value={filtroMes} onChange={e => setFiltroMes(Number(e.target.value))} style={{ width: 140 }}>
-              <option value={0}>Todos</option>
-              {MESES_FULL.map((m, i) => <option key={i + 1} value={i + 1}>{m}</option>)}
-            </select>
-          </div>
-          {(filtroContrato !== 'todos' || filtroMes !== 0 || filtroEquipe) && (
-            <button className="btn btn-secundario"
-              onClick={() => { setFiltroContrato('todos'); setFiltroMes(0); setFiltroEquipe(null) }}
-              style={{ alignSelf: 'flex-end', fontSize: 12 }}>
-              Limpar filtros
-            </button>
-          )}
+          {aba !== 3 && <>
+            <div className="campo-grupo" style={{ marginBottom: 0 }}>
+              <label className="campo-label">Contrato</label>
+              <select className="campo-input" value={filtrosPorAba[aba].contrato} onChange={e => setFiltroAba(aba, 'contrato', e.target.value)} style={{ width: 200 }}>
+                <option value="todos">Todos</option>
+                {contratos.map(c => <option key={c.id} value={String(c.id)}>{c.descricao}</option>)}
+              </select>
+            </div>
+            <div className="campo-grupo" style={{ marginBottom: 0 }}>
+              <label className="campo-label">Mês</label>
+              <select className="campo-input" value={filtrosPorAba[aba].mes} onChange={e => setFiltroAba(aba, 'mes', Number(e.target.value))} style={{ width: 140 }}>
+                <option value={0}>Todos</option>
+                {MESES_FULL.map((m, i) => <option key={i + 1} value={i + 1}>{m}</option>)}
+              </select>
+            </div>
+            {(filtrosPorAba[aba].contrato !== 'todos' || filtrosPorAba[aba].mes !== 0 || (aba === 0 && f0Equipe)) && (
+              <button className="btn btn-secundario"
+                onClick={() => setFiltrosPorAba(prev => ({
+                  ...prev,
+                  [aba]: aba === 0 ? { contrato: 'todos', mes: 0, equipe: null } : { contrato: 'todos', mes: 0 },
+                }))}
+                style={{ alignSelf: 'flex-end', fontSize: 12 }}>
+                Limpar filtros
+              </button>
+            )}
+          </>}
           <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 6,
             fontSize: 11, color: '#9ca3af', alignSelf: 'flex-end', paddingBottom: 2 }}>
             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -719,18 +747,18 @@ export default function AnaliseDashboard() {
         {aba === 0 && <PainelPrincipal
           dadosPizza={dadosPizza} dadosBarMes={dadosBarMes}
           dadosTabelaMes={dadosTabelaMes} dadosBarEquipe={dadosBarEquipe}
-          filtroMes={filtroMes} onClickMes={clicarBarMes}
-          filtroContrato={filtroContrato} onClickPizza={clicarPizza}
-          filtroEquipe={filtroEquipe} onClickEquipe={clicarEquipePainel}
+          filtroMes={f0Mes} onClickMes={clicarBarMes}
+          filtroContrato={f0Contrato} onClickPizza={clicarPizza}
+          filtroEquipe={f0Equipe} onClickEquipe={clicarEquipePainel}
         />}
         {aba === 1 && <AnaliseMensal
-          dados={dadosAnaliseMensal} filtroMes={filtroMes}
+          dados={dadosAnaliseMensal} filtroMes={f1Mes}
           onClickCelula={clicarCelulaAnaliseMensal}
         />}
         {aba === 2 && <ProducaoDetalhada
-          dados={dadosDetalhada} dadosBarMes={dadosBarMes}
-          filtroMes={filtroMes} onClickMes={clicarBarMes}
-          regsExclMes={regsExclMes} equipeByReg={equipeByReg}
+          dados={dadosDetalhada} dadosBarMes={dadosBarMes2}
+          filtroMes={f2Mes} onClickMes={clicarBarMes}
+          regsExclMes={regsExclMes2} equipeByReg={equipeByReg}
         />}
         {aba === 3 && <DetalheEquipe
           dados={dadosDetalheEquipe}
