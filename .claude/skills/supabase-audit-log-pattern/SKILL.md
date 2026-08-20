@@ -74,3 +74,7 @@ Mantenha uma lista visível (no README/CONTEXTO do sistema novo, do jeito que es
 ## Nota lateral: `audit_log` compartilhado tem trade-off
 
 Como é uma tabela só pra todos os sistemas, ela cresce rápido e não tem prefixo — não dá pra aplicar RLS por sistema nela do mesmo jeito que numa tabela `cad_`/de sistema. Se um sistema novo precisar que usuários comuns (não super admin) consultem o próprio histórico, filtre por `table_name` + confira se a policy de leitura do `audit_log` já cobre esse caso antes de assumir que cobre.
+
+## Nota lateral: banco separado ainda cria `audit_log` com a mesma estrutura
+
+Se o sistema novo estiver num projeto Supabase separado (sem acesso ao `audit_log` compartilhado), crie um `audit_log` local com exatamente as mesmas colunas (`id, table_name, operation_type, old_data, new_data, changed_at, changed_by, id_ref, contrato`) e o mesmo mecanismo de trigger `audite.<tabela>`. Isso não junta os dados agora, mas garante que uma unificação futura seja um `insert ... select` direto de uma tabela pra outra, sem precisar remapear coluna nem reescrever os triggers que alimentam o log.

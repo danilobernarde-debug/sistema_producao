@@ -82,6 +82,17 @@ const { usuario, perfil, carregando, entrar, sair, atualizarPerfil } = useAuth()
 - **Troca de senha**: direto do client, sem endpoint próprio — `supabase.auth.updateUser({ password: novaSenha })`.
 - **Foto de perfil**: bucket do Storage `user_photos`, path `${uuid}.${extensao}`, upload com `upsert: true`, salva `getPublicUrl(...).publicUrl` de volta na coluna `foto_url` do perfil.
 
+## Sistema com banco Supabase separado (ainda fora do compartilhado)
+
+Se o sistema novo não entrar no mesmo projeto Supabase (`giendnvcmkaqdminmeyz`) — banco/projeto próprio, por exemplo por isolamento de dados —, ele não tem acesso ao `auth.users` nem ao perfil espelho compartilhados. Mesmo assim, **crie as tabelas equivalentes localmente com a mesma estrutura**, não um formato próprio:
+
+- Perfil: mesmos nomes/tipos de coluna do `d_auth_user` (`uuid, role_id, nome, email, is_super_admin, foto_url`).
+- Papel: mesmos nomes/tipos do `d_auth_roles` (`id, name`).
+
+O objetivo não é economizar trabalho agora — é que, se um dia esse banco for unificado com o compartilhado, a tabela já bate estrutura com estrutura: a migração vira um `insert`/`union` direto, em vez de remapear coluna por coluna. Documente a decisão de manter banco separado (não é o padrão default) no `CONTEXTO_PROJETO.md` do sistema novo, pra quem entrar depois entender que foi escolha, não esquecimento.
+
+O que não dá pra replicar só copiando a estrutura: login deixa de ser automático entre sistemas (cada projeto Supabase tem seu próprio `auth.users`), então a mesma pessoa provavelmente vai ter um `uuid` diferente em cada banco. Ao unificar, isso precisa ser resolvido explicitamente (ex: casar contas por `email` e escolher um `uuid` canônico) — não é algo que a estrutura igual resolve sozinha.
+
 ## Exemplos
 
 **Input:** "Sistema novo de Estoque vai ter login — como monto isso?"

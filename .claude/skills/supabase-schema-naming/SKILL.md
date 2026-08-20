@@ -77,6 +77,10 @@ Mesmo prefixo de sistema do dado que ela representa, com `view` *depois* do pref
 **Input:** "View com o relatório mensal de produção pra exportar."
 **Output:** `prod_view_relatorio_mensal` — prefixo do sistema primeiro, `view` depois.
 
+## Nota lateral: sistema novo com banco Supabase separado
+
+Se o sistema novo for rodar num projeto Supabase diferente do compartilhado (banco isolado), ainda siga este mesmo padrão de prefixo pras tabelas que representam um conceito compartilhado (`cad_`, `auth_`) — mesmo sem risco de colisão de nome hoje, já que o projeto é isolado. Crie a tabela já com a mesma estrutura de colunas da equivalente compartilhada, não só o mesmo nome. Motivo: se um dia esse banco for unificado com o compartilhado, o que já nasceu com nome e estrutura certos encaixa direto (vira `insert`/`union`); o que nasceu diferente exige rename e remapeamento manual antes de unificar, com os cuidados da nota abaixo.
+
 ## Nota lateral: renomear tabela existente
 
 Se um dia for preciso renomear uma tabela que já existe (não é o caso comum — essa skill é pra nomear certo desde o início), lembre que `ALTER TABLE ... RENAME` atualiza sozinho FKs, índices, RLS policies e views (Postgres rastreia por OID, não por nome), mas **não** atualiza o corpo de functions PL/pgSQL/SQL que citam o nome da tabela como texto — essas precisam ser reescritas manualmente (`CREATE OR REPLACE FUNCTION` com o nome novo). Se o front-end usa embed do PostgREST (`.select('tabela(...)')`), a chave do JSON retornado muda junto com o nome da tabela — todo lugar que lê essa chave no código precisa mudar também.

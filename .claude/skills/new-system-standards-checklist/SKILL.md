@@ -30,6 +30,10 @@ Sistemas separados que seguem o mesmo padrão custam menos pra integrar depois �
 
 Essas skills (incluindo esta) vivem em `.claude/skills/` neste repositório (`sistema_producao`). Um sistema novo é um repositório separado — copie as pastas de skill relevantes pra dentro do `.claude/skills/` dele (ou importe os arquivos `.skill` equivalentes) pra que fiquem disponíveis também nas sessões daquele projeto, em vez de depender de lembrar as regras de cabeça.
 
+## Banco separado hoje, unificação amanhã
+
+Sistema novo nascendo num projeto Supabase próprio (não o compartilhado) não é motivo pra pular as skills de banco — pelo contrário, é o caso em que elas mais importam. `supabase-schema-naming`, `supabase-auth-pattern` e `supabase-audit-log-pattern` têm cada uma uma nota sobre isso: crie as tabelas compartilhadas (`cad_`/`auth_`/`audit_log`) já com o mesmo nome e a mesma estrutura de colunas da versão compartilhada, mesmo sem precisar disso pra evitar colisão agora. Isso é o que transforma uma unificação futura de banco num `insert`/`union` em vez de um remapeamento manual tabela por tabela.
+
 ## Quando divergir é certo
 
 Nem tudo precisa ser compartilhado. A pergunta chave (já em `supabase-schema-naming`) vale pro resto também: "se um sistema novo surgisse amanhã, ele plausivelmente reaproveitaria essa peça?" Se a resposta é claramente não — é uma tela, uma lógica ou uma tabela que só faz sentido nesse sistema — construa específico, sem generalizar por antecipação. O padrão existe pra reduzir custo de integração, não pra forçar todo sistema a parecer idêntico em tudo.
