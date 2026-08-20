@@ -81,6 +81,20 @@ Mesmo prefixo de sistema do dado que ela representa, com `view` *depois* do pref
 
 Se o sistema novo for rodar num projeto Supabase diferente do compartilhado (banco isolado), ainda siga este mesmo padrão de prefixo pras tabelas que representam um conceito compartilhado (`cad_`, `auth_`) — mesmo sem risco de colisão de nome hoje, já que o projeto é isolado. Crie a tabela já com a mesma estrutura de colunas da equivalente compartilhada, não só o mesmo nome. Motivo: se um dia esse banco for unificado com o compartilhado, o que já nasceu com nome e estrutura certos encaixa direto (vira `insert`/`union`); o que nasceu diferente exige rename e remapeamento manual antes de unificar, com os cuidados da nota abaixo.
 
+Isso vale pra `auth_` (ver estrutura detalhada na skill supabase-auth-pattern) e também pras tabelas `cad_` — mas só crie, no banco separado, a(s) que o sistema novo realmente for consultar; não replique a lista inteira por precaução. Estrutura de cada `cad_` hoje (nome legado `d_` entre parênteses):
+
+| Tabela (`cad_`) | Colunas principais |
+|---|---|
+| `cad_contratos` (`d_contratos`) | `id smallint PK, num_contrato varchar, descricao varchar, logica_contrato boolean, referencia_codigo text, tip_equipe jsonb` |
+| `cad_tipo_equipe` (`d_tipo_equipe`) | `id, descricao, qtd_minima_colaboradores, grupo, grupo_atividades` |
+| `cad_equipes` (`d_equipes`) | `id, equipe, contrato_id FK, tipo_equipe_id FK, is_ativo` |
+| `cad_colaboradores` (`d_colaboradores`) | `id, nome, matricula, equipe_id FK, is_ativo, cargo_id` (+ `matricula_nome` gerado) |
+| `cad_atividades` (`d_atividades`) | `id, codigo_op, descricao, unidade, tipo_lm_lv, tipo_upe_fixa, referencia_codigo, tipo_equipe_id` |
+| `cad_obras` (`d_obras`) | `obra PK, localidade, contrato_id FK, zona, polo, dth_prev_termino, previsto_orcado` |
+| `cad_regional` (`d_regional`) | `id, regional` |
+
+Se o sistema novo precisar de um cadastro que não está nessa lista, ele provavelmente ainda não existe como `cad_` em lugar nenhum — antes de criar do zero, confirme com quem mantém o banco compartilhado se aquele dado já existe com nome legado (`d_...`) pra não nascer com estrutura diferente da mesma coisa.
+
 ## Nota lateral: renomear tabela existente
 
 Se um dia for preciso renomear uma tabela que já existe (não é o caso comum — essa skill é pra nomear certo desde o início), lembre que `ALTER TABLE ... RENAME` atualiza sozinho FKs, índices, RLS policies e views (Postgres rastreia por OID, não por nome), mas **não** atualiza o corpo de functions PL/pgSQL/SQL que citam o nome da tabela como texto — essas precisam ser reescritas manualmente (`CREATE OR REPLACE FUNCTION` com o nome novo). Se o front-end usa embed do PostgREST (`.select('tabela(...)')`), a chave do JSON retornado muda junto com o nome da tabela — todo lugar que lê essa chave no código precisa mudar também.
