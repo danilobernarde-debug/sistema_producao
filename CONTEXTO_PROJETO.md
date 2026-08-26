@@ -506,7 +506,8 @@ ON CONFLICT DO NOTHING;
 > **Status:** módulo pertence ao contrato de Faixa, `contrato_id = 21` (confirmado pelo usuário). **`sql_limpeza_subestacao.sql` já rodou com sucesso no Supabase em 2026-08-26** — tabela `d_subestacoes`, tipo de equipe "Limpeza de Subestação", as 8 atividades e o campo dinâmico "Subestação" já existem no banco de produção (conferido consultando `d_tipo_equipe` e `d_atividades`).
 > - ✅ `producao-app/sql_limpeza_subestacao.sql` — **executado**. Precisou de 3 correções sobre o que a documentação antiga dizia (ver notas em `d_atividades` e `config_campos` acima): aspas em `"DESCRICAO_BASICA_SISTEMA"`/`"UPE"`, `UPE` alargada pra `numeric(12,6)`, e `codigo_op` preenchido (é NOT NULL).
 > - ✅ `producao-app/src/pages/Configuracoes/Subestacoes.jsx` — tela de cadastro (CRUD + importação em massa por XLSX), já roteada em `/configuracoes/subestacoes`. **Ainda não usável em produção** — só existe no código da branch `claude/oi-wuna1p`, que ainda não foi mesclada/deployada.
-> - ⏳ Falta: mesclar/dar deploy da branch `claude/oi-wuna1p` pra tela aparecer no app, e então importar as ~370 subestações da planilha original por ela.
+> - ✅ **As 369 subestações da planilha original já foram importadas** (2026-08-26), via `Configurações > Subestações` na prévia da branch (`sistema-producao-git-claude-oi-wuna1p-rede-forte.vercel.app` — a Vercel publica prévia automática a cada push, usando o mesmo banco Supabase de produção). Módulo pronto de ponta a ponta para uso.
+> - ⏳ Falta (opcional, decisão do usuário): mesclar `claude/oi-wuna1p` para `main` — hoje o módulo só está acessível pela URL de prévia, não no domínio de produção (`producao2.dbmachado.com`) que a equipe usa no dia a dia.
 
 ### Contexto do negócio
 
