@@ -61,6 +61,9 @@ Campos: `qtd_minima_colaboradores`, `grupo`, `grupo_atividades` (usado para filt
 #### `d_atividades`
 - Vinculadas a `tipo_equipe_id` (não ao contrato diretamente)
 - Campos relevantes: `id, codigo_op, DESCRICAO_BASICA_SISTEMA, unidade, UPE, tipo_lm_lv, tipo_upe_fixa, bonificacao, referencia_codigo`
+- **`DESCRICAO_BASICA_SISTEMA` e `UPE` são case-sensitive de verdade** (criadas com aspas duplas) — em SQL cru precisam ser escritas como `"DESCRICAO_BASICA_SISTEMA"` e `"UPE"`, senão o Postgres procura a versão minúscula e dá erro `column ... does not exist`. Confirmado em 2026-08-26 ao rodar `sql_limpeza_subestacao.sql`.
+- **`codigo_op` é `NOT NULL`** na tabela real, mesmo não estando marcado como obrigatório na tela de Atividades nem citado assim aqui antes. Todo INSERT direto em SQL precisa informar um valor.
+- **`UPE` é `numeric(12,6)`** (alargada de `numeric(10,6)` em 2026-08-26 pra caber a atividade "Roçagem/Limpeza SE - Porte XG" = 10.522,52, que estourava o limite antigo de 9999,999999).
 - `tipo_lm_lv`: LM = Linha Morta, LV = Linha Viva — definido na atividade, não no lançamento
 - `tipo_upe_fixa`: 'UPE', 'FIXA' ou 'justificativa'
 - `bonificacao`: boolean — usado para filtrar nas views do PowerBI
@@ -173,18 +176,25 @@ Campos: `qtd_minima_colaboradores`, `grupo`, `grupo_atividades` (usado para filt
 ### Tabelas de Configuração (novas — criadas neste projeto)
 
 #### `config_campos` — catálogo global de campos dinâmicos
+Colunas reais confirmadas via `information_schema` em 2026-08-26 (a lista abaixo substitui uma versão anterior que citava uma coluna `obrigatorio_padrao` que **não existe**):
 | campo | tipo | obs |
 |-------|------|-----|
 | id | bigint PK | |
-| nome | text UNIQUE | chave exata salva no JSON: "ose", "cidade" |
-| label | text | texto no formulário: "OSE", "Cidade" |
-| tipo | text | 'texto', 'numero', 'decimal', 'alfanumerico', 'dropdown', 'data', 'hora', 'checkbox', 'textarea' |
+| nome | text UNIQUE, NOT NULL | chave exata salva no JSON: "ose", "cidade" |
+| label | text, NOT NULL | texto no formulário: "OSE", "Cidade" |
+| tipo | text, NOT NULL | 'texto', 'numero', 'decimal', 'alfanumerico', 'dropdown', 'data', 'hora', 'checkbox', 'textarea' |
 | mascara | text | ex: "AAA-0000" para alfanumérico |
 | tabela_ref | text | nome da tabela Supabase para dropdown |
 | coluna_valor | text | coluna que será salva (ex: "id") |
 | coluna_label | text | coluna exibida ao usuário (ex: "equipe") |
 | placeholder | text | |
-| obrigatorio_padrao | boolean | |
+| criado_em | timestamptz | default `now()` |
+| criado_por_id | uuid | default `auth.uid()` |
+| secao_permitida | text | default `'ambas'` — provavelmente restringe se o campo pode ser usado na seção 'registro', 'atividade' ou ambas |
+| is_coluna_real | boolean | default `false` — `false` = valor vai para `metadata_registro`/`metadata_atividades` (jsonb); `true` = campo mapeia pra uma coluna real da tabela (caso de `obra_id`, `equipe_id`) |
+| opcoes | text | provavelmente lista de opções fixas quando o dropdown não usa `tabela_ref` |
+
+**Obrigatoriedade não é definida aqui** — só em `config_campos_contrato.obrigatorio`, por contrato + tipo de equipe + seção.
 
 **Campos cadastrados:**
 `os, placa, km_final, horario_inicio, horario_fim, data_upload, prefixo, url_arquivos, regiao, cidade, observacoes, si, poste, ose, ptp, alimentador, comprimento, largura, linha, estacao_inicial, estacao_final, latitude_inicial, longitude_inicial, latitude_final, longitude_final, anomalia, largura_comprimento, modo_op_justificativa, equipe_id (dropdown → d_equipes)`
@@ -493,10 +503,10 @@ ON CONFLICT DO NOTHING;
 
 > Registrado em 2026-08-26 a partir da análise da planilha `LIMPEZA_DE_SUBESTAÇÃO - 2026.xlsx` (controle atual, fora do sistema, enviada pelo usuário).
 >
-> **Status:** módulo pertence ao contrato de Faixa, `contrato_id = 21` (confirmado pelo usuário — os ids 4/5 cogitados antes eram de uma versão desatualizada da documentação). SQL e telas de admin prontas, `v_contrato_id` já preenchido com 21 nos dois arquivos — falta só rodar o SQL e cadastrar as subestações.
-> - ✅ `producao-app/sql_limpeza_subestacao.sql` — tabela `d_subestacoes` + seed do tipo de equipe/atividades/campo dinâmico. Pronto pra rodar como está.
-> - ✅ `producao-app/src/pages/Configuracoes/Subestacoes.jsx` — tela de cadastro (CRUD + importação em massa por XLSX), já roteada em `/configuracoes/subestacoes`.
-> - ⏳ Falta: rodar `sql_limpeza_subestacao.sql` no Supabase e importar as ~370 subestações da planilha original pela tela nova.
+> **Status:** módulo pertence ao contrato de Faixa, `contrato_id = 21` (confirmado pelo usuário). **`sql_limpeza_subestacao.sql` já rodou com sucesso no Supabase em 2026-08-26** — tabela `d_subestacoes`, tipo de equipe "Limpeza de Subestação", as 8 atividades e o campo dinâmico "Subestação" já existem no banco de produção (conferido consultando `d_tipo_equipe` e `d_atividades`).
+> - ✅ `producao-app/sql_limpeza_subestacao.sql` — **executado**. Precisou de 3 correções sobre o que a documentação antiga dizia (ver notas em `d_atividades` e `config_campos` acima): aspas em `"DESCRICAO_BASICA_SISTEMA"`/`"UPE"`, `UPE` alargada pra `numeric(12,6)`, e `codigo_op` preenchido (é NOT NULL).
+> - ✅ `producao-app/src/pages/Configuracoes/Subestacoes.jsx` — tela de cadastro (CRUD + importação em massa por XLSX), já roteada em `/configuracoes/subestacoes`. **Ainda não usável em produção** — só existe no código da branch `claude/oi-wuna1p`, que ainda não foi mesclada/deployada.
+> - ⏳ Falta: mesclar/dar deploy da branch `claude/oi-wuna1p` pra tela aparecer no app, e então importar as ~370 subestações da planilha original por ela.
 
 ### Contexto do negócio
 
@@ -551,10 +561,10 @@ ON CONFLICT DO NOTHING;
 
 > Também registrado em 2026-08-26, motivado pela discussão do módulo acima.
 >
-> **Status:** escopo decidido — só as atividades FIXA do contrato de Faixa por enquanto (`contrato_id = 21`; Limpeza de Faixa + Limpeza de Subestação), não os demais contratos.
-> - ✅ `producao-app/sql_preco_fixa_vigencia.sql` — tabela `d_atividades_preco_fixa` + seed de vigência inicial para as atividades FIXA do contrato 21. `v_contrato_id` já preenchido, pronto pra rodar.
-> - ✅ `producao-app/src/pages/Configuracoes/AtividadesPrecoFixa.jsx` — tela de cadastro do preço por vigência, roteada em `/configuracoes/atividades-preco-fixa`.
-> - ⏳ Falta (bloqueado): a PARTE 3 do SQL — mudar `trigger_atualizar_upe` pra resolver o preço FIXA por `atividade_id + data_producao` nessa tabela em vez do valor estático de `d_atividades.UPE`. Preciso da definição atual do trigger antes de escrever a substituição (rodar `SELECT pg_get_functiondef(oid) FROM pg_proc WHERE proname = 'trigger_atualizar_upe';` no SQL editor do Supabase). Até essa parte rodar, `d_atividades_preco_fixa` fica populada mas sem efeito — o cálculo continua usando `d_atividades.UPE` como hoje.
+> **Status:** escopo decidido — só as atividades FIXA do contrato de Faixa por enquanto (`contrato_id = 21`; Limpeza de Faixa + Limpeza de Subestação), não os demais contratos. **`sql_preco_fixa_vigencia.sql` (Partes 1 e 2) já rodou com sucesso no Supabase em 2026-08-26.**
+> - ✅ `producao-app/sql_preco_fixa_vigencia.sql` — **executado** (tabela `d_atividades_preco_fixa` criada + vigência inicial semeada para as atividades FIXA do contrato 21, incluindo as 8 novas de Limpeza de Subestação).
+> - ✅ `producao-app/src/pages/Configuracoes/AtividadesPrecoFixa.jsx` — tela de cadastro do preço por vigência, roteada em `/configuracoes/atividades-preco-fixa` (mesma ressalva de deploy do módulo acima).
+> - ⏳ Falta (bloqueado): a PARTE 3 do SQL — mudar `trigger_atualizar_upe` pra resolver o preço FIXA por `atividade_id + data_producao` nessa tabela em vez do valor estático de `d_atividades.UPE`. Ainda aguardando o usuário rodar `SELECT pg_get_functiondef(oid) FROM pg_proc WHERE proname = 'trigger_atualizar_upe';` no SQL editor do Supabase e colar o resultado. Até essa parte rodar, `d_atividades_preco_fixa` fica populada mas sem efeito — o cálculo continua usando `d_atividades.UPE` como hoje (mesmo comportamento de antes, sem regressão).
 
 ### Problema identificado
 
