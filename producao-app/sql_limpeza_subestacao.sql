@@ -126,17 +126,21 @@ BEGIN
   --    (só amplia o limite) e é seguro rodar de novo (idempotente).
   ALTER TABLE d_atividades ALTER COLUMN "UPE" TYPE numeric(12,6);
 
+  --    codigo_op também é NOT NULL na tabela real (não estava assim na
+  --    documentação nem marcado obrigatório na tela de Atividades) —
+  --    cada atividade nova recebe um código curto próprio (padrão LSE,
+  --    igual aos códigos de equipe "LSEGO-xx" da planilha original).
   IF NOT EXISTS (SELECT 1 FROM d_atividades WHERE tipo_equipe_id = v_tipo_equipe_id) THEN
-    INSERT INTO d_atividades ("DESCRICAO_BASICA_SISTEMA", contrato_id, unidade, tipo_upe_fixa, "UPE", tipo_equipe_id)
+    INSERT INTO d_atividades (codigo_op, "DESCRICAO_BASICA_SISTEMA", contrato_id, unidade, tipo_upe_fixa, "UPE", tipo_equipe_id)
     VALUES
-      ('Roçagem/Limpeza SE - Porte P',  v_contrato_id, 'un', 'FIXA', 5261.26,  v_tipo_equipe_id),
-      ('Roçagem/Limpeza SE - Porte M',  v_contrato_id, 'un', 'FIXA', 7155.31,  v_tipo_equipe_id),
-      ('Roçagem/Limpeza SE - Porte G',  v_contrato_id, 'un', 'FIXA', 7365.77,  v_tipo_equipe_id),
-      ('Roçagem/Limpeza SE - Porte GG', v_contrato_id, 'un', 'FIXA', 9891.17,  v_tipo_equipe_id),
-      ('Roçagem/Limpeza SE - Porte XG', v_contrato_id, 'un', 'FIXA', 10522.52, v_tipo_equipe_id),
-      ('Capina Química SE - Chaveamento', v_contrato_id, 'un', 'FIXA', 1052.25, v_tipo_equipe_id),
-      ('Capina Química SE - MT',          v_contrato_id, 'un', 'FIXA', 1578.38, v_tipo_equipe_id),
-      ('Capina Química SE - AT',          v_contrato_id, 'un', 'FIXA', 3314.59, v_tipo_equipe_id);
+      ('LSE-P',      'Roçagem/Limpeza SE - Porte P',  v_contrato_id, 'un', 'FIXA', 5261.26,  v_tipo_equipe_id),
+      ('LSE-M',      'Roçagem/Limpeza SE - Porte M',  v_contrato_id, 'un', 'FIXA', 7155.31,  v_tipo_equipe_id),
+      ('LSE-G',      'Roçagem/Limpeza SE - Porte G',  v_contrato_id, 'un', 'FIXA', 7365.77,  v_tipo_equipe_id),
+      ('LSE-GG',     'Roçagem/Limpeza SE - Porte GG', v_contrato_id, 'un', 'FIXA', 9891.17,  v_tipo_equipe_id),
+      ('LSE-XG',     'Roçagem/Limpeza SE - Porte XG', v_contrato_id, 'un', 'FIXA', 10522.52, v_tipo_equipe_id),
+      ('CQ-CHAV',    'Capina Química SE - Chaveamento', v_contrato_id, 'un', 'FIXA', 1052.25, v_tipo_equipe_id),
+      ('CQ-MT',      'Capina Química SE - MT',          v_contrato_id, 'un', 'FIXA', 1578.38, v_tipo_equipe_id),
+      ('CQ-AT',      'Capina Química SE - AT',          v_contrato_id, 'un', 'FIXA', 3314.59, v_tipo_equipe_id);
   END IF;
 
   -- 4) Campo dinâmico "Subestação" (dropdown -> d_subestacoes) no catálogo global
