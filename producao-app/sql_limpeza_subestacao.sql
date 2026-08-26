@@ -119,6 +119,13 @@ BEGIN
   --    senão o Postgres procura a versão toda minúscula e erra.
   --    Idempotente: só semeia se este tipo de equipe ainda não tiver
   --    nenhuma atividade.
+  --
+  --    "UPE" hoje é numeric(10,6) (máx. 9999,999999) — o Porte XG
+  --    (10.522,52) estoura isso. Alarga pra numeric(12,6), igual ao
+  --    tipo de f_prod_atividades.upe. Não afeta valores já gravados
+  --    (só amplia o limite) e é seguro rodar de novo (idempotente).
+  ALTER TABLE d_atividades ALTER COLUMN "UPE" TYPE numeric(12,6);
+
   IF NOT EXISTS (SELECT 1 FROM d_atividades WHERE tipo_equipe_id = v_tipo_equipe_id) THEN
     INSERT INTO d_atividades ("DESCRICAO_BASICA_SISTEMA", contrato_id, unidade, tipo_upe_fixa, "UPE", tipo_equipe_id)
     VALUES
