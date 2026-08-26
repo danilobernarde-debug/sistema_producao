@@ -486,3 +486,88 @@ ON CONFLICT DO NOTHING;
 - [ ] `Admin/ConfigCamposContrato.jsx` — vincular campos a contrato + tipo + seção + ordem
 - [ ] Upload de arquivos (`f_prod_arquivos` + Supabase Storage)
 - [ ] Dashboard com gráficos (Recharts) usando as views do PowerBI
+
+---
+
+## Backlog — Módulo Limpeza de Subestação (planejado, não iniciado)
+
+> Registrado em 2026-08-26 a partir da análise da planilha `LIMPEZA_DE_SUBESTAÇÃO - 2026.xlsx` (controle atual, fora do sistema, enviada pelo usuário). Decisões já validadas com o usuário — pronto pra implementar quando for priorizado.
+
+### Contexto do negócio
+
+- Equipes de limpeza de subestação são pagas **por subestação concluída**, não por dia trabalhado — pode haver dias de trabalho sem produção lançada (o serviço leva vários dias).
+- Pago pelo **tamanho/categoria da subestação** (porte), não por m² medido diretamente em cada lançamento.
+- Dois serviços independentes, que podem sair juntos ou separados na mesma visita: **Roçagem/Limpeza geral** e **Capina Química**.
+- Uma subestação é limpa várias vezes por ano (a planilha atual mostra de 1 a 8 visitas/ano por subestação).
+
+### O que a planilha atual revelou
+
+- 3 abas: `PORTE SE_PREÇOS` (tabela principal, 1.166 linhas = 1 linha por OS/visita, 370 subestações distintas, período dez/2025–dez/2026), `PREÇOS MIN_MÁX` (baremo oficial, é o que as fórmulas realmente usam), `Valores` (tabela auxiliar de equipes + uma cópia desatualizada dos preços).
+- Cada OS tem `DATA INICIAL`/`DATA FINAL` mas **não existe lançamento diário** — só o resultado final. `STATUS` está sempre "FINALIZADO", inclusive em datas futuras (dez/2026) — confirma que hoje não há acompanhamento de progresso real, só o fechamento.
+- O preço muda por **categoria + vigência** (3 faixas encontradas: original, 21/01/2025, 21/07/2025) — mesmo mecanismo que `d_contratos_preco_upe` já usa, só que por categoria de subestação em vez de LM/LV.
+- Inconsistências encontradas na planilha atual (evidência do ganho de migrar pra um cadastro com dropdown): preços de M/G/GG trocados entre as abas "Valores" e "PREÇOS MIN_MÁX"; região "NORTE" digitada com espaço extra em algumas linhas, contando como categoria separada; equipe "LSEGO-00" usada em 79 linhas mas não cadastrada na aba de equipes; "LSEGO-06" cadastrado mas nunca usado; 1 subestação com porte inconsistente entre linhas.
+
+### Preços atuais extraídos (vigência a partir de 21/07/2025)
+
+**Roçagem / Limpeza de SE — por porte** (porte definido pela área em m²):
+
+| Porte | Faixa (m²) | Valor |
+|---|---|---|
+| P | até 5.000 | R$ 5.261,26 |
+| M | 5.001–15.000 | R$ 7.155,31 |
+| G | 15.001–25.000 | R$ 7.365,77 |
+| GG | 25.001–50.001 | R$ 9.891,17 |
+| XG | acima de 50.001 | R$ 10.522,52 |
+
+**Capina Química — por tipo de subestação:**
+
+| Tipo | Valor |
+|---|---|
+| Chaveamento | R$ 1.052,25 |
+| MT | R$ 1.578,38 |
+| AT | R$ 3.314,59 |
+
+### Modelagem decidida
+
+1. Novo `d_tipo_equipe`: "Limpeza de Subestação".
+2. Nova tabela dedicada `d_subestacoes` (decidido **não** reaproveitar `d_obras` — conceitos diferentes: obra é projeto com prazo, subestação é ativo recorrente): `id, nome, municipio, contrato_id, regional, porte (P/M/G/GG/XG), tipo (MT/AT/CHAVEAMENTO), equipe_interna_id → d_equipes, is_ativo`. Tela `Configuracoes/Subestacoes.jsx` com `TabelaCRUD` + import XLSX (igual `Atividades.jsx`) pra importar as 370 subestações da planilha de uma vez.
+3. 8 `d_atividades` novas (`tipo_upe_fixa = FIXA`), valores da tabela acima (5 de Roçagem por porte + 3 de Capina Química por tipo).
+4. Campo dinâmico "Subestação" (dropdown → `d_subestacoes`) na seção `registro`, via `config_campos`/`config_campos_contrato`.
+5. **Lançamento diário, fecha na conclusão** (decidido, não por OS com data inicial/final): todo dia trabalhado gera um `f_prod_registro` normal (data, subestação, colaboradores presentes) sem atividade lançada; no dia da conclusão, lança a(s) atividade(s) correspondente(s) com o valor cheio. Consulta por `subestacao_id` + período mostra quantos dias/pessoas foram gastos ali antes do fechamento — sem precisar de campo extra amarrando os dias entre si.
+
+### Em aberto (decidir antes de implementar)
+
+- [ ] Qual `contrato_id` recebe esse tipo de equipe — contrato existente (ex: Faixa Goiás 2025) ou um novo contrato?
+- [ ] Adicionar campo de frequência/meta anual esperada em `d_subestacoes` (a planilha sugere metas por porte — ex. porte P ≈ 1.025 limpezas/ano no total, ~4,2/subestação) pra relatório de cumprimento do baremo?
+
+---
+
+## Backlog — Preço com vigência para atividades FIXA (planejado, não iniciado)
+
+> Também registrado em 2026-08-26, motivado pela discussão do módulo acima, mas é uma melhoria geral do sistema (não específica de Limpeza de Subestação).
+
+### Problema identificado
+
+Hoje `d_atividades.UPE` (usado quando `tipo_upe_fixa = 'FIXA'`) guarda **um valor único**. O trigger `trigger_atualizar_upe` copia esse valor no momento do lançamento — **não é sensível à `data_producao`**. Resultado: se o usuário reajustar o valor de uma atividade e depois lançar (ou editar) uma produção com data antiga (retroativa), o registro sai com o **valor novo**, não o valor que estava vigente na época. Esse comportamento foi confirmado pelo usuário (Danilo) como o funcionamento atual do sistema. Fica ainda mais crítico no módulo de Limpeza de Subestação, cujo baremo já mudou 3x em menos de 2 anos e tem lançamento naturalmente atrasado (serviço de vários dias, fechamento tardio).
+
+### Solução proposta
+
+Nova tabela, mesmo espírito de `d_contratos_preco_upe` mas por atividade:
+
+```sql
+d_atividades_preco_fixa
+  id               bigint PK
+  atividade_id     bigint FK -> d_atividades
+  valor            numeric(12,2)
+  vigencia_inicio  date
+  vigencia_fim     date   -- null = vigente até hoje
+```
+
+`trigger_atualizar_upe` passa a resolver `upe` (quando `tipo_upe_fixa = 'FIXA'`) por `atividade_id + data_producao` nessa tabela — mesmo padrão de lookup por vigência que já existe pra `preco_upe` (UPE por contrato+LM/LV). Não duplica a linha em `d_atividades` (mantém 1 atividade = 1 linha permanente, dropdown limpo, relatórios não fragmentam por variantes antigas).
+
+**Migração não-destrutiva:** para cada atividade FIXA já existente, inserir 1 linha em `d_atividades_preco_fixa` com o `UPE` atual (`vigencia_inicio` antiga ou null, `vigencia_fim = null`). `d_atividades.UPE` pode continuar existindo como referência/exibição, sem função de cálculo.
+
+### Em aberto (decidir antes de implementar)
+
+- [ ] Aplicar só nas 8 atividades novas de Limpeza de Subestação, ou em **todas** as atividades FIXA do sistema (conserta o bug de vez, mas mexe no trigger que já roda em produção pros outros contratos)?
+- [ ] Confirmar a lógica exata do trigger atual (`SELECT pg_get_functiondef(oid) FROM pg_proc WHERE proname = 'trigger_atualizar_upe';` no SQL editor do Supabase) antes de escrever a substituição.
