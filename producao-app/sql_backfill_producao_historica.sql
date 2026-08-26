@@ -28,6 +28,9 @@
 -- pra não duplicar se rodado de novo.
 -- ============================================================
 
+DROP TABLE IF EXISTS stg_registros;
+DROP TABLE IF EXISTS stg_atividades;
+
 CREATE TEMP TABLE stg_registros (
   linha_id         integer PRIMARY KEY,
   data_producao    date NOT NULL,
@@ -2480,6 +2483,7 @@ INSERT INTO stg_atividades (linha_id, atividade_codigo) VALUES
 -- ============================================================
 DO $$
 DECLARE
+  v_criado_por_id   uuid := '9c529ad8-1fc9-43a1-a9c2-736f967b8c57';  -- Danilo (danilo@dbmachado.com)
   v_tipo_equipe_id  bigint;
   r                 RECORD;
   v_registro_id     bigint;
@@ -2531,9 +2535,9 @@ BEGIN
     SELECT id INTO v_encarregado_id FROM d_colaboradores WHERE equipe_id = v_equipe_id LIMIT 1;
 
     INSERT INTO f_prod_registro (
-      data_producao, contrato_id, tipo_equipe_id, equipe_id, encarregado_id, metadata_registro
+      data_producao, contrato_id, tipo_equipe_id, equipe_id, encarregado_id, criado_por_id, metadata_registro
     ) VALUES (
-      r.data_producao, 21, v_tipo_equipe_id, v_equipe_id, v_encarregado_id,
+      r.data_producao, 21, v_tipo_equipe_id, v_equipe_id, v_encarregado_id, v_criado_por_id,
       jsonb_build_object(
         'subestacao_id', v_subestacao_id,
         'os', r.os_texto,
