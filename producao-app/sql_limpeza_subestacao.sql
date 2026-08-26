@@ -165,3 +165,49 @@ END $$;
 -- Depois de rodar: cadastre as subestações em Configurações > Subestações
 -- (tela nova, com importação em massa por XLSX) antes de liberar o
 -- lançamento para as equipes.
+
+
+-- ============================================================
+-- PARTE 3 — Equipes internas de Limpeza de Subestação
+-- Extraídas da aba "Valores" da planilha original (código LSEGO-xx +
+-- encarregado + regional). "LSEGO-00" fica de fora: nos dados reais
+-- aparece só como código secundário/genérico misturado em algumas
+-- linhas, não como equipe própria com encarregado definido.
+-- ============================================================
+
+DO $$
+DECLARE
+  v_contrato_id     smallint := 21;  -- contrato de Faixa
+  v_tipo_equipe_id  bigint;
+  v_inseridos       integer;
+BEGIN
+  SELECT id INTO v_tipo_equipe_id FROM d_tipo_equipe WHERE descricao = 'Limpeza de Subestação';
+  IF v_tipo_equipe_id IS NULL THEN
+    RAISE EXCEPTION 'Tipo de equipe "Limpeza de Subestação" não encontrado — rode a PARTE 2 primeiro.';
+  END IF;
+
+  INSERT INTO d_equipes (equipe, sistema_producao, tipo_equipe_id, contrato_id, estado, is_ativo)
+  SELECT v.nome, v.nome, v_tipo_equipe_id, v_contrato_id, 'GO', true
+  FROM (VALUES
+    ('LSEGO-01 - Joaquim'),
+    ('LSEGO-02 - Gustavo'),
+    ('LSEGO-03 - Ozéias'),
+    ('LSEGO-04 - Leonardo'),
+    ('LSEGO-06 - Eduardo'),
+    ('LSEGO-09 - Hélio')
+  ) AS v(nome)
+  WHERE NOT EXISTS (
+    SELECT 1 FROM d_equipes e
+    WHERE e.tipo_equipe_id = v_tipo_equipe_id AND e.equipe = v.nome
+  );
+
+  GET DIAGNOSTICS v_inseridos = ROW_COUNT;
+  RAISE NOTICE 'OK — % equipe(s) nova(s) cadastrada(s) para tipo_equipe_id = %', v_inseridos, v_tipo_equipe_id;
+END $$;
+
+-- Nota: as 369 subestações importadas antes tentaram linkar
+-- "equipe_interna" pelo texto "LSEGO-xx" puro, mas essas equipes não
+-- existiam ainda — então equipe_interna_id deve ter ficado em branco
+-- pra maioria. Isso é só metadado informativo (não afeta lançamento
+-- nem preço); se quiser, faço uma atualização depois pra linkar pelo
+-- código.
