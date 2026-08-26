@@ -44,6 +44,7 @@ COMMENT ON COLUMN d_subestacoes.tipo IS
 
 ALTER TABLE d_subestacoes ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "subestacoes_select" ON d_subestacoes;
 CREATE POLICY "subestacoes_select" ON d_subestacoes FOR SELECT
   USING (
     EXISTS (SELECT 1 FROM d_auth_user u WHERE u.uuid = auth.uid() AND u.is_super_admin)
@@ -53,6 +54,7 @@ CREATE POLICY "subestacoes_select" ON d_subestacoes FOR SELECT
     )
   );
 
+DROP POLICY IF EXISTS "subestacoes_insert" ON d_subestacoes;
 CREATE POLICY "subestacoes_insert" ON d_subestacoes FOR INSERT
   WITH CHECK (
     EXISTS (SELECT 1 FROM d_auth_user u WHERE u.uuid = auth.uid() AND u.is_super_admin)
@@ -62,6 +64,7 @@ CREATE POLICY "subestacoes_insert" ON d_subestacoes FOR INSERT
     )
   );
 
+DROP POLICY IF EXISTS "subestacoes_update" ON d_subestacoes;
 CREATE POLICY "subestacoes_update" ON d_subestacoes FOR UPDATE
   USING (
     EXISTS (SELECT 1 FROM d_auth_user u WHERE u.uuid = auth.uid() AND u.is_super_admin)
@@ -71,6 +74,7 @@ CREATE POLICY "subestacoes_update" ON d_subestacoes FOR UPDATE
     )
   );
 
+DROP POLICY IF EXISTS "subestacoes_delete" ON d_subestacoes;
 CREATE POLICY "subestacoes_delete" ON d_subestacoes FOR DELETE
   USING (
     EXISTS (SELECT 1 FROM d_auth_user u WHERE u.uuid = auth.uid() AND u.is_super_admin)
@@ -97,28 +101,36 @@ BEGIN
 
   -- 1) Tipo de equipe — grupo_atividades = próprio id (auto-referência),
   --    é o que NovoRegistro.jsx usa para filtrar as atividades do tipo.
-  INSERT INTO d_tipo_equipe (descricao, qtd_minima_colaboradores)
-  VALUES ('Limpeza de Subestação', 1)
-  RETURNING id INTO v_tipo_equipe_id;
+  --    Idempotente: reaproveita se já existir (ex: reexecução após erro).
+  SELECT id INTO v_tipo_equipe_id FROM d_tipo_equipe WHERE descricao = 'Limpeza de Subestação';
 
-  UPDATE d_tipo_equipe SET grupo_atividades = v_tipo_equipe_id WHERE id = v_tipo_equipe_id;
+  IF v_tipo_equipe_id IS NULL THEN
+    INSERT INTO d_tipo_equipe (descricao, qtd_minima_colaboradores)
+    VALUES ('Limpeza de Subestação', 1)
+    RETURNING id INTO v_tipo_equipe_id;
 
-  -- 2) Atividades — Roçagem/Limpeza de SE por porte (FIXA)
-  --    Valores extraídos da planilha atual, vigência 21/07/2025.
-  INSERT INTO d_atividades (DESCRICAO_BASICA_SISTEMA, contrato_id, unidade, tipo_upe_fixa, UPE, tipo_equipe_id)
-  VALUES
-    ('Roçagem/Limpeza SE - Porte P',  v_contrato_id, 'un', 'FIXA', 5261.26,  v_tipo_equipe_id),
-    ('Roçagem/Limpeza SE - Porte M',  v_contrato_id, 'un', 'FIXA', 7155.31,  v_tipo_equipe_id),
-    ('Roçagem/Limpeza SE - Porte G',  v_contrato_id, 'un', 'FIXA', 7365.77,  v_tipo_equipe_id),
-    ('Roçagem/Limpeza SE - Porte GG', v_contrato_id, 'un', 'FIXA', 9891.17,  v_tipo_equipe_id),
-    ('Roçagem/Limpeza SE - Porte XG', v_contrato_id, 'un', 'FIXA', 10522.52, v_tipo_equipe_id);
+    UPDATE d_tipo_equipe SET grupo_atividades = v_tipo_equipe_id WHERE id = v_tipo_equipe_id;
+  END IF;
 
-  -- 3) Atividades — Capina Química por tipo de subestação (FIXA)
-  INSERT INTO d_atividades (DESCRICAO_BASICA_SISTEMA, contrato_id, unidade, tipo_upe_fixa, UPE, tipo_equipe_id)
-  VALUES
-    ('Capina Química SE - Chaveamento', v_contrato_id, 'un', 'FIXA', 1052.25, v_tipo_equipe_id),
-    ('Capina Química SE - MT',          v_contrato_id, 'un', 'FIXA', 1578.38, v_tipo_equipe_id),
-    ('Capina Química SE - AT',          v_contrato_id, 'un', 'FIXA', 3314.59, v_tipo_equipe_id);
+  -- 2) e 3) Atividades — Roçagem/Limpeza por porte + Capina Química por
+  --    tipo (FIXA). Valores extraídos da planilha atual, vigência
+  --    21/07/2025. IMPORTANTE: "DESCRICAO_BASICA_SISTEMA" e "UPE" são
+  --    colunas com maiúsculas no nome real — precisam de aspas duplas,
+  --    senão o Postgres procura a versão toda minúscula e erra.
+  --    Idempotente: só semeia se este tipo de equipe ainda não tiver
+  --    nenhuma atividade.
+  IF NOT EXISTS (SELECT 1 FROM d_atividades WHERE tipo_equipe_id = v_tipo_equipe_id) THEN
+    INSERT INTO d_atividades ("DESCRICAO_BASICA_SISTEMA", contrato_id, unidade, tipo_upe_fixa, "UPE", tipo_equipe_id)
+    VALUES
+      ('Roçagem/Limpeza SE - Porte P',  v_contrato_id, 'un', 'FIXA', 5261.26,  v_tipo_equipe_id),
+      ('Roçagem/Limpeza SE - Porte M',  v_contrato_id, 'un', 'FIXA', 7155.31,  v_tipo_equipe_id),
+      ('Roçagem/Limpeza SE - Porte G',  v_contrato_id, 'un', 'FIXA', 7365.77,  v_tipo_equipe_id),
+      ('Roçagem/Limpeza SE - Porte GG', v_contrato_id, 'un', 'FIXA', 9891.17,  v_tipo_equipe_id),
+      ('Roçagem/Limpeza SE - Porte XG', v_contrato_id, 'un', 'FIXA', 10522.52, v_tipo_equipe_id),
+      ('Capina Química SE - Chaveamento', v_contrato_id, 'un', 'FIXA', 1052.25, v_tipo_equipe_id),
+      ('Capina Química SE - MT',          v_contrato_id, 'un', 'FIXA', 1578.38, v_tipo_equipe_id),
+      ('Capina Química SE - AT',          v_contrato_id, 'un', 'FIXA', 3314.59, v_tipo_equipe_id);
+  END IF;
 
   -- 4) Campo dinâmico "Subestação" (dropdown -> d_subestacoes) no catálogo global
   INSERT INTO config_campos (nome, label, tipo, tabela_ref, coluna_valor, coluna_label, placeholder, obrigatorio_padrao)

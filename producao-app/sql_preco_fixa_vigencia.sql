@@ -53,10 +53,12 @@ CREATE UNIQUE INDEX IF NOT EXISTS ux_atividades_preco_fixa_atividade_inicio
 ALTER TABLE d_atividades_preco_fixa ENABLE ROW LEVEL SECURITY;
 
 -- Leitura para todo usuário autenticado (mesmo padrão de config_campos)
+DROP POLICY IF EXISTS "atividades_preco_fixa_select" ON d_atividades_preco_fixa;
 CREATE POLICY "atividades_preco_fixa_select" ON d_atividades_preco_fixa FOR SELECT
   USING (auth.role() = 'authenticated');
 
 -- Escrita só para super admin (mesmo padrão de config_campos_contrato)
+DROP POLICY IF EXISTS "atividades_preco_fixa_write" ON d_atividades_preco_fixa;
 CREATE POLICY "atividades_preco_fixa_write" ON d_atividades_preco_fixa FOR ALL
   USING (EXISTS (SELECT 1 FROM d_auth_user u WHERE u.uuid = auth.uid() AND u.is_super_admin))
   WITH CHECK (EXISTS (SELECT 1 FROM d_auth_user u WHERE u.uuid = auth.uid() AND u.is_super_admin));
@@ -81,12 +83,13 @@ BEGIN
   -- atual dela e vigência aberta (vigencia_inicio bem antiga, sem fim).
   -- Isso cobre tanto a Limpeza de Faixa já existente quanto as 8 novas
   -- de Limpeza de Subestação (rode sql_limpeza_subestacao.sql antes).
+  -- "UPE" tem maiúscula no nome real da coluna — precisa de aspas.
   INSERT INTO d_atividades_preco_fixa (atividade_id, valor, vigencia_inicio, vigencia_fim)
-  SELECT a.id, a.UPE, DATE '2000-01-01', NULL
+  SELECT a.id, a."UPE", DATE '2000-01-01', NULL
   FROM d_atividades a
   WHERE a.contrato_id = v_contrato_id
     AND a.tipo_upe_fixa = 'FIXA'
-    AND a.UPE IS NOT NULL
+    AND a."UPE" IS NOT NULL
     AND NOT EXISTS (SELECT 1 FROM d_atividades_preco_fixa p WHERE p.atividade_id = a.id);
 
   GET DIAGNOSTICS v_inseridos = ROW_COUNT;
