@@ -4,11 +4,10 @@
 -- Limpeza de Subestação".
 --
 -- COMO RODAR:
---   1) Rode a PARTE 1 direto, sem alterações (cria a tabela de
---      cadastro de subestações).
---   2) Na PARTE 2, defina v_contrato_id (linha marcada <<<) com o
---      id do contrato de Faixa (o que hoje roda Limpeza de Faixa)
---      antes de rodar — o bloco recusa rodar com o valor em branco.
+--   Rode o arquivo inteiro de uma vez (PARTE 1 cria a tabela de
+--   cadastro de subestações, PARTE 2 faz o seed). v_contrato_id já
+--   está preenchido com 21 (contrato de Faixa, confirmado pelo
+--   usuário) — só ajuste se esse número mudar.
 --
 -- As policies de RLS abaixo foram modeladas no padrão documentado
 -- em CONTEXTO_PROJETO.md (d_auth_user.is_super_admin +
@@ -88,7 +87,7 @@ CREATE POLICY "subestacoes_delete" ON d_subestacoes FOR DELETE
 
 DO $$
 DECLARE
-  v_contrato_id     smallint := NULL;  -- <<< DEFINA AQUI o id do contrato de Faixa (ex: 4 ou 5)
+  v_contrato_id     smallint := 21;  -- contrato de Faixa (confirmado pelo usuário)
   v_tipo_equipe_id  bigint;
   v_campo_id        bigint;
 BEGIN

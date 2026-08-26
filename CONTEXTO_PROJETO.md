@@ -493,10 +493,10 @@ ON CONFLICT DO NOTHING;
 
 > Registrado em 2026-08-26 a partir da análise da planilha `LIMPEZA_DE_SUBESTAÇÃO - 2026.xlsx` (controle atual, fora do sistema, enviada pelo usuário).
 >
-> **Status:** módulo pertence ao contrato de Faixa (confirmado pelo usuário). SQL e telas de admin prontas — falta só rodar o SQL com o `contrato_id` real e cadastrar as subestações.
-> - ✅ `producao-app/sql_limpeza_subestacao.sql` — tabela `d_subestacoes` (pronta pra rodar) + seed do tipo de equipe/atividades/campo dinâmico (defina `v_contrato_id` no bloco `DO` antes de rodar).
+> **Status:** módulo pertence ao contrato de Faixa, `contrato_id = 21` (confirmado pelo usuário — os ids 4/5 cogitados antes eram de uma versão desatualizada da documentação). SQL e telas de admin prontas, `v_contrato_id` já preenchido com 21 nos dois arquivos — falta só rodar o SQL e cadastrar as subestações.
+> - ✅ `producao-app/sql_limpeza_subestacao.sql` — tabela `d_subestacoes` + seed do tipo de equipe/atividades/campo dinâmico. Pronto pra rodar como está.
 > - ✅ `producao-app/src/pages/Configuracoes/Subestacoes.jsx` — tela de cadastro (CRUD + importação em massa por XLSX), já roteada em `/configuracoes/subestacoes`.
-> - ⏳ Falta: definir o `contrato_id` exato (id 4 "Faixa GO" ou id 5 "Faixa Goiás 2025", a confirmar), rodar o SQL, e importar as ~370 subestações da planilha original pela tela nova.
+> - ⏳ Falta: rodar `sql_limpeza_subestacao.sql` no Supabase e importar as ~370 subestações da planilha original pela tela nova.
 
 ### Contexto do negócio
 
@@ -551,8 +551,8 @@ ON CONFLICT DO NOTHING;
 
 > Também registrado em 2026-08-26, motivado pela discussão do módulo acima.
 >
-> **Status:** escopo decidido — só as atividades FIXA do contrato de Faixa por enquanto (Limpeza de Faixa + Limpeza de Subestação), não os demais contratos.
-> - ✅ `producao-app/sql_preco_fixa_vigencia.sql` — tabela `d_atividades_preco_fixa` (pronta pra rodar) + seed de vigência inicial para as atividades FIXA do contrato de Faixa (defina `v_contrato_id` no bloco `DO` antes de rodar).
+> **Status:** escopo decidido — só as atividades FIXA do contrato de Faixa por enquanto (`contrato_id = 21`; Limpeza de Faixa + Limpeza de Subestação), não os demais contratos.
+> - ✅ `producao-app/sql_preco_fixa_vigencia.sql` — tabela `d_atividades_preco_fixa` + seed de vigência inicial para as atividades FIXA do contrato 21. `v_contrato_id` já preenchido, pronto pra rodar.
 > - ✅ `producao-app/src/pages/Configuracoes/AtividadesPrecoFixa.jsx` — tela de cadastro do preço por vigência, roteada em `/configuracoes/atividades-preco-fixa`.
 > - ⏳ Falta (bloqueado): a PARTE 3 do SQL — mudar `trigger_atualizar_upe` pra resolver o preço FIXA por `atividade_id + data_producao` nessa tabela em vez do valor estático de `d_atividades.UPE`. Preciso da definição atual do trigger antes de escrever a substituição (rodar `SELECT pg_get_functiondef(oid) FROM pg_proc WHERE proname = 'trigger_atualizar_upe';` no SQL editor do Supabase). Até essa parte rodar, `d_atividades_preco_fixa` fica populada mas sem efeito — o cálculo continua usando `d_atividades.UPE` como hoje.
 

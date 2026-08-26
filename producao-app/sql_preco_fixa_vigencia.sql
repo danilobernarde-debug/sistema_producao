@@ -8,7 +8,8 @@
 -- Subestação), não nas atividades FIXA dos demais contratos.
 --
 -- STATUS DESTE ARQUIVO:
---   PARTE 1 (tabela) e PARTE 2 (seed) — prontas para rodar.
+--   PARTE 1 (tabela) e PARTE 2 (seed) — prontas para rodar como estão
+--   (v_contrato_id já preenchido com 21, o contrato de Faixa).
 --   PARTE 3 (trigger)  — AINDA NÃO ESCRITA. trigger_atualizar_upe
 --   hoje copia d_atividades.UPE direto pra f_prod_atividades no
 --   momento do lançamento (não olha data_producao). Preciso ver a
@@ -69,7 +70,7 @@ CREATE POLICY "atividades_preco_fixa_write" ON d_atividades_preco_fixa FOR ALL
 
 DO $$
 DECLARE
-  v_contrato_id smallint := NULL;  -- <<< DEFINA AQUI o id do contrato de Faixa (mesmo do outro script)
+  v_contrato_id smallint := 21;  -- contrato de Faixa (confirmado pelo usuário, mesmo do outro script)
   v_inseridos    integer;
 BEGIN
   IF v_contrato_id IS NULL THEN
