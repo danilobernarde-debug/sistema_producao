@@ -143,9 +143,13 @@ BEGIN
       ('CQ-AT',      'Capina Química SE - AT',          v_contrato_id, 'un', 'FIXA', 3314.59, v_tipo_equipe_id);
   END IF;
 
-  -- 4) Campo dinâmico "Subestação" (dropdown -> d_subestacoes) no catálogo global
-  INSERT INTO config_campos (nome, label, tipo, tabela_ref, coluna_valor, coluna_label, placeholder, obrigatorio_padrao)
-  VALUES ('subestacao_id', 'Subestação', 'dropdown', 'd_subestacoes', 'id', 'nome', 'Selecione a subestação', true)
+  -- 4) Campo dinâmico "Subestação" (dropdown -> d_subestacoes) no catálogo global.
+  --    Não existe coluna "obrigatorio_padrao" na tabela real — o
+  --    obrigatório é definido por contrato/tipo em config_campos_contrato
+  --    (item 5 abaixo). is_coluna_real fica no default (false), que é o
+  --    correto: o valor vai para metadata_registro, não uma coluna real.
+  INSERT INTO config_campos (nome, label, tipo, tabela_ref, coluna_valor, coluna_label, placeholder)
+  VALUES ('subestacao_id', 'Subestação', 'dropdown', 'd_subestacoes', 'id', 'nome', 'Selecione a subestação')
   ON CONFLICT (nome) DO UPDATE SET tabela_ref = EXCLUDED.tabela_ref
   RETURNING id INTO v_campo_id;
 
