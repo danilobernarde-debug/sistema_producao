@@ -23,6 +23,8 @@ import ContratosPrecoUpe from './pages/Configuracoes/ContratosPrecoUpe'
 import GerenciarUsuarios from './pages/Configuracoes/GerenciarUsuarios'
 import UltimosLogins from './pages/Configuracoes/UltimosLogins'
 import Atividades from './pages/Configuracoes/Atividades'
+import Subestacoes from './pages/Configuracoes/Subestacoes'
+import AtividadesPrecoFixa from './pages/Configuracoes/AtividadesPrecoFixa'
 import FormBuilder from './pages/Configuracoes/FormBuilder'
 import Metas from './pages/Configuracoes/Metas'
 import Planejamento from './pages/Planejamento'
@@ -107,6 +109,8 @@ export default function App() {
           <Route path="/configuracoes/usuarios" element={<RotaSuperAdmin><GerenciarUsuarios /></RotaSuperAdmin>} />
           <Route path="/configuracoes/logins" element={<RotaDanilo><UltimosLogins /></RotaDanilo>} />
           <Route path="/configuracoes/atividades" element={<RotaSuperAdmin><Atividades /></RotaSuperAdmin>} />
+          <Route path="/configuracoes/subestacoes" element={<RotaSuperAdmin><Subestacoes /></RotaSuperAdmin>} />
+          <Route path="/configuracoes/atividades-preco-fixa" element={<RotaSuperAdmin><AtividadesPrecoFixa /></RotaSuperAdmin>} />
           <Route path="/configuracoes/form-builder" element={<RotaSuperAdmin><FormBuilder /></RotaSuperAdmin>} />
           <Route path="/configuracoes/metas" element={<RotaSuperAdmin><Metas /></RotaSuperAdmin>} />
 
