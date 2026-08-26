@@ -214,6 +214,74 @@ END $$;
 
 
 -- ============================================================
+-- PARTE 5 — Campo "OS" no lançamento
+-- Já existe no catálogo global (config_campos, usado por outros
+-- contratos) — só falta vincular ao nosso tipo de equipe.
+-- ============================================================
+
+DO $$
+DECLARE
+  v_contrato_id     smallint := 21;
+  v_tipo_equipe_id  bigint;
+  v_campo_id        bigint;
+BEGIN
+  SELECT id INTO v_tipo_equipe_id FROM d_tipo_equipe WHERE descricao = 'Limpeza de Subestação';
+  IF v_tipo_equipe_id IS NULL THEN
+    RAISE EXCEPTION 'Tipo de equipe "Limpeza de Subestação" não encontrado — rode a PARTE 2 primeiro.';
+  END IF;
+
+  SELECT id INTO v_campo_id FROM config_campos WHERE nome = 'os';
+  IF v_campo_id IS NULL THEN
+    RAISE EXCEPTION 'Campo "os" não encontrado em config_campos — confira o nome exato antes de continuar.';
+  END IF;
+
+  INSERT INTO config_campos_contrato (campo_id, contrato_id, tipo_equipe_id, secao, obrigatorio, ordem)
+  VALUES (v_campo_id, v_contrato_id, v_tipo_equipe_id, 'registro', false, 2)
+  ON CONFLICT (campo_id, contrato_id, tipo_equipe_id, secao) DO NOTHING;
+
+  RAISE NOTICE 'OK — campo "os" vinculado ao tipo_equipe_id = %', v_tipo_equipe_id;
+END $$;
+
+
+-- ============================================================
+-- PARTE 6 — Encarregados (d_colaboradores) das 6 equipes internas
+-- Necessário pro campo "Encarregado" do lançamento funcionar. Nomes
+-- extraídos da aba "Valores" da planilha original. Matrícula usa o
+-- próprio código da equipe como identificador (não temos matrícula
+-- real de RH na planilha).
+-- ============================================================
+
+DO $$
+DECLARE
+  v_tipo_equipe_id  bigint;
+  v_inseridos       integer;
+BEGIN
+  SELECT id INTO v_tipo_equipe_id FROM d_tipo_equipe WHERE descricao = 'Limpeza de Subestação';
+  IF v_tipo_equipe_id IS NULL THEN
+    RAISE EXCEPTION 'Tipo de equipe "Limpeza de Subestação" não encontrado — rode a PARTE 2 primeiro.';
+  END IF;
+
+  INSERT INTO d_colaboradores (nome, matricula, equipe_id, is_ativo)
+  SELECT v.nome, v.matricula, e.id, true
+  FROM (VALUES
+    ('Joaquim',  'LSEGO-01', 'LSEGO-01 - Joaquim'),
+    ('Gustavo',  'LSEGO-02', 'LSEGO-02 - Gustavo'),
+    ('Ozéias',   'LSEGO-03', 'LSEGO-03 - Ozéias'),
+    ('Leonardo', 'LSEGO-04', 'LSEGO-04 - Leonardo'),
+    ('Eduardo',  'LSEGO-06', 'LSEGO-06 - Eduardo'),
+    ('Hélio',    'LSEGO-09', 'LSEGO-09 - Hélio')
+  ) AS v(nome, matricula, equipe_nome)
+  JOIN d_equipes e ON e.tipo_equipe_id = v_tipo_equipe_id AND e.equipe = v.equipe_nome
+  WHERE NOT EXISTS (
+    SELECT 1 FROM d_colaboradores c WHERE c.matricula = v.matricula
+  );
+
+  GET DIAGNOSTICS v_inseridos = ROW_COUNT;
+  RAISE NOTICE 'OK — % encarregado(s) cadastrado(s).', v_inseridos;
+END $$;
+
+
+-- ============================================================
 -- PARTE 4 — Atividade "Em Andamento" (dia trabalhado sem conclusão)
 -- O formulário de lançamento sempre exige pelo menos 1 atividade
 -- selecionada (não dá pra salvar um registro com a lista vazia) —
