@@ -246,9 +246,11 @@ END $$;
 -- ============================================================
 -- PARTE 6 — Encarregados (d_colaboradores) das 6 equipes internas
 -- Necessário pro campo "Encarregado" do lançamento funcionar. Nomes
--- extraídos da aba "Valores" da planilha original. Matrícula usa o
--- próprio código da equipe como identificador (não temos matrícula
--- real de RH na planilha).
+-- extraídos da aba "Valores" da planilha original. "matricula" é
+-- numérico no banco real (não texto) — não temos matrícula real de
+-- RH na planilha, então uso uma faixa reservada (9001-9006) só como
+-- placeholder; o código LSEGO fica visível entre parênteses no nome
+-- pra identificação. Troque pela matrícula real quando tiver.
 -- ============================================================
 
 DO $$
@@ -264,12 +266,12 @@ BEGIN
   INSERT INTO d_colaboradores (nome, matricula, equipe_id, is_ativo)
   SELECT v.nome, v.matricula, e.id, true
   FROM (VALUES
-    ('Joaquim',  'LSEGO-01', 'LSEGO-01 - Joaquim'),
-    ('Gustavo',  'LSEGO-02', 'LSEGO-02 - Gustavo'),
-    ('Ozéias',   'LSEGO-03', 'LSEGO-03 - Ozéias'),
-    ('Leonardo', 'LSEGO-04', 'LSEGO-04 - Leonardo'),
-    ('Eduardo',  'LSEGO-06', 'LSEGO-06 - Eduardo'),
-    ('Hélio',    'LSEGO-09', 'LSEGO-09 - Hélio')
+    ('Joaquim (LSEGO-01)',  9001, 'LSEGO-01 - Joaquim'),
+    ('Gustavo (LSEGO-02)',  9002, 'LSEGO-02 - Gustavo'),
+    ('Ozéias (LSEGO-03)',   9003, 'LSEGO-03 - Ozéias'),
+    ('Leonardo (LSEGO-04)', 9004, 'LSEGO-04 - Leonardo'),
+    ('Eduardo (LSEGO-06)',  9005, 'LSEGO-06 - Eduardo'),
+    ('Hélio (LSEGO-09)',    9006, 'LSEGO-09 - Hélio')
   ) AS v(nome, matricula, equipe_nome)
   JOIN d_equipes e ON e.tipo_equipe_id = v_tipo_equipe_id AND e.equipe = v.equipe_nome
   WHERE NOT EXISTS (
