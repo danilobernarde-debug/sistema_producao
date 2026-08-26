@@ -211,3 +211,35 @@ END $$;
 -- pra maioria. Isso é só metadado informativo (não afeta lançamento
 -- nem preço); se quiser, faço uma atualização depois pra linkar pelo
 -- código.
+
+
+-- ============================================================
+-- PARTE 4 — Atividade "Em Andamento" (dia trabalhado sem conclusão)
+-- O formulário de lançamento sempre exige pelo menos 1 atividade
+-- selecionada (não dá pra salvar um registro com a lista vazia) —
+-- então "sem nenhuma atividade lançada" nos dias em andamento não é
+-- viável na prática. Esta atividade resolve isso: valor sempre zero
+-- (UPE=0) e referencia_codigo='justificativa' faz o trigger já
+-- existente (atualizar_is_justificativa) marcar is_justificativa=true
+-- automaticamente — mesmo mecanismo já usado pra chuva/falta de
+-- material, exclui dos relatórios de produção real.
+-- ============================================================
+
+DO $$
+DECLARE
+  v_contrato_id     smallint := 21;  -- contrato de Faixa
+  v_tipo_equipe_id  bigint;
+BEGIN
+  SELECT id INTO v_tipo_equipe_id FROM d_tipo_equipe WHERE descricao = 'Limpeza de Subestação';
+  IF v_tipo_equipe_id IS NULL THEN
+    RAISE EXCEPTION 'Tipo de equipe "Limpeza de Subestação" não encontrado — rode a PARTE 2 primeiro.';
+  END IF;
+
+  INSERT INTO d_atividades (codigo_op, "DESCRICAO_BASICA_SISTEMA", contrato_id, unidade, tipo_upe_fixa, "UPE", tipo_equipe_id, referencia_codigo)
+  SELECT 'LSE-AND', 'Em Andamento - Sem Produção', v_contrato_id, 'un', 'FIXA', 0, v_tipo_equipe_id, 'justificativa'
+  WHERE NOT EXISTS (
+    SELECT 1 FROM d_atividades WHERE tipo_equipe_id = v_tipo_equipe_id AND codigo_op = 'LSE-AND'
+  );
+
+  RAISE NOTICE 'OK — atividade "Em Andamento" cadastrada para tipo_equipe_id = %', v_tipo_equipe_id;
+END $$;
