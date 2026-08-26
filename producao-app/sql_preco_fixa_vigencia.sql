@@ -103,7 +103,76 @@ END $$;
 
 
 -- ============================================================
--- PARTE 3 — trigger_atualizar_upe com vigência (PENDENTE)
--- Aguardando a definição atual do trigger (ver instruções no topo
--- deste arquivo) antes de escrever a substituição.
+-- PARTE 3 — trigger_atualizar_upe com vigência
 -- ============================================================
+--
+-- Definição original (função real por trás do trigger
+-- "trigger_atualizar_upe" é "atualizar_upe_f_prod_serv", obtida em
+-- 2026-08-26 via pg_get_functiondef):
+--
+--   CREATE OR REPLACE FUNCTION public.atualizar_upe_f_prod_serv()
+--    RETURNS trigger
+--    LANGUAGE plpgsql
+--   AS $function$BEGIN
+--       UPDATE f_prod_atividades
+--       SET upe = (
+--           SELECT d."UPE"
+--           FROM d_atividades d
+--           WHERE d.id = NEW.atividade_id
+--       )
+--       WHERE id = NEW.id;
+--       RETURN NEW;
+--   END;$function$
+--
+-- Ela só mantém "upe" = d_atividades."UPE" (valor atual), sem olhar
+-- data_producao nem tipo_upe_fixa. Quem decide o preço final é o
+-- FRONTEND (NovoRegistro.jsx/EditarRegistro.jsx): pra atividades UPE,
+-- já resolve por vigência via d_contratos_preco_upe; pra atividades
+-- FIXA, manda preco_upe=1 e confia no "upe" — que esse trigger
+-- imediatamente sobrescreve com o valor atual. Por isso a correção
+-- tem que ser aqui, não só no frontend.
+--
+-- A troca abaixo é ADITIVA: primeiro tenta achar um preço vigente em
+-- d_atividades_preco_fixa pra data_producao do registro; só usa isso
+-- se achar. Se não achar nada (é o caso de toda atividade fora do
+-- escopo desta migração — outros contratos, ou tipo UPE), cai
+-- exatamente no comportamento original, sem nenhuma mudança.
+CREATE OR REPLACE FUNCTION public.atualizar_upe_f_prod_serv()
+ RETURNS trigger
+ LANGUAGE plpgsql
+AS $function$
+DECLARE
+  v_data_producao date;
+  v_preco_fixa    numeric;
+BEGIN
+  SELECT r.data_producao INTO v_data_producao
+  FROM f_prod_registro r
+  WHERE r.id = NEW.registro_id;
+
+  SELECT p.valor INTO v_preco_fixa
+  FROM d_atividades_preco_fixa p
+  WHERE p.atividade_id = NEW.atividade_id
+    AND p.vigencia_inicio <= v_data_producao
+    AND (p.vigencia_fim IS NULL OR p.vigencia_fim > v_data_producao)
+  ORDER BY p.vigencia_inicio DESC
+  LIMIT 1;
+
+  IF v_preco_fixa IS NOT NULL THEN
+    UPDATE f_prod_atividades SET upe = v_preco_fixa WHERE id = NEW.id;
+  ELSE
+    UPDATE f_prod_atividades
+    SET upe = (
+        SELECT d."UPE"
+        FROM d_atividades d
+        WHERE d.id = NEW.atividade_id
+    )
+    WHERE id = NEW.id;
+  END IF;
+
+  RETURN NEW;
+END;
+$function$;
+
+-- Não precisa recriar o CREATE TRIGGER em si — CREATE OR REPLACE
+-- FUNCTION preserva o trigger já existente (timing/evento/condição),
+-- só troca a lógica de dentro.
