@@ -108,7 +108,7 @@ Todos idempotentes (seguros pra rodar de novo) e resolvem as chaves estrangeiras
 | `sql_remover_regional_equipe_interna_subestacoes.sql` | Remove `d_subestacoes.regional_id` e `equipe_interna_id` — nunca usados de fato |
 | `sql_vincular_encarregado_limpeza_subestacao.sql` | Vincula o campo "Encarregado" (já existia no catálogo global) ao lançamento de Limpeza de Subestação — sem isso o seletor nunca aparecia |
 | `sql_cadastrar_colaboradores_reais.sql` | Upsert (por pessoa, com tratamento de erro individual) das 20 pessoas do roster real de RH em `d_colaboradores`; corrige o código da equipe do Eduardo (LSEGO-06 → LSEGO-07) e a matrícula do Fagner (2803 → 2808) |
-| `sql_preencher_encarregado_historico.sql` | Preenche `encarregado_id` (NULL em todos os 1.168 lançamentos históricos) com o encarregado real de cada equipe — rodar depois do script acima |
+| `sql_preencher_encarregado_historico.sql` | **Não executar** — decisão do usuário de não preencher `encarregado_id` nos lançamentos antigos (mantido no repositório caso mude no futuro) |
 | `sql_backfill_equipe_regional.sql` | Preenche `equipe_regional` nos 1.170 lançamentos do backfill histórico, com o valor exato de cada visita da planilha original (992 chaves subestação+OS+datas) |
 
 ---
@@ -165,7 +165,7 @@ Mapeamento das colunas sem coluna própria no lançamento:
   - **v2 (reescrito)**: a primeira versão usava um único `UPDATE` multi-linha pros 6 encarregados — quando o Ozéias (matrícula 1542) deu conflito (já existia no banco vinculado a outra equipe, `FXGO-02`), o Postgres desfez o `UPDATE` inteiro e os 6 placeholders sumiram sem os dados reais entrarem no lugar. v2 processa as 20 pessoas uma por uma (`UPDATE` se a matrícula já existe, `INSERT` senão), com tratamento de erro individual — um conflito isolado não trava as outras 19.
   - **Achado**: 5 das 20 pessoas já existiam no banco vinculadas a outras equipes do contrato (FXGO-02, FXGO-12, FXTO-08, FXMS-02 — parecem ser as equipes originais de Roçagem de Faixa) — provavelmente remanejadas pra Limpeza de Subestação sem atualização de cadastro. O script move a `equipe_id` delas pra a LSEGO correspondente, usando a planilha do usuário como fonte da verdade atual.
   - Popula `d_colaboradores_funcao` com os 3 cargos reais (AJUDANTE DE SERVICOS GERAIS, ELETRICISTA ENCARREGADO A/B) e vincula via `cargo_id`.
-  - **Achado à parte, não corrigido por este script**: os 1.170 lançamentos históricos do backfill têm `encarregado_id` órfão (não aponta pra nenhum colaborador existente) — os 6 encarregados-placeholder originais (matrícula 9001–9006) não foram encontrados no banco por nome nem por essa referência, e não há registro de quando/como sumiram. Pré-existente à importação de hoje (o script de colaboradores nunca alterou `f_prod_registro`). Decisão pendente do usuário sobre como corrigir (provavelmente: apontar `encarregado_id` de cada lançamento pro encarregado real da equipe correspondente).
+  - **Achado à parte, não corrigido por este script**: os 1.168 lançamentos históricos do backfill têm `encarregado_id` **`NULL`** (não órfão/quebrado — só nunca foi preenchido no backfill original). Pré-existente à importação de hoje (o script de colaboradores nunca alterou `f_prod_registro`). **Decisão do usuário**: não preencher os lançamentos antigos, só manter o cadastro de colaboradores em dia — `sql_preencher_encarregado_historico.sql` foi escrito mas marcado como "não executar" no próprio arquivo.
 
 ## 7. Pendências opcionais (não bloqueiam o uso)
 

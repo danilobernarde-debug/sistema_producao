@@ -1,3 +1,8 @@
+-- NÃO EXECUTAR — decisão do usuário (2026-08-27): não preencher
+-- encarregado_id nos lançamentos antigos, só cadastrar os colaboradores
+-- reais em d_colaboradores (sql_cadastrar_colaboradores_reais.sql).
+-- Mantido no repositório caso essa decisão mude no futuro.
+--
 -- Preenche encarregado_id nos 1.168 lançamentos históricos de Limpeza
 -- de Subestação (hoje todos NULL — nunca chegou a ser preenchido no
 -- backfill original, não é referência quebrada). Usa o encarregado
