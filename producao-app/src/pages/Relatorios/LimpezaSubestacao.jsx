@@ -1,6 +1,6 @@
 import { useState, useRef } from 'react'
 import { supabase } from '../../supabaseClient'
-import { CHUNK, exportarXLSX } from './exportUtils'
+import { CHUNK, expandirMetadata, exportarXLSX } from './exportUtils'
 
 const COD_ROCAGEM   = new Set(['LSE-P', 'LSE-M', 'LSE-G', 'LSE-GG', 'LSE-XG'])
 const COD_CAPINA    = new Set(['CQ-CHAV', 'CQ-MT', 'CQ-AT'])
@@ -21,7 +21,7 @@ function agruparPorRegistro(dados) {
     if (!porRegistro.has(rid)) {
       porRegistro.set(rid, {
         registro_id: rid,
-        data: row.data_producao,
+        data: row.data_producao_original,
         subestacao_id: row.subestacao_id,
         os: row.os || '',
         equipeRegional: row.equipe_regional || '',
@@ -39,10 +39,10 @@ function agruparPorRegistro(dados) {
     if (cod === COD_ANDAMENTO) {
       reg.temAndamento = true
     } else if (COD_ROCAGEM.has(cod)) {
-      reg.rocagemValor += Number(row.valor_total) || 0
+      reg.rocagemValor += Number(row.valor_producao) || 0
       reg.temConclusao = true
     } else if (COD_CAPINA.has(cod)) {
-      reg.capinaValor += Number(row.valor_total) || 0
+      reg.capinaValor += Number(row.valor_producao) || 0
       reg.temConclusao = true
     }
   }
@@ -179,7 +179,7 @@ export default function LimpezaSubestacao({ dataInicio, dataFim, setDataInicio, 
         if (linhas.length < CHUNK) break
       }
 
-      const registros = agruparPorRegistro(todos)
+      const registros = agruparPorRegistro(expandirMetadata(todos))
       const { visitas, pendentesAbertos } = montarVisitas(registros)
 
       if (visitas.length === 0) {
