@@ -106,6 +106,7 @@ Todos idempotentes (seguros pra rodar de novo) e resolvem as chaves estrangeiras
 | `sql_equipe_regional_campo_lancamento.sql` | Desfaz `d_subestacoes.equipe_regional` e cria `equipe_regional` como campo dinâmico (`config_campos`, tipo select) no lançamento — desenho correto |
 | `sql_corrigir_datas_invertidas.sql` | Corrige 2 visitas do histórico com DATA INICIAL posterior à DATA FINAL na planilha original (erro de digitação) — remove o lançamento "Em Andamento" indevido de cada uma, vira visita de 1 dia só |
 | `sql_remover_regional_equipe_interna_subestacoes.sql` | Remove `d_subestacoes.regional_id` e `equipe_interna_id` — nunca usados de fato |
+| `sql_vincular_encarregado_limpeza_subestacao.sql` | Vincula o campo "Encarregado" (já existia no catálogo global) ao lançamento de Limpeza de Subestação — sem isso o seletor nunca aparecia |
 | `sql_backfill_equipe_regional.sql` | Preenche `equipe_regional` nos 1.170 lançamentos do backfill histórico, com o valor exato de cada visita da planilha original (992 chaves subestação+OS+datas) |
 
 ---
