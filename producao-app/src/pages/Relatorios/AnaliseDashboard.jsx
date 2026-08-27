@@ -613,10 +613,8 @@ export default function AnaliseDashboard() {
       style={telaCheia ? { background: '#f8fafc', overflowY: 'auto', padding: 24 } : {}}>
       <div className="pagina-header">
         <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-          {aba !== 3 && (
-            <button className="btn btn-secundario" onClick={() => navegar(-1)}
-              style={{ padding: '6px 12px', fontSize: 13 }}>← Voltar</button>
-          )}
+          <button className="btn btn-secundario" onClick={() => aba === 3 ? setAba(1) : navegar(-1)}
+            style={{ padding: '6px 12px', fontSize: 13 }}>← Voltar</button>
           <h1 className="pagina-titulo" style={{ margin: 0 }}>Dashboard de Produção</h1>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
@@ -766,7 +764,6 @@ export default function AnaliseDashboard() {
           dados={dadosDetalheEquipe}
           colaboradores={colaboradoresDrill.lista}
           colaboradoresPorDia={colaboradoresDrill.porDia}
-          onVoltar={() => setAba(1)}
         />}
       </div>
     </div>
@@ -1095,7 +1092,7 @@ function ProducaoDetalhada({ dados, dadosBarMes, filtroMes, onClickMes, regsExcl
 }
 
 // ── Aba 3: Detalhe Equipe (Drill-Down) ────────────────────────────────────────
-function DetalheEquipe({ dados, colaboradores, colaboradoresPorDia, onVoltar }) {
+function DetalheEquipe({ dados, colaboradores, colaboradoresPorDia }) {
   const [diaSelecionado, setDiaSelecionado] = useState(null)
 
   if (!dados) {
@@ -1124,10 +1121,6 @@ function DetalheEquipe({ dados, colaboradores, colaboradoresPorDia, onVoltar }) 
       {/* Cabeçalho */}
       <div className="card" style={{ padding: '16px 20px', marginBottom: 16,
         background: 'linear-gradient(135deg, #1e2a3b, #1a56db)', color: 'white' }}>
-        <button onClick={onVoltar} style={{ background: 'rgba(255,255,255,.15)', border: 'none',
-          color: 'white', padding: '4px 12px', borderRadius: 4, cursor: 'pointer', fontSize: 12, marginBottom: 12 }}>
-          ← Voltar
-        </button>
         <div style={{ display: 'flex', gap: 32, flexWrap: 'wrap', alignItems: 'flex-start' }}>
           <div>
             <div style={{ fontSize: 11, opacity: .7 }}>Equipe</div>
