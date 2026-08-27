@@ -77,8 +77,10 @@ function ehColunaReal(campo, secao) {
   return secao === 'registro' && !!campo?.is_coluna_real
 }
 
-const CAMPOS_FIXOS_REGISTRO = [
+const CAMPOS_FIXOS_REGISTRO_BASE = [
   { label: 'Data', tipo: 'data' },
+  { label: 'Contrato', tipo: 'dropdown' },
+  { label: 'Tipo de Equipe', tipo: 'dropdown' },
 ]
 
 const CAMPOS_FIXOS_ATIVIDADE = [
@@ -244,7 +246,7 @@ export default function FormBuilder() {
   }
 
   useEffect(() => {
-    supabase.from('d_contratos').select('id, descricao, ativo').order('descricao').then(({ data }) => setContratos(data || []))
+    supabase.from('d_contratos').select('id, descricao, ativo, logica_contrato').order('descricao').then(({ data }) => setContratos(data || []))
     supabase.from('d_tipo_equipe').select('id, descricao').order('descricao').then(({ data }) => setTiposEquipe(data || []))
     supabase.from('config_campos').select('id, label, nome, tipo, is_coluna_real, secao_permitida').order('label').then(({ data }) => setCampos(data || []))
   }, [])
@@ -275,6 +277,15 @@ export default function FormBuilder() {
 
   const contratoSelecionado = useMemo(() => contratos.find(c => String(c.id) === String(contratoId)), [contratos, contratoId])
   const contratoDesativado = contratoSelecionado && contratoSelecionado.ativo === false
+
+  // "Equipe" só é campo fixo do registro quando logica_contrato = false —
+  // com logica_contrato = true não existe 1 equipe por registro, a
+  // presença já resolve isso por colaborador (ver seção Colaboradores).
+  const fixosRegistro = useMemo(() => (
+    contratoSelecionado && !contratoSelecionado.logica_contrato
+      ? [...CAMPOS_FIXOS_REGISTRO_BASE, { label: 'Equipe', tipo: 'dropdown' }]
+      : CAMPOS_FIXOS_REGISTRO_BASE
+  ), [contratoSelecionado])
 
   const camposNoRegistro = useMemo(() => new Set(registroFields.map(r => r.campo_id)), [registroFields])
   const camposNaAtividade = useMemo(() => new Set(atividadeFields.map(r => r.campo_id)), [atividadeFields])
@@ -447,7 +458,7 @@ export default function FormBuilder() {
         cor="#1a56db"
         fields={registroFields}
         secao="registro"
-        fixos={CAMPOS_FIXOS_REGISTRO}
+        fixos={fixosRegistro}
       />
 
       {/* Seção Atividade */}
