@@ -91,16 +91,24 @@ export default function TabelaCRUD({
     }
 
     const fa = filtrosOverride ?? filtrosAtivos
-    filtros.forEach(nome => {
+    for (const nome of filtros) {
       const val = fa[nome]
-      if (val === '' || val === null || val === undefined) return
+      if (val === '' || val === null || val === undefined) continue
       const col = colunas.find(c => c.nome === nome)
-      if (col?.tipo === 'checkbox') q = q.eq(nome, val === 'true')
+      if (col?.filtroVia) {
+        // Filtro indireto: a tabela não tem a coluna diretamente (ex: d_colaboradores
+        // não tem contrato_id, só equipe_id) — resolve via outra tabela primeiro.
+        const { colunaLocal, tabelaVia, colunaViaFiltro } = col.filtroVia
+        const { data: viaRows } = await supabase.from(tabelaVia).select('id').eq(colunaViaFiltro, val)
+        const ids = (viaRows || []).map(r => r.id)
+        q = q.in(colunaLocal, ids.length ? ids : [-1])
+      }
+      else if (col?.tipo === 'checkbox') q = q.eq(nome, val === 'true')
       else if (col?.filtroTexto) q = q.filter(`${nome}::text`, 'ilike', `%${val}%`)
       else if (col?.tipo === 'texto' || col?.tipo === 'alfanumerico') q = q.ilike(nome, `%${val}%`)
       else if (col?.tipo === 'numero') { const n = Number(val); if (!isNaN(n)) q = q.eq(nome, n) }
       else q = q.eq(nome, val)
-    })
+    }
 
     const { data, count } = await q
     if (meuReq !== reqId.current) return  // resposta antiga, descarta

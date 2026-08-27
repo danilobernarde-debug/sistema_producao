@@ -3,6 +3,10 @@ import TabelaCRUD from '../../components/TabelaCRUD'
 const COLUNAS = [
   { nome: 'matricula_nome', label: 'Matrícula / Nome', tipo: 'texto',   somenteLeitura: true, ocultarLista: true,
     ajuda: 'Gerado automaticamente pelo sistema ao salvar (matrícula + nome)' },
+  { nome: 'contrato_filtro', label: 'Contrato',        tipo: 'select',  somenteLeitura: true, ocultarLista: true,
+    tabela_ref: 'd_contratos', coluna_valor: 'id', coluna_label: 'descricao',
+    filtroVia: { colunaLocal: 'equipe_id', tabelaVia: 'd_equipes', colunaViaFiltro: 'contrato_id' },
+    ajuda: 'Filtra pelo contrato da equipe do colaborador (só filtro — d_colaboradores não tem contrato_id direto)' },
   { nome: 'matricula',      label: 'Matrícula',        tipo: 'numero',  obrigatorio: true,
     ajuda: 'Número de matrícula único do colaborador na empresa' },
   { nome: 'nome',           label: 'Nome',             tipo: 'texto',   obrigatorio: true,
@@ -16,5 +20,5 @@ const COLUNAS = [
 ]
 
 export default function Colaboradores() {
-  return <TabelaCRUD titulo="Colaboradores" tabela="d_colaboradores" colunas={COLUNAS} ordenarPor="nome" voltarPara="/configuracoes" filtros={['matricula', 'nome', 'equipe_id', 'cargo_id', 'is_ativo']} />
+  return <TabelaCRUD titulo="Colaboradores" tabela="d_colaboradores" colunas={COLUNAS} ordenarPor="nome" voltarPara="/configuracoes" filtros={['contrato_filtro', 'matricula', 'nome', 'equipe_id', 'cargo_id', 'is_ativo']} />
 }
