@@ -104,6 +104,7 @@ Todos idempotentes (seguros pra rodar de novo) e resolvem as chaves estrangeiras
 | `sql_add_superintendencia_subestacoes.sql` | Adiciona `d_subestacoes.superintendencia` (text) e retropreenche as 369 subestações a partir do histórico da planilha |
 | `sql_add_equipe_regional_subestacoes.sql` | **Superado** — tentativa inicial de `equipe_regional` como campo fixo em `d_subestacoes`; não rodar, ver linha abaixo |
 | `sql_equipe_regional_campo_lancamento.sql` | Desfaz `d_subestacoes.equipe_regional` e cria `equipe_regional` como campo dinâmico (`config_campos`, tipo select) no lançamento — desenho correto |
+| `sql_corrigir_datas_invertidas.sql` | Corrige 2 visitas do histórico com DATA INICIAL posterior à DATA FINAL na planilha original (erro de digitação) — remove o lançamento "Em Andamento" indevido de cada uma, vira visita de 1 dia só |
 | `sql_backfill_equipe_regional.sql` | Preenche `equipe_regional` nos 1.170 lançamentos do backfill histórico, com o valor exato de cada visita da planilha original (992 chaves subestação+OS+datas) |
 
 ---

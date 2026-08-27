@@ -20,6 +20,12 @@
 --
 -- Idempotente: só atualiza registros do backfill que ainda não
 -- têm "equipe_regional" no metadata — seguro rodar de novo.
+--
+-- Rode sql_corrigir_datas_invertidas.sql ANTES deste (se ainda não
+-- rodou): 2 visitas da planilha original tinham DATA INICIAL depois
+-- da DATA FINAL (erro de digitação) e foram corrigidas pra 1 dia só
+-- (SE ITAGUARU OS 53327 SGO, SE USINA MAMBAI OS 64276 SGO) — as
+-- datas abaixo já refletem a correção.
 -- ============================================================
 
 DROP TABLE IF EXISTS stg_equipe_visita;
@@ -758,7 +764,7 @@ INSERT INTO stg_equipe_visita (nome, os, data_inicial, data_final, equipe_region
   ('SE IPAMERI', '65022 SGO', DATE '2026-06-25', DATE '2026-06-25', 'SUL'),
   ('SE MAMBAI', '64271 SGO', DATE '2026-06-25', DATE '2026-06-25', 'NORDESTE'),
   ('SE POSSE', '64272 SGO', DATE '2026-06-25', DATE '2026-06-25', 'NORDESTE'),
-  ('SE USINA MAMBAI', '64276 SGO', DATE '2026-06-25', DATE '2026-06-15', 'NORDESTE'),
+  ('SE USINA MAMBAI', '64276 SGO', DATE '2026-06-15', DATE '2026-06-15', 'NORDESTE'),
   ('SE US. SAO DOMINGOS', '64275 SGO', DATE '2026-06-25', DATE '2026-06-25', 'NORDESTE'),
   ('SE FLORES DE GOIAS', '64270 SGO', DATE '2026-06-26', DATE '2026-06-26', 'NORDESTE'),
   ('SE PIRES DO RIO', '64307 SGO', DATE '2026-06-26', DATE '2026-06-26', 'SUL'),
@@ -1024,7 +1030,7 @@ INSERT INTO stg_equipe_visita (nome, os, data_inicial, data_final, equipe_region
   ('SE PARANAIBA', '70555 SGO', DATE '2026-08-24', DATE '2026-08-24', 'SUL'),
   ('SE CORUMBAIBA', '69970 SGO', DATE '2026-08-24', DATE '2026-08-24', 'SUL'),
   ('SE GOIANDIRA', '69959 SGO', DATE '2026-08-24', DATE '2026-08-24', 'SUL'),
-  ('SE ITAGUARU', '53327 SGO', DATE '2026-12-30', DATE '2026-01-02', 'NORTE');
+  ('SE ITAGUARU', '53327 SGO', DATE '2026-01-02', DATE '2026-01-02', 'NORTE');
 
 -- ============================================================
 -- Reconstrói cada visita a partir dos lançamentos já no banco
