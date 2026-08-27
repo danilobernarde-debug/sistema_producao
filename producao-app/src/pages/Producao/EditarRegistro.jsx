@@ -402,7 +402,6 @@ export default function EditarRegistro() {
   function validar() {
     const erros = {}
     if (!dataProducao) erros.data = 'Obrigatório'
-    if (!contrato?.logica_contrato && !equipeId) erros.equipe = 'Obrigatório'
     const _intercept = ['equipe', 'obra_id', 'encarregado_id', 'regional_id']
     camposRegistro.forEach(c => {
       const nome = c.config_campos.nome
@@ -667,7 +666,7 @@ export default function EditarRegistro() {
 
             {!logicaContrato && (
               <div className="campo-grupo">
-                <label className="campo-label">Equipe <span className="obrigatorio">*</span></label>
+                <label className="campo-label">Equipe</label>
                 <SelectPesquisavel opcoes={opcoesEquipes} valor={equipeId}
                   onChange={handleEquipeChange} placeholder="Pesquise a equipe..."
                   disabled={opcoesEquipes.length === 0} erro={errosCampos.equipe} />

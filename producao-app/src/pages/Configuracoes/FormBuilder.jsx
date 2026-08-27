@@ -93,7 +93,7 @@ const CAMPOS_FIXOS_ATIVIDADE = [
   { label: 'Quantidade', tipo: 'numero' },
 ]
 
-function CampoFixo({ label, tipo }) {
+function CampoFixo({ label, tipo, obrigatorio = true }) {
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: 8, background: '#f0f9ff', border: '1px solid #bae6fd', borderRadius: 8, padding: '8px 12px' }}>
       <span style={{ fontSize: 16, flexShrink: 0 }}>{TIPO_ICONE[tipo] || '📝'}</span>
@@ -101,7 +101,7 @@ function CampoFixo({ label, tipo }) {
         <div style={{ fontSize: 13, fontWeight: 600, color: '#0369a1' }}>{label}</div>
         <div style={{ fontSize: 11, color: '#7dd3fc' }}>{tipo}</div>
       </div>
-      <span style={{ fontSize: 11, color: '#7dd3fc', background: '#e0f2fe', padding: '2px 8px', borderRadius: 10 }}>fixo · obrigatório</span>
+      <span style={{ fontSize: 11, color: '#7dd3fc', background: '#e0f2fe', padding: '2px 8px', borderRadius: 10 }}>fixo · {obrigatorio ? 'obrigatório' : 'opcional'}</span>
     </div>
   )
 }
@@ -288,7 +288,7 @@ export default function FormBuilder() {
   // presença já resolve isso por colaborador (ver seção Colaboradores).
   const fixosRegistro = useMemo(() => (
     contratoSelecionado && !contratoSelecionado.logica_contrato
-      ? [...CAMPOS_FIXOS_REGISTRO_BASE, { label: 'Equipe', tipo: 'dropdown' }]
+      ? [...CAMPOS_FIXOS_REGISTRO_BASE, { label: 'Equipe', tipo: 'dropdown', obrigatorio: false }]
       : CAMPOS_FIXOS_REGISTRO_BASE
   ), [contratoSelecionado])
 
@@ -361,7 +361,7 @@ export default function FormBuilder() {
         </div>
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-          {fixos?.map(f => <CampoFixo key={f.label} label={f.label} tipo={f.tipo} />)}
+          {fixos?.map(f => <CampoFixo key={f.label} label={f.label} tipo={f.tipo} obrigatorio={f.obrigatorio} />)}
 
           {fields.map((f, idx) => (
             <CampoCard key={f.id} f={f} idx={idx} total={fields.length} secao={secao}

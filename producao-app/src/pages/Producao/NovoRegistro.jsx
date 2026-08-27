@@ -298,7 +298,6 @@ export default function NovoRegistro() {
     const erros = {}
     if (!contratoId) erros.contrato = 'Obrigatório'
     if (!tipoEquipeId) erros.tipoEquipe = 'Obrigatório'
-    if (!contrato?.logica_contrato && !equipeId) erros.equipe = 'Obrigatório'
     if (!dataProducao) erros.data = 'Obrigatório'
     const _intercept = ['equipe', 'obra_id', 'encarregado_id', 'regional_id']
     camposRegistro.forEach(c => {
@@ -347,7 +346,7 @@ export default function NovoRegistro() {
           data_producao: dataProducao,
           contrato_id: Number(contratoId),
           tipo_equipe_id: Number(tipoEquipeId),
-          equipe_id: contrato?.logica_contrato ? null : Number(equipeId),
+          equipe_id: contrato?.logica_contrato ? null : (equipeId ? Number(equipeId) : null),
           obra_id: obraId ? Number(obraId) : null,
           encarregado_id: encarregadoId ? Number(encarregadoId) : null,
           regional_id: regionalId ? Number(regionalId) : null,
@@ -523,7 +522,7 @@ export default function NovoRegistro() {
               <div className="campos-grid">
                 {!logicaContrato && tipoEquipeId && (
                   <div className="campo-grupo">
-                    <label className="campo-label">Equipe <span className="obrigatorio">*</span></label>
+                    <label className="campo-label">Equipe</label>
                     <SelectPesquisavel opcoes={opcoesEquipes} valor={equipeId}
                       onChange={handleEquipeChange} placeholder="Pesquise a equipe..."
                       disabled={opcoesEquipes.length === 0} erro={errosCampos.equipe} />
