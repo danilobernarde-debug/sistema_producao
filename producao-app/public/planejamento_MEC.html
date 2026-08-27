@@ -457,9 +457,13 @@ select:focus,input:focus{border-color:rgba(255,87,34,.5)}
         <button class="layer-btn active" id="lb-sat"      onclick="setLayer('sat')">🛰 Satélite</button>
         <div style="height:1px;background:var(--border2);margin:2px 0"></div>
         <button class="layer-btn overlay-btn" id="lb-road-overlay" onclick="toggleRoadOverlay()">🛣 + Rodovias</button>
+        <button class="layer-btn overlay-btn" id="lb-boundary-overlay" onclick="toggleBoundaryOverlay()">🧭 + Divisas</button>
       </div>
       <button class="layer-fab-btn" id="layer-fab-btn" onclick="toggleLayerFab()" title="Camadas do mapa">🗺</button>
     </div>
+
+    <!-- Zoom level label — small, discreet, right above the zoom control -->
+    <div class="map-ov" id="zoom-level-label" style="bottom:74px;left:16px;font-size:10px;color:rgba(255,255,255,.55);text-shadow:0 1px 2px rgba(0,0,0,.6);letter-spacing:.4px"></div>
 
     <!-- Legend: bottom-right -->
     <div class="map-ov" id="legend" style="bottom:28px;right:10px">
@@ -1006,8 +1010,10 @@ const TILE_LAYERS={
   sat:     'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
 };
 const ROAD_OVERLAY_URL='https://server.arcgisonline.com/ArcGIS/rest/services/Reference/World_Transportation/MapServer/tile/{z}/{y}/{x}';
+const STATE_BOUNDARY_OVERLAY_URL='https://server.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}';
 let tileLayer;
 let roadOverlay=null;
+let boundaryOverlay=null;
 
 function houseIcon(color){
   return L.divIcon({
@@ -1023,9 +1029,14 @@ function initMap(){
   map.createPane('roadOverlayPane');
   map.getPane('roadOverlayPane').style.zIndex=350;
   map.getPane('roadOverlayPane').style.pointerEvents='none';
+  map.createPane('boundaryOverlayPane');
+  map.getPane('boundaryOverlayPane').style.zIndex=360;
+  map.getPane('boundaryOverlayPane').style.pointerEvents='none';
   tileLayer=L.tileLayer(TILE_LAYERS.sat,{attribution:'© Esri',maxZoom:19}).addTo(map);
   // Zoom control — bottom left
   L.control.zoom({position:'bottomleft'}).addTo(map);
+  document.getElementById('zoom-level-label').textContent='Zoom '+map.getZoom();
+  map.on('zoomend',()=>{ document.getElementById('zoom-level-label').textContent='Zoom '+map.getZoom(); });
   radiusLayerGroup=L.layerGroup().addTo(map);
   layerGroup=L.layerGroup().addTo(map);
   teamLayerGroup=L.layerGroup().addTo(map);
@@ -1044,6 +1055,27 @@ function setLayer(name){
   layerFabOpen=false;
   document.getElementById('layer-options').classList.remove('open');
   document.getElementById('layer-fab-btn').classList.remove('open');
+  const overlayBtn=document.getElementById('lb-road-overlay');
+  const boundaryBtn=document.getElementById('lb-boundary-overlay');
+  if(name==='sat'){
+    overlayBtn.style.display='';
+    boundaryBtn.style.display='';
+  }else{
+    overlayBtn.style.display='none';
+    boundaryBtn.style.display='none';
+    if(roadOverlay){ map.removeLayer(roadOverlay); roadOverlay=null; }
+    if(boundaryOverlay){ map.removeLayer(boundaryOverlay); boundaryOverlay=null; }
+  }
+}
+function toggleBoundaryOverlay(){
+  if(!map) return;
+  if(boundaryOverlay){
+    map.removeLayer(boundaryOverlay);
+    boundaryOverlay=null;
+  }else{
+    boundaryOverlay=L.tileLayer(STATE_BOUNDARY_OVERLAY_URL,{attribution:'© Esri',maxZoom:19,pane:'boundaryOverlayPane'}).addTo(map);
+  }
+  document.getElementById('lb-boundary-overlay').classList.toggle('active',!!boundaryOverlay);
 }
 function toggleRoadOverlay(){
   if(!map) return;
