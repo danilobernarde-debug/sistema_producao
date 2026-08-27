@@ -2,6 +2,11 @@ import { useState, useEffect, useMemo, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../../supabaseClient'
 
+// Contratos 17/18/19 (Faixa TO) são o mesmo contrato dividido por regional —
+// equipes cadastradas em qualquer um deles valem para os 3 (ver NovoRegistro.jsx).
+const IDS_FAIXA_TO = new Set([17, 18, 19])
+function contratoParaEquipes(cid) { return IDS_FAIXA_TO.has(Number(cid)) ? 17 : Number(cid) }
+
 function PainelInfo({ aberto, onFechar }) {
   if (!aberto) return null
   return (
@@ -257,7 +262,7 @@ export default function FormBuilder() {
     carregarConfig()
     supabase
       .from('d_equipes').select('id', { count: 'exact', head: true })
-      .eq('contrato_id', contratoId).eq('tipo_equipe_id', tipoEquipeId).eq('is_ativo', true)
+      .eq('contrato_id', contratoParaEquipes(contratoId)).eq('tipo_equipe_id', tipoEquipeId).eq('is_ativo', true)
       .then(({ count }) => setSemEquipesNoTipo((count ?? 0) === 0))
   }, [contratoId, tipoEquipeId])
 
