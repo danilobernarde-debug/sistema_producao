@@ -108,6 +108,7 @@ Todos idempotentes (seguros pra rodar de novo) e resolvem as chaves estrangeiras
 | `sql_remover_regional_equipe_interna_subestacoes.sql` | Remove `d_subestacoes.regional_id` e `equipe_interna_id` — nunca usados de fato |
 | `sql_vincular_encarregado_limpeza_subestacao.sql` | Vincula o campo "Encarregado" (já existia no catálogo global) ao lançamento de Limpeza de Subestação — sem isso o seletor nunca aparecia |
 | `sql_cadastrar_colaboradores_reais.sql` | Upsert (por pessoa, com tratamento de erro individual) das 20 pessoas do roster real de RH em `d_colaboradores`; corrige o código da equipe do Eduardo (LSEGO-06 → LSEGO-07) e a matrícula do Fagner (2803 → 2808) |
+| `sql_preencher_encarregado_historico.sql` | Preenche `encarregado_id` (NULL em todos os 1.168 lançamentos históricos) com o encarregado real de cada equipe — rodar depois do script acima |
 | `sql_backfill_equipe_regional.sql` | Preenche `equipe_regional` nos 1.170 lançamentos do backfill histórico, com o valor exato de cada visita da planilha original (992 chaves subestação+OS+datas) |
 
 ---
