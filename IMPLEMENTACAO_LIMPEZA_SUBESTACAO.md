@@ -18,8 +18,9 @@ Equipes de limpeza de subestação são pagas **por subestação concluída**, n
 | id | bigint PK | |
 | nome | text | prefixado com o porte, ex: `[P] SE ABADIANIA` |
 | municipio | text | |
+| superintendencia | text | `NORTE`, `NORDESTE`, `SUL`, `SUDOESTE` ou `CENTRO` — campo "SUPERINTENDÊNCIA" da planilha original |
 | contrato_id | smallint FK → d_contratos | sempre 21 (Faixa) |
-| regional_id | smallint FK → d_regional | |
+| regional_id | smallint FK → d_regional | cadastro genérico compartilhado com outros contratos — não usado para a superintendência (ver campo acima) |
 | porte | text | `P`, `M`, `G`, `GG` ou `XG` — define o preço de Roçagem |
 | tipo | text | `MT`, `AT` ou `CHAVEAMENTO` — define o preço de Capina Química |
 | equipe_interna_id | integer FK → d_equipes | metadado informativo |
@@ -100,6 +101,7 @@ Todos idempotentes (seguros pra rodar de novo) e resolvem as chaves estrangeiras
 | `sql_prefixar_porte_subestacoes.sql` | Prefixa o nome das subestações com o porte (`[P] SE ...`), pedido para o dropdown do lançamento |
 | `sql_backfill_producao_historica.sql` | Migração dos lançamentos históricos da planilha (ver seção 4) |
 | `sql_corrigir_upe_backfill.sql` | Correção pontual do `upe`/`valor_total` das linhas do backfill (efeito do achado do trigger) |
+| `sql_add_superintendencia_subestacoes.sql` | Adiciona `d_subestacoes.superintendencia` (text) e retropreenche as 369 subestações a partir do histórico da planilha |
 
 ---
 

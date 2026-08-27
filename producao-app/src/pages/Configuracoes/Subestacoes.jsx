@@ -9,12 +9,14 @@ const COLUNAS = [
     ajuda: 'Nome/identificação da subestação (ex: SE PIRANHAS)' },
   { nome: 'municipio',         label: 'Município',         tipo: 'texto',
     ajuda: 'Município onde a subestação está localizada' },
+  { nome: 'superintendencia',  label: 'Superintendência',  tipo: 'texto',
+    ajuda: 'Superintendência responsável (NORTE, NORDESTE, SUL, SUDOESTE, CENTRO)' },
   { nome: 'contrato_id',       label: 'Contrato',          tipo: 'select',   obrigatorio: true,
     tabela_ref: 'd_contratos', coluna_valor: 'id', coluna_label: 'descricao', pesquisavel: true,
     ajuda: 'Contrato ao qual esta subestação pertence' },
-  { nome: 'regional_id',       label: 'Regional',          tipo: 'select',
+  { nome: 'regional_id',       label: 'Regional',          tipo: 'select',   ocultarLista: true,
     tabela_ref: 'd_regional', coluna_valor: 'id', coluna_label: 'regional', pesquisavel: true,
-    ajuda: 'Regional/superintendência responsável' },
+    ajuda: 'Regional (cadastro genérico, opcional) — use "Superintendência" acima para NORTE/SUL/etc.' },
   { nome: 'porte',             label: 'Porte',             tipo: 'select',   obrigatorio: true,
     opcoes: [
       { valor: 'P',  label: 'P — até 5.000 m²' },
@@ -38,7 +40,7 @@ const COLUNAS = [
     ajuda: 'Desmarque para subestações desativadas (não aparecem mais no lançamento)' },
 ]
 
-const COLUNAS_MODELO = ['nome', 'municipio', 'contrato_id', 'regional', 'porte', 'tipo', 'equipe_interna', 'is_ativo']
+const COLUNAS_MODELO = ['nome', 'municipio', 'superintendencia', 'contrato_id', 'regional', 'porte', 'tipo', 'equipe_interna', 'is_ativo']
 
 function baixarModelo() {
   const ws = XLSX.utils.aoa_to_sheet([COLUNAS_MODELO])
@@ -126,6 +128,7 @@ export default function Subestacoes() {
     return {
       nome:              String(row['nome'] || '').trim() || null,
       municipio:         row['municipio'] || null,
+      superintendencia:  String(row['superintendencia'] || '').trim().toUpperCase() || null,
       contrato_id,
       regional_id,
       porte:             String(row['porte'] || '').trim().toUpperCase() || null,
@@ -170,7 +173,7 @@ export default function Subestacoes() {
         ordenarPor="nome"
         buscaPor="nome"
         voltarPara="/configuracoes"
-        filtros={['contrato_id', 'porte', 'tipo', 'is_ativo']}
+        filtros={['contrato_id', 'superintendencia', 'porte', 'tipo', 'is_ativo']}
         botoesExtra={botoesExtra}
         key={recarregar}
       />
@@ -188,6 +191,7 @@ export default function Subestacoes() {
               </ol>
               <div style={{ marginTop: 4, fontSize: 12, color: '#6b7280' }}>
                 <strong>contrato_id:</strong> ID numérico ou nome do contrato &nbsp;|&nbsp;
+                <strong>superintendencia:</strong> NORTE, NORDESTE, SUL, SUDOESTE ou CENTRO (opcional) &nbsp;|&nbsp;
                 <strong>regional:</strong> nome da regional (opcional) &nbsp;|&nbsp;
                 <strong>porte:</strong> P, M, G, GG ou XG &nbsp;|&nbsp;
                 <strong>tipo:</strong> MT, AT ou CHAVEAMENTO &nbsp;|&nbsp;
