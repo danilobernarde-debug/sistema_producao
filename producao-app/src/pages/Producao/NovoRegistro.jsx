@@ -127,7 +127,7 @@ export default function NovoRegistro() {
         .from('d_tipo_equipe').select('grupo_atividades').eq('id', tipoEquipeId).single()
       const grupoAtiv = te?.grupo_atividades
 
-      const campos = 'id, codigo_op, DESCRICAO_BASICA_SISTEMA, unidade, tipo_upe_fixa, UPE, tipo_lm_lv, comprimento_lagura'
+      const campos = 'id, codigo_op, DESCRICAO_BASICA_SISTEMA, unidade, tipo_upe_fixa, UPE, tipo_lm_lv, comprimento_lagura, referencia_codigo'
 
       // contrato_id = contratoId  OU  contrato_id IS NULL (aparecem para todos)
       if (!contratoId) { setAtividades([]); return }
@@ -205,7 +205,7 @@ export default function NovoRegistro() {
         ].filter(Boolean))
         setItens(prev => prev.map(it => {
           const atv = atividades.find(a => String(a.id) === String(it.atividade_id))
-          const aindaValido = !atv || permitidos.has(atv.codigo_op)
+          const aindaValido = !atv || permitidos.has(atv.codigo_op) || atv.referencia_codigo === 'justificativa'
           return aindaValido ? it : { ...it, atividade_id: '' }
         }))
       })
@@ -584,7 +584,7 @@ export default function NovoRegistro() {
                   ].filter(Boolean))
                 : null
               const atividadesParaEscolha = codigosPermitidos
-                ? atividades.filter(a => codigosPermitidos.has(a.codigo_op))
+                ? atividades.filter(a => codigosPermitidos.has(a.codigo_op) || a.referencia_codigo === 'justificativa')
                 : atividades
               const opcoesAtividades = atividadesParaEscolha.map(a => ({
                 valor: a.id,
