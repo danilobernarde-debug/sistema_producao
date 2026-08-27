@@ -42,6 +42,8 @@ function RotaProtegida() {
       nome: perfil?.nome ?? null,
       email: usuario.email,
       caminho: pathname,
+    }).then(({ error }) => {
+      if (error) console.error('Falha ao gravar pageview_log:', error)
     })
   }, [pathname, usuario?.id])
 
