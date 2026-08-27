@@ -19,7 +19,6 @@ Equipes de limpeza de subestação são pagas **por subestação concluída**, n
 | nome | text | prefixado com o porte, ex: `[P] SE ABADIANIA` |
 | municipio | text | |
 | superintendencia | text | `NORTE`, `NORDESTE`, `SUL`, `SUDOESTE` ou `CENTRO` — campo "SUPERINTENDÊNCIA" da planilha original |
-| equipe_regional | text (CHECK) | `AT - SUD 04`, `CENTRO`, `NORDESTE`, `NORTE` ou `SUL` — campo "EQUIPE" da planilha original, escolhido no cadastro (dropdown fixo) |
 | contrato_id | smallint FK → d_contratos | sempre 21 (Faixa) |
 | regional_id | smallint FK → d_regional | cadastro genérico compartilhado com outros contratos — não usado para a superintendência (ver campo acima) |
 | porte | text | `P`, `M`, `G`, `GG` ou `XG` — define o preço de Roçagem |
@@ -103,7 +102,8 @@ Todos idempotentes (seguros pra rodar de novo) e resolvem as chaves estrangeiras
 | `sql_backfill_producao_historica.sql` | Migração dos lançamentos históricos da planilha (ver seção 4) |
 | `sql_corrigir_upe_backfill.sql` | Correção pontual do `upe`/`valor_total` das linhas do backfill (efeito do achado do trigger) |
 | `sql_add_superintendencia_subestacoes.sql` | Adiciona `d_subestacoes.superintendencia` (text) e retropreenche as 369 subestações a partir do histórico da planilha |
-| `sql_add_equipe_regional_subestacoes.sql` | Adiciona `d_subestacoes.equipe_regional` (text, CHECK com 5 valores fixos) e retropreenche as 369 subestações (moda por subestação) |
+| `sql_add_equipe_regional_subestacoes.sql` | **Superado** — tentativa inicial de `equipe_regional` como campo fixo em `d_subestacoes`; não rodar, ver linha abaixo |
+| `sql_equipe_regional_campo_lancamento.sql` | Desfaz `d_subestacoes.equipe_regional` e cria `equipe_regional` como campo dinâmico (`config_campos`, tipo select) no lançamento — desenho correto |
 
 ---
 
@@ -146,7 +146,7 @@ Novo relatório em `/relatorios/exportacao` → "Limpeza de Subestação" (`src/
 Como o sistema lança "Em Andamento" (início) + atividade real (conclusão) em vez de 1 linha por visita, o relatório reconstrói a visita: agrupa por `registro_id` (via RPC `fn_prod_exportar`, igual aos outros relatórios de exportação), depois por subestação em ordem cronológica, casando cada conclusão com o "Em Andamento" aberto mais recente daquela subestação (ou tratando como visita de 1 dia só se não houver "Em Andamento" pendente). Só visitas **concluídas** entram no relatório — visitas ainda em andamento no período aparecem contadas num aviso na tela, não na exportação (mesmo escopo da planilha original, que só registrava trabalho finalizado).
 
 Mapeamento das colunas sem coluna própria no lançamento:
-- `EQUIPE` recebe `d_subestacoes.equipe_regional` — campo dedicado (dropdown fixo: AT - SUD 04, CENTRO, NORDESTE, NORTE, SUL), adicionado em 2026-08-27 a pedido do usuário. No histórico, 21 das 369 subestações tinham mais de um valor de EQUIPE entre visitas diferentes (a equipe despachada mudou ao longo do tempo); como o campo é fixo por subestação no cadastro, o backfill usou a moda (valor mais frequente) — mesmo critério já usado para porte/tipo na importação original. `sql_add_equipe_regional_subestacoes.sql`.
+- `EQUIPE` recebe o campo dinâmico `equipe_regional` (dropdown fixo: AT - SUD 04, CENTRO, NORDESTE, NORTE, SUL) — **campo do lançamento**, não da subestação: o usuário escolhe ao cadastrar o registro diário, igual ao campo "OS" (`config_campos`/`config_campos_contrato`, seção "registro", não obrigatório). Primeira tentativa (2026-08-27) colocou isso como atributo fixo em `d_subestacoes`, mas o histórico mostrou 21 das 369 subestações com mais de 1 valor de EQUIPE entre visitas diferentes — é atributo da visita, não da subestação; corrigido no mesmo dia (`sql_equipe_regional_campo_lancamento.sql`, que desfaz a coluna em `d_subestacoes` e cria o campo dinâmico). Lançamentos antigos (antes da correção, incluindo todo o backfill histórico) não têm esse campo preenchido — aparecem com EQUIPE em branco no relatório até serem editados ou até um backfill retroativo opcional.
 - `EQUIPE INTERNO` recebe `d_equipes.equipe` (ex: "LSEGO-01 - Joaquim") via `equipe_id` do registro de conclusão.
 - `STATUS` é sempre "FINALIZADO" (únicas linhas exportadas são visitas com alguma atividade concluída).
 

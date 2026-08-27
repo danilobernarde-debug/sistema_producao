@@ -1,3 +1,12 @@
+-- ============================================================
+-- SUPERADO — NÃO RODAR. Ver sql_equipe_regional_campo_lancamento.sql.
+-- O histórico mostrou que EQUIPE é atributo da visita (varia entre
+-- visitas da mesma subestação), não da subestação — este script
+-- modelava errado como campo fixo em d_subestacoes. Mantido só
+-- como registro; o script novo desfaz esta coluna se ela já tiver
+-- sido criada.
+-- ============================================================
+
 -- Adiciona "Equipe Regional" ao cadastro de subestações — campo fixo (dropdown),
 -- valores definidos pelo usuário a partir do "EQUIPE" da planilha original.
 -- Diferente de superintendencia: no histórico, 21 das 369 subestações têm mais

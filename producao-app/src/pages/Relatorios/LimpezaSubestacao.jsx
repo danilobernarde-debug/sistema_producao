@@ -24,6 +24,7 @@ function agruparPorRegistro(dados) {
         data: row.data_producao,
         subestacao_id: row.subestacao_id,
         os: row.os || '',
+        equipeRegional: row.equipe_regional || '',
         equipe_id: row.equipe_id,
         temAndamento: false,
         temConclusao: false,
@@ -33,6 +34,7 @@ function agruparPorRegistro(dados) {
     }
     const reg = porRegistro.get(rid)
     if (!reg.os && row.os) reg.os = row.os
+    if (!reg.equipeRegional && row.equipe_regional) reg.equipeRegional = row.equipe_regional
     const cod = row.cod_atividade
     if (cod === COD_ANDAMENTO) {
       reg.temAndamento = true
@@ -70,6 +72,7 @@ function montarVisitas(registros) {
           dataInicial:   pendente ? pendente.data : r.data,
           dataFinal:     r.data,
           os:            r.os || pendente?.os || '',
+          equipeRegional: r.equipeRegional || pendente?.equipeRegional || '',
           equipe_id:     r.equipe_id || pendente?.equipe_id || null,
           rocagemValor:  r.rocagemValor,
           capinaValor:   r.capinaValor,
@@ -103,7 +106,7 @@ function prepararLinhas(visitas, subestacoesPorId, equipesPorId) {
       'CAPINA QUIMICA':          v.capinaValor > 0 ? 'SIM' : 'NÃO',
       'TIPO DE SUBESTAÇÃO':      se.tipo || '',
       'STATUS':                  'FINALIZADO',
-      'EQUIPE':                  se.equipe_regional || '',
+      'EQUIPE':                  v.equipeRegional || '',
       'EQUIPE INTERNO':          equipesPorId.get(v.equipe_id) || '',
       'VALOR DA CAP Q':          v.capinaValor,
       'VALOR DE LIMPEZA DE SUB': v.rocagemValor,
@@ -151,7 +154,7 @@ export default function LimpezaSubestacao({ dataInicio, dataFim, setDataInicio, 
 
     try {
       const [{ data: subestacoes }, { data: equipes }] = await Promise.all([
-        supabase.from('d_subestacoes').select('id, nome, municipio, porte, tipo, superintendencia, equipe_regional'),
+        supabase.from('d_subestacoes').select('id, nome, municipio, porte, tipo, superintendencia'),
         supabase.from('d_equipes').select('id, equipe'),
       ])
       const subestacoesPorId = new Map((subestacoes || []).map(s => [s.id, s]))
