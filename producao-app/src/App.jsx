@@ -1,6 +1,7 @@
 import { BrowserRouter, Routes, Route, Navigate, Outlet, useLocation } from 'react-router-dom'
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useAuth } from './hooks/useAuth'
+import { supabase } from './supabaseClient'
 import Sidebar from './components/Sidebar'
 import Login from './pages/Login'
 import Dashboard from './pages/Dashboard'
@@ -33,6 +34,16 @@ function RotaProtegida() {
   const { usuario, perfil, carregando } = useAuth()
   const { pathname } = useLocation()
   const [sidebarAberta, setSidebarAberta] = useState(false)
+
+  useEffect(() => {
+    if (!usuario) return
+    supabase.from('d_pageview_log').insert({
+      user_uuid: usuario.id,
+      nome: perfil?.nome ?? null,
+      email: usuario.email,
+      caminho: pathname,
+    })
+  }, [pathname, usuario?.id])
 
   if (carregando) {
     return (
