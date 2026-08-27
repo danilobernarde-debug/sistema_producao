@@ -455,6 +455,8 @@ select:focus,input:focus{border-color:rgba(255,87,34,.5)}
         <button class="layer-btn"        id="lb-standard" onclick="setLayer('standard')">🗺 Padrão</button>
         <button class="layer-btn"        id="lb-road"     onclick="setLayer('road')">🛣 Rodoviário</button>
         <button class="layer-btn active" id="lb-sat"      onclick="setLayer('sat')">🛰 Satélite</button>
+        <div style="height:1px;background:var(--border2);margin:2px 0"></div>
+        <button class="layer-btn overlay-btn" id="lb-road-overlay" onclick="toggleRoadOverlay()">🛣 + Rodovias</button>
       </div>
       <button class="layer-fab-btn" id="layer-fab-btn" onclick="toggleLayerFab()" title="Camadas do mapa">🗺</button>
     </div>
@@ -1003,7 +1005,9 @@ const TILE_LAYERS={
   road:    'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png',
   sat:     'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
 };
+const ROAD_OVERLAY_URL='https://server.arcgisonline.com/ArcGIS/rest/services/Reference/World_Transportation/MapServer/tile/{z}/{y}/{x}';
 let tileLayer;
+let roadOverlay=null;
 
 function houseIcon(color){
   return L.divIcon({
@@ -1016,6 +1020,9 @@ function houseIcon(color){
 
 function initMap(){
   map=L.map('map',{zoomControl:false,preferCanvas:true}).setView([-16.8,-52.0],8);
+  map.createPane('roadOverlayPane');
+  map.getPane('roadOverlayPane').style.zIndex=350;
+  map.getPane('roadOverlayPane').style.pointerEvents='none';
   tileLayer=L.tileLayer(TILE_LAYERS.sat,{attribution:'© Esri',maxZoom:19}).addTo(map);
   // Zoom control — bottom left
   L.control.zoom({position:'bottomleft'}).addTo(map);
@@ -1032,11 +1039,21 @@ function setLayer(name){
   map.removeLayer(tileLayer);
   tileLayer=L.tileLayer(TILE_LAYERS[name],{attribution:'© OSM © CARTO',maxZoom:19}).addTo(map);
   tileLayer.bringToBack();
-  document.querySelectorAll('.layer-btn').forEach(b=>b.classList.remove('active'));
+  document.querySelectorAll('.layer-btn:not(.overlay-btn)').forEach(b=>b.classList.remove('active'));
   document.getElementById('lb-'+name).classList.add('active');
   layerFabOpen=false;
   document.getElementById('layer-options').classList.remove('open');
   document.getElementById('layer-fab-btn').classList.remove('open');
+}
+function toggleRoadOverlay(){
+  if(!map) return;
+  if(roadOverlay){
+    map.removeLayer(roadOverlay);
+    roadOverlay=null;
+  }else{
+    roadOverlay=L.tileLayer(ROAD_OVERLAY_URL,{attribution:'© Esri',maxZoom:19,pane:'roadOverlayPane'}).addTo(map);
+  }
+  document.getElementById('lb-road-overlay').classList.toggle('active',!!roadOverlay);
 }
 
 function placeTeamMarkers(){
