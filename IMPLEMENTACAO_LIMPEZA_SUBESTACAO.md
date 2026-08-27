@@ -137,6 +137,17 @@ Todos idempotentes (seguros pra rodar de novo) e resolvem as chaves estrangeiras
 
 ---
 
+## 6.1 Relatório de exportação (2026-08-27)
+
+Novo relatório em `/relatorios/exportacao` → "Limpeza de Subestação" (`src/pages/Relatorios/LimpezaSubestacao.jsx`), no mesmo formato de colunas da aba `PORTE SE_PREÇOS` da planilha original: SUPERINTENDÊNCIA, NOME DA SUBESTAÇÃO, MUNICÍPIO, PORTE, OS, DATA INICIAL, DATA FINAL, ROÇAGEM, CAPINA QUIMICA, TIPO DE SUBESTAÇÃO, STATUS, EQUIPE, EQUIPE INTERNO, VALOR DA CAP Q, VALOR DE LIMPEZA DE SUB.
+
+Como o sistema lança "Em Andamento" (início) + atividade real (conclusão) em vez de 1 linha por visita, o relatório reconstrói a visita: agrupa por `registro_id` (via RPC `fn_prod_exportar`, igual aos outros relatórios de exportação), depois por subestação em ordem cronológica, casando cada conclusão com o "Em Andamento" aberto mais recente daquela subestação (ou tratando como visita de 1 dia só se não houver "Em Andamento" pendente). Só visitas **concluídas** entram no relatório — visitas ainda em andamento no período aparecem contadas num aviso na tela, não na exportação (mesmo escopo da planilha original, que só registrava trabalho finalizado).
+
+Decisões de mapeamento (sem equivalente 1:1 no cadastro atual):
+- `EQUIPE` (coluna original, redundante com SUPERINTENDÊNCIA na planilha-fonte) recebe o mesmo valor de `superintendencia` da subestação.
+- `EQUIPE INTERNO` recebe `d_equipes.equipe` (ex: "LSEGO-01 - Joaquim") via `equipe_id` do registro de conclusão.
+- `STATUS` é sempre "FINALIZADO" (únicas linhas exportadas).
+
 ## 7. Pendências opcionais (não bloqueiam o uso)
 
 - As 79 linhas do histórico com equipe "LSEGO-00" — decidir se vale revisar e importar manualmente.

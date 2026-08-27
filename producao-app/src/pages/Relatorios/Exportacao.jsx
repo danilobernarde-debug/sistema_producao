@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { supabase } from '../../supabaseClient'
 import { CHUNK, expandirMetadata, exportarXLSX } from './exportUtils'
 import FaixaTO from './FaixaTO'
+import LimpezaSubestacao from './LimpezaSubestacao'
 import SelectPesquisavel from '../../components/SelectPesquisavel'
 
 const CAMPOS_DIN = [
@@ -42,6 +43,8 @@ const RELATORIOS = [
     desc: 'Exportação completa com todas as colunas. Filtro por contrato e seleção de colunas personalizável.' },
   { id: 'faixa-to', icone: '📍', titulo: 'Faixa Tocantins',
     desc: 'Colunas fixas para os contratos TO Norte, Sul e Centro. Atividades de justificativa excluídas automaticamente.' },
+  { id: 'limpeza-subestacao', icone: '🧹', titulo: 'Limpeza de Subestação',
+    desc: 'Mesmo formato da planilha original de controle — 1 linha por visita concluída.' },
 ]
 
 export default function Exportacao() {
@@ -519,6 +522,14 @@ export default function Exportacao() {
       {/* Conteúdo: Faixa Tocantins */}
       {relatorioAtivo === 'faixa-to' && (
         <FaixaTO
+          dataInicio={dataInicio} dataFim={dataFim}
+          setDataInicio={setDataInicio} setDataFim={setDataFim}
+        />
+      )}
+
+      {/* Conteúdo: Limpeza de Subestação */}
+      {relatorioAtivo === 'limpeza-subestacao' && (
+        <LimpezaSubestacao
           dataInicio={dataInicio} dataFim={dataFim}
           setDataInicio={setDataInicio} setDataFim={setDataFim}
         />
