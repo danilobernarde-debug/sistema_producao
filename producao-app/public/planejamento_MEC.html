@@ -1004,9 +1004,9 @@ let filtered=[], teamMkrs={};
 let currentLayerName='dark';
 const ZOOM_THRESHOLD=11;
 const TILE_LAYERS={
-  dark:    'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',
+  dark:    'https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Base/MapServer/tile/{z}/{y}/{x}',
   standard:'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
-  road:    'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png',
+  road:    'https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}',
   sat:     'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
 };
 const ROAD_OVERLAY_URL='https://server.arcgisonline.com/ArcGIS/rest/services/Reference/World_Transportation/MapServer/tile/{z}/{y}/{x}';
@@ -1032,11 +1032,13 @@ function initMap(){
   map.createPane('boundaryOverlayPane');
   map.getPane('boundaryOverlayPane').style.zIndex=360;
   map.getPane('boundaryOverlayPane').style.pointerEvents='none';
-  tileLayer=L.tileLayer(TILE_LAYERS.sat,{attribution:'© Esri',maxZoom:19}).addTo(map);
+  tileLayer=L.tileLayer(TILE_LAYERS.sat,{attribution:'© Esri',maxZoom:20,maxNativeZoom:17}).addTo(map);
+  ensureRoadOverlayOn();
+  ensureBoundaryOverlayOn();
   // Zoom control — bottom left
   L.control.zoom({position:'bottomleft'}).addTo(map);
-  document.getElementById('zoom-level-label').textContent='Zoom '+map.getZoom();
-  map.on('zoomend',()=>{ document.getElementById('zoom-level-label').textContent='Zoom '+map.getZoom(); });
+  document.getElementById('zoom-level-label').textContent=map.getZoom();
+  map.on('zoomend',()=>{ document.getElementById('zoom-level-label').textContent=map.getZoom(); });
   radiusLayerGroup=L.layerGroup().addTo(map);
   layerGroup=L.layerGroup().addTo(map);
   teamLayerGroup=L.layerGroup().addTo(map);
@@ -1048,7 +1050,8 @@ function initMap(){
 function setLayer(name){
   if(!map) return;
   map.removeLayer(tileLayer);
-  tileLayer=L.tileLayer(TILE_LAYERS[name],{attribution:'© OSM © CARTO',maxZoom:19}).addTo(map);
+  const opts=name==='sat' ? {attribution:'© Esri',maxZoom:20,maxNativeZoom:17} : {attribution:'© Esri © OSM',maxZoom:19};
+  tileLayer=L.tileLayer(TILE_LAYERS[name],opts).addTo(map);
   tileLayer.bringToBack();
   document.querySelectorAll('.layer-btn:not(.overlay-btn)').forEach(b=>b.classList.remove('active'));
   document.getElementById('lb-'+name).classList.add('active');
@@ -1060,6 +1063,8 @@ function setLayer(name){
   if(name==='sat'){
     overlayBtn.style.display='';
     boundaryBtn.style.display='';
+    ensureRoadOverlayOn();
+    ensureBoundaryOverlayOn();
   }else{
     overlayBtn.style.display='none';
     boundaryBtn.style.display='none';
@@ -1067,25 +1072,37 @@ function setLayer(name){
     if(boundaryOverlay){ map.removeLayer(boundaryOverlay); boundaryOverlay=null; }
   }
 }
+function ensureRoadOverlayOn(){
+  if(!roadOverlay){
+    roadOverlay=L.tileLayer(ROAD_OVERLAY_URL,{attribution:'© Esri',maxZoom:19,pane:'roadOverlayPane'}).addTo(map);
+  }
+  document.getElementById('lb-road-overlay').classList.add('active');
+}
+function ensureBoundaryOverlayOn(){
+  if(!boundaryOverlay){
+    boundaryOverlay=L.tileLayer(STATE_BOUNDARY_OVERLAY_URL,{attribution:'© Esri',maxZoom:19,pane:'boundaryOverlayPane'}).addTo(map);
+  }
+  document.getElementById('lb-boundary-overlay').classList.add('active');
+}
 function toggleBoundaryOverlay(){
   if(!map) return;
   if(boundaryOverlay){
     map.removeLayer(boundaryOverlay);
     boundaryOverlay=null;
+    document.getElementById('lb-boundary-overlay').classList.remove('active');
   }else{
-    boundaryOverlay=L.tileLayer(STATE_BOUNDARY_OVERLAY_URL,{attribution:'© Esri',maxZoom:19,pane:'boundaryOverlayPane'}).addTo(map);
+    ensureBoundaryOverlayOn();
   }
-  document.getElementById('lb-boundary-overlay').classList.toggle('active',!!boundaryOverlay);
 }
 function toggleRoadOverlay(){
   if(!map) return;
   if(roadOverlay){
     map.removeLayer(roadOverlay);
     roadOverlay=null;
+    document.getElementById('lb-road-overlay').classList.remove('active');
   }else{
-    roadOverlay=L.tileLayer(ROAD_OVERLAY_URL,{attribution:'© Esri',maxZoom:19,pane:'roadOverlayPane'}).addTo(map);
+    ensureRoadOverlayOn();
   }
-  document.getElementById('lb-road-overlay').classList.toggle('active',!!roadOverlay);
 }
 
 function placeTeamMarkers(){
