@@ -613,8 +613,10 @@ export default function AnaliseDashboard() {
       style={telaCheia ? { background: '#f8fafc', overflowY: 'auto', padding: 24 } : {}}>
       <div className="pagina-header">
         <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-          <button className="btn btn-secundario" onClick={() => navegar(-1)}
-            style={{ padding: '6px 12px', fontSize: 13 }}>← Voltar</button>
+          {aba !== 3 && (
+            <button className="btn btn-secundario" onClick={() => navegar(-1)}
+              style={{ padding: '6px 12px', fontSize: 13 }}>← Voltar</button>
+          )}
           <h1 className="pagina-titulo" style={{ margin: 0 }}>Dashboard de Produção</h1>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
