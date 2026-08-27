@@ -10,6 +10,16 @@ import SelectPesquisavel from '../../components/SelectPesquisavel'
 const IDS_FAIXA_TO = new Set([17, 18, 19])
 function contratoParaEquipes(cid) { return IDS_FAIXA_TO.has(Number(cid)) ? 17 : Number(cid) }
 
+// Limpeza de Subestação: cada subestação já tem porte/tipo cadastrados,
+// então ao escolher a subestação a lista de Atividade fica restrita ao
+// que se aplica a ela (roçagem pelo porte, capina química pelo tipo, e
+// sempre "Em Andamento"). Só entra em ação quando o campo dinâmico
+// "subestacao_id" existe e está preenchido — não afeta nenhum outro
+// contrato/tipo de equipe.
+const CODIGO_ROCAGEM_POR_PORTE = { P: 'LSE-P', M: 'LSE-M', G: 'LSE-G', GG: 'LSE-GG', XG: 'LSE-XG' }
+const CODIGO_CAPINA_POR_TIPO = { MT: 'CQ-MT', AT: 'CQ-AT', CHAVEAMENTO: 'CQ-CHAV' }
+const CODIGO_EM_ANDAMENTO = 'LSE-AND'
+
 export default function NovoRegistro() {
   const navegar = useNavigate()
   const { usuario } = useAuth()
@@ -36,6 +46,7 @@ export default function NovoRegistro() {
   const [metaRegistro, setMetaRegistro] = useState({})
 
   const [itens, setItens] = useState([{ atividade_id: '', quantidade: '', largura: '', comprimento: '', meta: {} }])
+  const [subestacaoInfo, setSubestacaoInfo] = useState(null) // { porte, tipo } da subestação selecionada, se houver
 
   // logica_contrato = false: lista da equipe (auto-preenchida) + externos adicionados
   const [presentesList, setPresentesList] = useState([])
@@ -175,6 +186,30 @@ export default function NovoRegistro() {
   function alterarMetaRegistro(nome, valor) {
     setMetaRegistro(prev => ({ ...prev, [nome]: valor }))
   }
+
+  // Ao escolher/trocar a subestação, busca porte/tipo pra restringir as
+  // atividades disponíveis. Só limpa a atividade de um item se ela
+  // deixou de ser válida pra essa subestação (não mexe em itens que já
+  // batem, ex: reabrir/recarregar com dados já preenchidos).
+  useEffect(() => {
+    const subId = metaRegistro.subestacao_id
+    if (!subId) { setSubestacaoInfo(null); return }
+    supabase.from('d_subestacoes').select('porte, tipo').eq('id', subId).single()
+      .then(({ data }) => {
+        setSubestacaoInfo(data || null)
+        if (!data) return
+        const permitidos = new Set([
+          CODIGO_ROCAGEM_POR_PORTE[data.porte],
+          CODIGO_CAPINA_POR_TIPO[data.tipo],
+          CODIGO_EM_ANDAMENTO,
+        ].filter(Boolean))
+        setItens(prev => prev.map(it => {
+          const atv = atividades.find(a => String(a.id) === String(it.atividade_id))
+          const aindaValido = !atv || permitidos.has(atv.codigo_op)
+          return aindaValido ? it : { ...it, atividade_id: '' }
+        }))
+      })
+  }, [metaRegistro.subestacao_id])
 
   function alterarItemAtividade(idx, campo, valor) {
     setItens(prev => prev.map((it, i) => i === idx ? { ...it, [campo]: valor } : it))
@@ -535,8 +570,23 @@ export default function NovoRegistro() {
         {tipoEquipeId && (
           <div className="card">
             <div className="card-titulo">Atividades Executadas</div>
+            {subestacaoInfo && (
+              <p style={{ fontSize: 12, color: '#6b7280', marginTop: -4, marginBottom: 12 }}>
+                Atividades filtradas pelo porte/tipo da subestação selecionada (porte {subestacaoInfo.porte}, tipo {subestacaoInfo.tipo}).
+              </p>
+            )}
             {itens.map((item, idx) => {
-              const opcoesAtividades = atividades.map(a => ({
+              const codigosPermitidos = subestacaoInfo
+                ? new Set([
+                    CODIGO_ROCAGEM_POR_PORTE[subestacaoInfo.porte],
+                    CODIGO_CAPINA_POR_TIPO[subestacaoInfo.tipo],
+                    CODIGO_EM_ANDAMENTO,
+                  ].filter(Boolean))
+                : null
+              const atividadesParaEscolha = codigosPermitidos
+                ? atividades.filter(a => codigosPermitidos.has(a.codigo_op))
+                : atividades
+              const opcoesAtividades = atividadesParaEscolha.map(a => ({
                 valor: a.id,
                 label: a.codigo_op ? `[${a.codigo_op}] ${a.DESCRICAO_BASICA_SISTEMA}` : a.DESCRICAO_BASICA_SISTEMA,
               })).sort((a, b) => a.label.localeCompare(b.label, 'pt-BR'))
