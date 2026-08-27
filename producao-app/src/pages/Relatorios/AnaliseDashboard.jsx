@@ -661,16 +661,16 @@ export default function AnaliseDashboard() {
         </div>
       </div>
 
-      {/* Filtros por aba — independentes entre abas */}
-      <div className="card" style={{ marginBottom: 16, padding: '12px 16px' }}>
-        <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', alignItems: 'flex-end' }}>
-          <div className="campo-grupo" style={{ marginBottom: 0 }}>
-            <label className="campo-label">Ano</label>
-            <select className="campo-input" value={ano} onChange={e => setAno(Number(e.target.value))} style={{ width: 100 }}>
-              {Array.from({ length: anoAtual + 1 - anoMinimo + 1 }, (_, i) => anoMinimo + i).map(a => <option key={a} value={a}>{a}</option>)}
-            </select>
-          </div>
-          {aba !== 3 && <>
+      {/* Filtros por aba — independentes entre abas (some no detalhe de equipe) */}
+      {aba !== 3 && (
+        <div className="card" style={{ marginBottom: 16, padding: '12px 16px' }}>
+          <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', alignItems: 'flex-end' }}>
+            <div className="campo-grupo" style={{ marginBottom: 0 }}>
+              <label className="campo-label">Ano</label>
+              <select className="campo-input" value={ano} onChange={e => setAno(Number(e.target.value))} style={{ width: 100 }}>
+                {Array.from({ length: anoAtual + 1 - anoMinimo + 1 }, (_, i) => anoMinimo + i).map(a => <option key={a} value={a}>{a}</option>)}
+              </select>
+            </div>
             <div className="campo-grupo" style={{ marginBottom: 0 }}>
               <label className="campo-label">Contrato</label>
               <select className="campo-input" value={filtrosPorAba[aba].contrato} onChange={e => setFiltroAba(aba, 'contrato', e.target.value)} style={{ width: 200 }}>
@@ -695,16 +695,9 @@ export default function AnaliseDashboard() {
                 Limpar filtros
               </button>
             )}
-          </>}
-          <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 6,
-            fontSize: 11, color: '#9ca3af', alignSelf: 'flex-end', paddingBottom: 2 }}>
-            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>
-            </svg>
-            Dados atualizados a cada 3 horas
           </div>
         </div>
-      </div>
+      )}
 
       {/* Abas visíveis (tab 3 só aparece após drill-down) */}
       <div style={{ display: 'flex', gap: 0, marginBottom: 20, borderBottom: '2px solid #e5e7eb' }}>
