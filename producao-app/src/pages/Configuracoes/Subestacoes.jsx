@@ -14,9 +14,6 @@ const COLUNAS = [
   { nome: 'contrato_id',       label: 'Contrato',          tipo: 'select',   obrigatorio: true,
     tabela_ref: 'd_contratos', coluna_valor: 'id', coluna_label: 'descricao', pesquisavel: true,
     ajuda: 'Contrato ao qual esta subestação pertence' },
-  { nome: 'regional_id',       label: 'Regional',          tipo: 'select',   ocultarLista: true,
-    tabela_ref: 'd_regional', coluna_valor: 'id', coluna_label: 'regional', pesquisavel: true,
-    ajuda: 'Regional (cadastro genérico, opcional) — use "Superintendência" acima para NORTE/SUL/etc.' },
   { nome: 'porte',             label: 'Porte',             tipo: 'select',   obrigatorio: true,
     opcoes: [
       { valor: 'P',  label: 'P — até 5.000 m²' },
@@ -33,14 +30,11 @@ const COLUNAS = [
       { valor: 'CHAVEAMENTO', label: 'Chaveamento' },
     ],
     ajuda: 'Classe da subestação — define o preço de Capina Química' },
-  { nome: 'equipe_interna_id', label: 'Equipe Interna',    tipo: 'select',   ocultarLista: true,
-    tabela_ref: 'd_equipes', coluna_valor: 'id', coluna_label: 'equipe', pesquisavel: true,
-    ajuda: 'Equipe interna responsável por esta subestação' },
   { nome: 'is_ativo',          label: 'Ativa',              tipo: 'checkbox', padrao: true,
     ajuda: 'Desmarque para subestações desativadas (não aparecem mais no lançamento)' },
 ]
 
-const COLUNAS_MODELO = ['nome', 'municipio', 'superintendencia', 'contrato_id', 'regional', 'porte', 'tipo', 'equipe_interna', 'is_ativo']
+const COLUNAS_MODELO = ['nome', 'municipio', 'superintendencia', 'contrato_id', 'porte', 'tipo', 'is_ativo']
 
 function baixarModelo() {
   const ws = XLSX.utils.aoa_to_sheet([COLUNAS_MODELO])
@@ -56,18 +50,12 @@ export default function Subestacoes() {
   const [importando, setImportando]   = useState(false)
   const [importOk, setImportOk]       = useState(null) // { inseridos }
   const [contratos, setContratos]     = useState([])
-  const [regionais, setRegionais]     = useState([])
-  const [equipes, setEquipes]         = useState([])
   const [recarregar, setRecarregar]   = useState(0)
   const fileRef = useRef(null)
 
   useEffect(() => {
     supabase.from('d_contratos').select('id, descricao').order('descricao')
       .then(({ data }) => setContratos(data || []))
-    supabase.from('d_regional').select('id, regional').order('regional')
-      .then(({ data }) => setRegionais(data || []))
-    supabase.from('d_equipes').select('id, equipe, contrato_id').order('equipe')
-      .then(({ data }) => setEquipes(data || []))
   }, [])
 
   function abrirImport() {
@@ -106,22 +94,6 @@ export default function Subestacoes() {
       contrato_id = porId?.id ?? porNome?.id ?? null
     }
 
-    const regionalVal = row['regional']
-    let regional_id = null
-    if (regionalVal) {
-      const porId   = regionais.find(r => String(r.id) === String(regionalVal))
-      const porNome = regionais.find(r => r.regional?.trim().toLowerCase() === String(regionalVal).trim().toLowerCase())
-      regional_id = porId?.id ?? porNome?.id ?? null
-    }
-
-    const equipeVal = row['equipe_interna']
-    let equipe_interna_id = null
-    if (equipeVal) {
-      const candidatas = equipes.filter(e => e.equipe?.trim().toLowerCase() === String(equipeVal).trim().toLowerCase())
-      const naDoContrato = candidatas.find(e => String(e.contrato_id) === String(contrato_id))
-      equipe_interna_id = naDoContrato?.id ?? candidatas[0]?.id ?? null
-    }
-
     const ativoStr = String(row['is_ativo'] ?? '').trim().toLowerCase()
     const is_ativo = !['false', '0', 'não', 'nao', 'no'].includes(ativoStr)
 
@@ -130,10 +102,8 @@ export default function Subestacoes() {
       municipio:         row['municipio'] || null,
       superintendencia:  String(row['superintendencia'] || '').trim().toUpperCase() || null,
       contrato_id,
-      regional_id,
       porte:             String(row['porte'] || '').trim().toUpperCase() || null,
       tipo:              String(row['tipo'] || '').trim().toUpperCase() || null,
-      equipe_interna_id,
       is_ativo,
     }
   }
@@ -192,10 +162,8 @@ export default function Subestacoes() {
               <div style={{ marginTop: 4, fontSize: 12, color: '#6b7280' }}>
                 <strong>contrato_id:</strong> ID numérico ou nome do contrato &nbsp;|&nbsp;
                 <strong>superintendencia:</strong> NORTE, NORDESTE, SUL, SUDOESTE ou CENTRO (opcional) &nbsp;|&nbsp;
-                <strong>regional:</strong> nome da regional (opcional) &nbsp;|&nbsp;
                 <strong>porte:</strong> P, M, G, GG ou XG &nbsp;|&nbsp;
                 <strong>tipo:</strong> MT, AT ou CHAVEAMENTO &nbsp;|&nbsp;
-                <strong>equipe_interna:</strong> nome da equipe (opcional) &nbsp;|&nbsp;
                 <strong>is_ativo:</strong> deixe vazio ou "sim" (ativa) / "não" (inativa)
               </div>
               <button className="btn btn-secundario" style={{ marginTop: 10, fontSize: 12 }} onClick={baixarModelo}>

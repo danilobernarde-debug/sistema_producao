@@ -20,11 +20,11 @@ Equipes de limpeza de subestação são pagas **por subestação concluída**, n
 | municipio | text | |
 | superintendencia | text | `NORTE`, `NORDESTE`, `SUL`, `SUDOESTE` ou `CENTRO` — campo "SUPERINTENDÊNCIA" da planilha original |
 | contrato_id | smallint FK → d_contratos | sempre 21 (Faixa) |
-| regional_id | smallint FK → d_regional | cadastro genérico compartilhado com outros contratos — não usado para a superintendência (ver campo acima) |
 | porte | text | `P`, `M`, `G`, `GG` ou `XG` — define o preço de Roçagem |
 | tipo | text | `MT`, `AT` ou `CHAVEAMENTO` — define o preço de Capina Química |
-| equipe_interna_id | integer FK → d_equipes | metadado informativo |
 | is_ativo | boolean | |
+
+`regional_id` (FK → d_regional) e `equipe_interna_id` (FK → d_equipes) existiram no desenho original mas foram removidos em 2026-08-27 — nunca usados de fato: `regional_id` ficou redundante com `superintendencia`, `equipe_interna_id` era só metadado informativo nunca preenchido de forma confiável.
 
 RLS: leitura/escrita seguindo o mesmo padrão de `d_obras` (super admin ou permissão do contrato em `d_auth_contratos`).
 
@@ -105,6 +105,7 @@ Todos idempotentes (seguros pra rodar de novo) e resolvem as chaves estrangeiras
 | `sql_add_equipe_regional_subestacoes.sql` | **Superado** — tentativa inicial de `equipe_regional` como campo fixo em `d_subestacoes`; não rodar, ver linha abaixo |
 | `sql_equipe_regional_campo_lancamento.sql` | Desfaz `d_subestacoes.equipe_regional` e cria `equipe_regional` como campo dinâmico (`config_campos`, tipo select) no lançamento — desenho correto |
 | `sql_corrigir_datas_invertidas.sql` | Corrige 2 visitas do histórico com DATA INICIAL posterior à DATA FINAL na planilha original (erro de digitação) — remove o lançamento "Em Andamento" indevido de cada uma, vira visita de 1 dia só |
+| `sql_remover_regional_equipe_interna_subestacoes.sql` | Remove `d_subestacoes.regional_id` e `equipe_interna_id` — nunca usados de fato |
 | `sql_backfill_equipe_regional.sql` | Preenche `equipe_regional` nos 1.170 lançamentos do backfill histórico, com o valor exato de cada visita da planilha original (992 chaves subestação+OS+datas) |
 
 ---
