@@ -56,8 +56,8 @@ RLS: leitura para autenticados, escrita só super admin (padrão de `config_camp
   | CQ-AT | Capina Química SE - AT | R$ 3.314,59 |
 
 - **1 atividade "Em Andamento"** (`LSE-AND`, UPE=0, `referencia_codigo='justificativa'`) — usada nos dias trabalhados sem conclusão (ver seção 4).
-- **6 equipes internas** (`d_equipes`): LSEGO-01 (Joaquim), LSEGO-02 (Gustavo), LSEGO-03 (Ozéias), LSEGO-04 (Leonardo), LSEGO-06 (Eduardo), LSEGO-09 (Hélio). `LSEGO-00` (código genérico sem encarregado, presente na planilha original) não virou equipe.
-- **6 colaboradores/encarregados** (`d_colaboradores`), um por equipe acima, matrículas placeholder 9001–9006 (não havia matrícula real de RH na planilha).
+- **6 equipes internas** (`d_equipes`): LSEGO-01 (Joaquim), LSEGO-02 (Gustavo), LSEGO-03 (Ozéias), LSEGO-04 (Leonardo), LSEGO-06 (Eduardo), LSEGO-09 (Hélio). `LSEGO-00` (código genérico sem encarregado, presente na planilha original) não virou equipe. **Correção em 2026-08-27**: o roster real de RH mostrou que o código certo do Eduardo é **LSEGO-07**, não LSEGO-06 — a planilha histórica usada nesta seção tinha o código errado. Equipe renomeada (mesmo `id`, histórico já lançado preservado); ver seção 6.2.
+- **20 colaboradores reais** (`d_colaboradores`) — inicialmente 6 encarregados-placeholder com matrícula fictícia (9001–9006, sem dado real de RH na planilha histórica); substituídos em 2026-08-27 pelos dados reais de RH (`Colaboradores.xlsx` fornecido pelo usuário) e complementados com os 14 trabalhadores de campo que faltavam. Ver seção 6.2.
 - **Campo dinâmico "Subestação"** (`config_campos` + `config_campos_contrato`, dropdown → `d_subestacoes`, seção "registro").
 - **Campo "OS"**: já existia no catálogo global (usado por outros contratos) — só vinculado ao novo tipo de equipe.
 - **369 subestações** importadas (dados reais extraídos da planilha, deduplicados por nome — o "porte"/"tipo" foi resolvido por moda quando havia divergência entre linhas da mesma subestação).
@@ -107,6 +107,7 @@ Todos idempotentes (seguros pra rodar de novo) e resolvem as chaves estrangeiras
 | `sql_corrigir_datas_invertidas.sql` | Corrige 2 visitas do histórico com DATA INICIAL posterior à DATA FINAL na planilha original (erro de digitação) — remove o lançamento "Em Andamento" indevido de cada uma, vira visita de 1 dia só |
 | `sql_remover_regional_equipe_interna_subestacoes.sql` | Remove `d_subestacoes.regional_id` e `equipe_interna_id` — nunca usados de fato |
 | `sql_vincular_encarregado_limpeza_subestacao.sql` | Vincula o campo "Encarregado" (já existia no catálogo global) ao lançamento de Limpeza de Subestação — sem isso o seletor nunca aparecia |
+| `sql_cadastrar_colaboradores_reais.sql` | Substitui os 6 encarregados-placeholder pelos dados reais de RH e cadastra os 14 trabalhadores de campo (roster real, 20 pessoas); corrige o código da equipe do Eduardo (LSEGO-06 → LSEGO-07) |
 | `sql_backfill_equipe_regional.sql` | Preenche `equipe_regional` nos 1.170 lançamentos do backfill histórico, com o valor exato de cada visita da planilha original (992 chaves subestação+OS+datas) |
 
 ---
@@ -153,6 +154,16 @@ Mapeamento das colunas sem coluna própria no lançamento:
 - `EQUIPE` recebe o campo dinâmico `equipe_regional` (dropdown fixo: AT - SUD 04, CENTRO, NORDESTE, NORTE, SUL) — **campo do lançamento**, não da subestação: o usuário escolhe ao cadastrar o registro diário, igual ao campo "OS" (`config_campos`/`config_campos_contrato`, seção "registro", não obrigatório). Primeira tentativa (2026-08-27) colocou isso como atributo fixo em `d_subestacoes`, mas o histórico mostrou 21 das 369 subestações com mais de 1 valor de EQUIPE entre visitas diferentes — é atributo da visita, não da subestação; corrigido no mesmo dia (`sql_equipe_regional_campo_lancamento.sql`, que desfaz a coluna em `d_subestacoes` e cria o campo dinâmico). Lançamentos antigos (backfill histórico) foram preenchidos retroativamente em seguida (`sql_backfill_equipe_regional.sql`), com o valor exato de cada visita — mais preciso que a moda usada na primeira tentativa (em `d_subestacoes`), já que agora o campo é por visita.
 - `EQUIPE INTERNO` recebe `d_equipes.equipe` (ex: "LSEGO-01 - Joaquim") via `equipe_id` do registro de conclusão.
 - `STATUS` é sempre "FINALIZADO" (únicas linhas exportadas são visitas com alguma atividade concluída).
+
+## 6.2 Campo Encarregado + roster real de colaboradores (2026-08-27)
+
+- Campo "Encarregado" vinculado ao lançamento de Limpeza de Subestação (`sql_vincular_encarregado_limpeza_subestacao.sql`) — já existia pronto no formulário (usado por outros contratos), só faltava o vínculo em `config_campos_contrato`. Obrigatório.
+- Usuário forneceu o roster real de RH (`Colaboradores.xlsx`, 20 pessoas: matrícula, nome, equipe, cargo). `sql_cadastrar_colaboradores_reais.sql`:
+  - Corrige o código da equipe do Eduardo: **LSEGO-06 → LSEGO-07** (roster real não tem LSEGO-06; o encarregado "Eduardo Rodrigues dos Passos" está na LSEGO-07 — a planilha histórica usada na importação original tinha o código errado). Equipe renomeada no lugar (mesmo `id`), histórico já lançado preservado.
+  - Substitui os 6 encarregados-placeholder (matrícula fictícia 9001–9006) pelos dados reais (matrícula/nome verdadeiros), casando pela matrícula placeholder.
+  - Insere os 14 trabalhadores de campo que faltavam ("AJUDANTE DE SERVICOS GERAIS"), resolvendo `equipe_id` pelo código LSEGO-xx.
+  - Popula `d_colaboradores_funcao` com os 3 cargos reais (AJUDANTE DE SERVICOS GERAIS, ELETRICISTA ENCARREGADO A/B) e vincula via `cargo_id`.
+  - Resultado: 20 colaboradores ativos, distribuídos pelas 6 equipes.
 
 ## 7. Pendências opcionais (não bloqueiam o uso)
 
