@@ -279,18 +279,15 @@ export default function TabelaCRUD({
               }
               if (col?.tipo === 'data') {
                 return (
-                  <div key={nome} style={{ flex: 1, minWidth: 160 }}>
-                    <div style={{ display: 'flex', alignItems: 'center', fontSize: 11, color: '#6b7280', marginBottom: 3 }}>
-                      {col?.label}
-                      {col?.ajuda && <InfoTooltip texto={col.ajuda} />}
-                    </div>
-                    <input
-                      type="date"
-                      className="campo-input"
-                      value={filtrosAtivos[nome] || ''}
-                      onChange={e => mudarFiltro(nome, e.target.value)}
-                    />
-                  </div>
+                  <input
+                    key={nome}
+                    type="date"
+                    className="campo-input"
+                    style={{ flex: 1, minWidth: 160 }}
+                    title={`${col?.label}${col?.ajuda ? ' — ' + col.ajuda : ''}`}
+                    value={filtrosAtivos[nome] || ''}
+                    onChange={e => mudarFiltro(nome, e.target.value)}
+                  />
                 )
               }
               if (col?.tipo === 'checkbox') {
