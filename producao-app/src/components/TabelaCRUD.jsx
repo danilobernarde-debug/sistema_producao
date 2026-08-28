@@ -277,6 +277,18 @@ export default function TabelaCRUD({
                   />
                 )
               }
+              if (col?.tipo === 'data') {
+                return (
+                  <input
+                    key={nome}
+                    type="date"
+                    className="campo-input"
+                    style={{ flex: 1, minWidth: 160 }}
+                    value={filtrosAtivos[nome] || ''}
+                    onChange={e => mudarFiltro(nome, e.target.value)}
+                  />
+                )
+              }
               if (col?.tipo === 'checkbox') {
                 return (
                   <select

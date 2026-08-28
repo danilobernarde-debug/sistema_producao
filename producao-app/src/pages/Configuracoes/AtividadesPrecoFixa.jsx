@@ -33,7 +33,7 @@ export default function AtividadesPrecoFixa() {
       colunas={COLUNAS}
       ordenarPor={['atividade_id', 'vigencia_inicio']}
       voltarPara="/configuracoes"
-      filtros={['contrato_filtro', 'atividade_id']}
+      filtros={['contrato_filtro', 'atividade_id', 'vigencia_inicio']}
       botoesExtra={botoesExtra}
     />
   )
