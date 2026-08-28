@@ -30,6 +30,7 @@ import FormBuilder from './pages/Configuracoes/FormBuilder'
 import Metas from './pages/Configuracoes/Metas'
 import Feriados from './pages/Configuracoes/Feriados'
 import Atualizacoes from './pages/Configuracoes/Atualizacoes'
+import ReajustePrecoFixa from './pages/Configuracoes/ReajustePrecoFixa'
 import Planejamento from './pages/Planejamento'
 
 function RotaProtegida() {
@@ -130,6 +131,7 @@ export default function App() {
           <Route path="/configuracoes/metas" element={<RotaSuperAdmin><Metas /></RotaSuperAdmin>} />
           <Route path="/configuracoes/feriados" element={<RotaSuperAdmin><Feriados /></RotaSuperAdmin>} />
           <Route path="/configuracoes/atualizacoes" element={<RotaDanilo><Atualizacoes /></RotaDanilo>} />
+          <Route path="/configuracoes/reajuste-preco-fixa" element={<RotaSuperAdmin><ReajustePrecoFixa /></RotaSuperAdmin>} />
 
           <Route path="/planejamento" element={<Planejamento />} />
         </Route>

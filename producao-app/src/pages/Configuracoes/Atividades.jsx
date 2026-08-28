@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
+import { useNavigate } from 'react-router-dom'
 import * as XLSX from 'xlsx'
 import TabelaCRUD from '../../components/TabelaCRUD'
 import { Modal } from '../../components/TabelaCRUD'
@@ -48,6 +49,7 @@ function baixarModelo() {
 }
 
 export default function Atividades() {
+  const navegar = useNavigate()
   const [modalImport, setModalImport] = useState(false)
   const [linhas, setLinhas]           = useState([])
   const [erroImport, setErroImport]   = useState('')
@@ -132,9 +134,14 @@ export default function Atividades() {
   }
 
   const botoesExtra = (
-    <button className="btn btn-secundario" onClick={abrirImport}>
-      ⬆ Importar XLSX
-    </button>
+    <>
+      <button className="btn btn-secundario" onClick={() => navegar('/configuracoes/reajuste-preco-fixa')}>
+        📈 Reajuste de Preço Fixa
+      </button>
+      <button className="btn btn-secundario" onClick={abrirImport}>
+        ⬆ Importar XLSX
+      </button>
+    </>
   )
 
   return (
