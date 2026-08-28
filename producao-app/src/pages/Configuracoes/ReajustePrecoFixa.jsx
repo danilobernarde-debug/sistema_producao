@@ -175,7 +175,7 @@ export default function ReajustePrecoFixa() {
             </select>
           </div>
           <div className="campo-grupo" style={{ marginBottom: 0, minWidth: 160 }}>
-            <label className="campo-label">Data do reajuste</label>
+            <label className="campo-label">Data do reajuste <span className="obrigatorio">*</span></label>
             <input type="date" className="campo-input" value={dataReajuste}
               onChange={e => setDataReajuste(e.target.value)} />
           </div>
