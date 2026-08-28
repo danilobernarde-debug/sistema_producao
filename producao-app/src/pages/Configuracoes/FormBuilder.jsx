@@ -283,15 +283,6 @@ export default function FormBuilder() {
   const contratoSelecionado = useMemo(() => contratos.find(c => String(c.id) === String(contratoId)), [contratos, contratoId])
   const contratoDesativado = contratoSelecionado && contratoSelecionado.ativo === false
 
-  // "Equipe" só é campo fixo do registro quando logica_contrato = false —
-  // com logica_contrato = true não existe 1 equipe por registro, a
-  // presença já resolve isso por colaborador (ver seção Colaboradores).
-  const fixosRegistro = useMemo(() => (
-    contratoSelecionado && !contratoSelecionado.logica_contrato
-      ? [...CAMPOS_FIXOS_REGISTRO_BASE, { label: 'Equipe', tipo: 'dropdown', obrigatorio: false }]
-      : CAMPOS_FIXOS_REGISTRO_BASE
-  ), [contratoSelecionado])
-
   const camposNoRegistro = useMemo(() => new Set(registroFields.map(r => r.campo_id)), [registroFields])
   const camposNaAtividade = useMemo(() => new Set(atividadeFields.map(r => r.campo_id)), [atividadeFields])
   const ativo = !!(contratoId && tipoEquipeId)
@@ -463,7 +454,7 @@ export default function FormBuilder() {
         cor="#1a56db"
         fields={registroFields}
         secao="registro"
-        fixos={fixosRegistro}
+        fixos={CAMPOS_FIXOS_REGISTRO_BASE}
       />
 
       {/* Seção Atividade */}

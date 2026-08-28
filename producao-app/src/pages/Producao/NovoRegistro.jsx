@@ -299,13 +299,15 @@ export default function NovoRegistro() {
     if (!contratoId) erros.contrato = 'Obrigatório'
     if (!tipoEquipeId) erros.tipoEquipe = 'Obrigatório'
     if (!dataProducao) erros.data = 'Obrigatório'
-    const _intercept = ['equipe', 'obra_id', 'encarregado_id', 'regional_id']
+    const _intercept = ['equipe', 'equipe_id', 'obra_id', 'encarregado_id', 'regional_id']
     camposRegistro.forEach(c => {
       const nome = c.config_campos.nome
       if (_intercept.includes(nome)) return
       if (c.obrigatorio && !metaRegistro[nome])
         erros[`reg_${nome}`] = 'Obrigatório'
     })
+    const campoEquipe = camposRegistro.find(c => c.config_campos.nome === 'equipe' || c.config_campos.nome === 'equipe_id')
+    if (campoEquipe?.obrigatorio && !equipeId) erros.equipe = 'Obrigatório'
     const campoObra = camposRegistro.find(c => c.config_campos.nome === 'obra_id')
     if (campoObra?.obrigatorio && !obraId) erros.obra_id = 'Obrigatório'
     const campoEnc = camposRegistro.find(c => c.config_campos.nome === 'encarregado_id')
@@ -516,21 +518,20 @@ export default function NovoRegistro() {
 
           </div>
 
-          {(!logicaContrato && tipoEquipeId || camposRegistro.length > 0) && (
+          {camposRegistro.length > 0 && (
             <>
               <div className="secao-titulo">Dados Adicionais do Registro</div>
               <div className="campos-grid">
-                {!logicaContrato && tipoEquipeId && (
-                  <div className="campo-grupo">
-                    <label className="campo-label">Equipe</label>
-                    <SelectPesquisavel opcoes={opcoesEquipes} valor={equipeId}
-                      onChange={handleEquipeChange} placeholder="Pesquise a equipe..."
-                      disabled={opcoesEquipes.length === 0} erro={errosCampos.equipe} />
-                  </div>
-                )}
                 {camposRegistro.map(c => {
                   const nome = c.config_campos.nome
-                  if (nome === 'equipe' || nome === 'equipe_id') return null
+                  if (nome === 'equipe' || nome === 'equipe_id') return (
+                    <div key={c.id} className="campo-grupo">
+                      <label className="campo-label">Equipe {c.obrigatorio && <span className="obrigatorio">*</span>}</label>
+                      <SelectPesquisavel opcoes={opcoesEquipes} valor={equipeId}
+                        onChange={handleEquipeChange} placeholder="Pesquise a equipe..."
+                        disabled={opcoesEquipes.length === 0} erro={errosCampos.equipe} />
+                    </div>
+                  )
                   if (nome === 'obra_id') return (
                     <div key={c.id} className="campo-grupo">
                       <label className="campo-label">Obra {c.obrigatorio && <span className="obrigatorio">*</span>}</label>
