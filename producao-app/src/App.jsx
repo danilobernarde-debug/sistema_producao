@@ -28,6 +28,7 @@ import Subestacoes from './pages/Configuracoes/Subestacoes'
 import AtividadesPrecoFixa from './pages/Configuracoes/AtividadesPrecoFixa'
 import FormBuilder from './pages/Configuracoes/FormBuilder'
 import Metas from './pages/Configuracoes/Metas'
+import Feriados from './pages/Configuracoes/Feriados'
 import Planejamento from './pages/Planejamento'
 
 function RotaProtegida() {
@@ -126,6 +127,7 @@ export default function App() {
           <Route path="/configuracoes/atividades-preco-fixa" element={<RotaSuperAdmin><AtividadesPrecoFixa /></RotaSuperAdmin>} />
           <Route path="/configuracoes/form-builder" element={<RotaSuperAdmin><FormBuilder /></RotaSuperAdmin>} />
           <Route path="/configuracoes/metas" element={<RotaSuperAdmin><Metas /></RotaSuperAdmin>} />
+          <Route path="/configuracoes/feriados" element={<RotaSuperAdmin><Feriados /></RotaSuperAdmin>} />
 
           <Route path="/planejamento" element={<Planejamento />} />
         </Route>
