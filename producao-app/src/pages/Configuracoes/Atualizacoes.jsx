@@ -4,6 +4,15 @@ import { useNavigate } from 'react-router-dom'
 // Ao fazer uma mudança relevante no sistema, adicionar uma entrada nova aqui.
 const VERSOES = [
   {
+    versao: 'ad1c54d',
+    data: '2026-08-28',
+    resumo: 'Ordenação por clique no cabeçalho das listagens',
+    itens: [
+      'Clicar no título de qualquer coluna (Contrato, Vigência Início, etc.) ordena a lista por ela — clicar de novo inverte crescente/decrescente',
+      'Vale pra todas as telas que usam listagem em tabela (Preço UPE, Preço Fixa, Atividades, etc.)',
+    ],
+  },
+  {
     versao: 'bff33ad',
     data: '2026-08-28',
     resumo: 'Preço UPE por Contrato também simplificado: só Vigência Início',
