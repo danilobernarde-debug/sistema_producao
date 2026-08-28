@@ -49,6 +49,7 @@ export default function TabelaCRUD({
   const [confirmarExcluir, setConfirmarExcluir] = useState(null)
   const [opcoesSelect, setOpcoesSelect]   = useState({})
   const [filtrosAtivos, setFiltrosAtivos] = useState({})
+  const [ordenacaoAtiva, setOrdenacaoAtiva] = useState(null) // null = usa ordenarPor padrão; ou { coluna, direcao }
   const reqId           = useRef(0)
   const filtroTimer     = useRef(null)
   const filtrosPend     = useRef({})
@@ -70,15 +71,20 @@ export default function TabelaCRUD({
     })
   }, []) // eslint-disable-line
 
-  async function buscar(pag = 1, filtrosOverride = null, buscaOverride = null) {
+  async function buscar(pag = 1, filtrosOverride = null, buscaOverride = null, ordenacaoOverride = undefined) {
     setCarregando(true)
     const meuReq = ++reqId.current
     const from = (pag - 1) * POR_PAGINA
     const to   = from + POR_PAGINA - 1
 
-    const ordens = Array.isArray(ordenarPor) ? ordenarPor : [ordenarPor]
     let q = supabase.from(tabela).select('*', { count: 'exact' }).range(from, to)
-    ordens.forEach(col => { q = q.order(col) })
+    const ord = ordenacaoOverride !== undefined ? ordenacaoOverride : ordenacaoAtiva
+    if (ord) {
+      q = q.order(ord.coluna, { ascending: ord.direcao === 'asc' })
+    } else {
+      const ordens = Array.isArray(ordenarPor) ? ordenarPor : [ordenarPor]
+      ordens.forEach(col => { q = q.order(col) })
+    }
     const buscaVal = buscaOverride ?? busca
     if (buscaPor && buscaVal.trim()) {
       const colBusca = colunas.find(c => c.nome === buscaPor)
@@ -127,6 +133,15 @@ export default function TabelaCRUD({
     }, 400)
     return () => clearTimeout(t)
   }, [busca])  // eslint-disable-line
+
+  function alternarOrdenacao(nome) {
+    const novo = ordenacaoAtiva?.coluna === nome
+      ? { coluna: nome, direcao: ordenacaoAtiva.direcao === 'asc' ? 'desc' : 'asc' }
+      : { coluna: nome, direcao: 'asc' }
+    setOrdenacaoAtiva(novo)
+    setPagina(1)
+    buscar(1, null, null, novo)
+  }
 
   function mudarFiltro(nome, valor) {
     const novos = { ...filtrosAtivos, [nome]: valor }
@@ -338,7 +353,16 @@ export default function TabelaCRUD({
               <table className="tabela">
                 <thead>
                   <tr>
-                    {colunasTabela.map(c => <th key={c.nome}>{c.label}</th>)}
+                    {colunasTabela.map(c => (
+                      <th key={c.nome} onClick={() => alternarOrdenacao(c.nome)}
+                        style={{ cursor: 'pointer', userSelect: 'none', whiteSpace: 'nowrap' }}
+                        title="Clique para ordenar">
+                        {c.label}
+                        <span style={{ marginLeft: 4, fontSize: 10, color: ordenacaoAtiva?.coluna === c.nome ? '#1a56db' : '#d1d5db' }}>
+                          {ordenacaoAtiva?.coluna === c.nome ? (ordenacaoAtiva.direcao === 'asc' ? '▲' : '▼') : '▲▼'}
+                        </span>
+                      </th>
+                    ))}
                     <th>Ações</th>
                   </tr>
                 </thead>
