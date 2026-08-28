@@ -99,7 +99,7 @@ export default function NovoRegistro() {
       .then(({ data }) => setObras(data || []))
 
     supabase
-      .from('d_contratos_preco_upe').select('upe_lm, upe_lv, vigencia_inicio, vigencia_fim')
+      .from('d_contratos_preco_upe').select('upe_lm, upe_lv, vigencia_inicio')
       .eq('contrato_id', contratoId)
       .then(({ data }) => setPrecosUpe(data || []))
 
@@ -413,17 +413,17 @@ export default function NovoRegistro() {
 
   function pickPrecoVigente(dataAlvo) {
     if (!precosUpe?.length) return null
+    // Preço vigente = o de maior vigencia_inicio que seja <= dataAlvo (não depende de vigencia_fim)
     const norm = precosUpe
-      .map(r => ({ ...r, _ini: r.vigencia_inicio ? new Date(r.vigencia_inicio) : null, _fim: r.vigencia_fim ? new Date(r.vigencia_fim) : null }))
+      .map(r => ({ ...r, _ini: r.vigencia_inicio ? new Date(r.vigencia_inicio) : null }))
       .filter(r => r._ini && !isNaN(r._ini))
+      .sort((a, b) => b._ini - a._ini)
     const d = dataAlvo ? new Date(dataAlvo) : null
     if (d && !isNaN(d)) {
-      const match = norm.find(r => r._ini <= d && (r._fim === null || d <= r._fim))
-      if (match) return match
-      const anteriores = norm.filter(r => r._ini <= d).sort((a, b) => b._ini - a._ini)
-      if (anteriores.length) return anteriores[0]
+      const vigente = norm.find(r => r._ini <= d)
+      if (vigente) return vigente
     }
-    return norm.sort((a, b) => b._ini - a._ini)[0] || null
+    return norm[0] || null
   }
 
   function calcularValores(item) {
