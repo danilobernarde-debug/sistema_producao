@@ -217,6 +217,11 @@ export default function TabelaCRUD({
       const opts = opcoesSelect[col.nome] || []
       return opts.find(o => String(o.valor) === String(v))?.label ?? v ?? '-'
     }
+    if (col.tipo === 'data') {
+      if (!v) return '-'
+      const [a, m, dia] = v.split('-')
+      return `${dia}/${m}/${a}`
+    }
     return v ?? '-'
   }
 
