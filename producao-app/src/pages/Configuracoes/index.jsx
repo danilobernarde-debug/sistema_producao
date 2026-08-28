@@ -16,6 +16,7 @@ const SECOES = [
   { caminho: '/configuracoes/usuarios',                 icone: '🔐', titulo: 'Usuários',              descricao: 'Criar usuários, perfis e acessos por contrato',            superAdmin: true },
   { caminho: '/configuracoes/logins',                   icone: '🕐', titulo: 'Últimos Logins',        descricao: 'Histórico de acessos ao sistema',                          soDanilo: true },
   { caminho: '/configuracoes/metas',                    icone: '🎯', titulo: 'Metas',                  descricao: 'Meta mensal por tipo de equipe, períodos e feriados',       superAdmin: true },
+  { caminho: '/configuracoes/atualizacoes',              icone: '📋', titulo: 'Atualizações',           descricao: 'Histórico de versões publicadas e o que mudou',            soDanilo: true },
 ]
 
 export default function Configuracoes() {
