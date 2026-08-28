@@ -1,0 +1,20 @@
+# Scripts de importação: contêm credenciais e dumps de dados de produção
+Importação Coletum/
+Claud/
+
+# Documentos internos com chaves/URLs do projeto
+CONTEXTO_PROJETO.md
+
+# Segredos
+.env
+.env.*
+*.key
+*.pem
+
+# Dependências e build
+node_modules/
+dist/
+
+# Sistema
+.DS_Store
+Thumbs.db

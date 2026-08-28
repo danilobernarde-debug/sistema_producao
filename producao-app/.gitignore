@@ -1,6 +1,11 @@
 .env
 .env.*
 
+# Dumps de dados de produção — public/ é servido sem autenticação
+public/coletum_faixato.json
+public/coletum_faixato.html
+public/Metas_por_tipo_equipe_id.xlsm
+
 # Logs
 logs
 *.log
