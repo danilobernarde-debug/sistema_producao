@@ -52,13 +52,16 @@ export default function ReajustePrecoFixa() {
     if (ids.length > 0) {
       const { data } = await supabase
         .from('d_atividades_preco_fixa')
-        .select('id, atividade_id, valor, vigencia_inicio')
+        .select('atividade_id, valor, vigencia_inicio')
         .in('atividade_id', ids)
-        .is('vigencia_fim', null)
+        .order('vigencia_inicio', { ascending: false })
       precos = data || []
     }
+    // Preço vigente = o de maior vigencia_inicio por atividade (não depende de vigencia_fim)
     const precoPorAtividade = {}
-    precos.forEach(p => { precoPorAtividade[p.atividade_id] = p })
+    precos.forEach(p => {
+      if (!precoPorAtividade[p.atividade_id]) precoPorAtividade[p.atividade_id] = p
+    })
 
     setLinhas((atividades || []).map(a => {
       const p = precoPorAtividade[a.id]
@@ -66,7 +69,6 @@ export default function ReajustePrecoFixa() {
         atividade_id: a.id,
         codigo_op: a.codigo_op,
         descricao: a.DESCRICAO_BASICA_SISTEMA,
-        precoAtualId: p?.id ?? null,
         valorAtual: p?.valor ?? null,
         vigenciaInicioAtual: p?.vigencia_inicio ?? null,
         novoValor: '',
@@ -112,18 +114,9 @@ export default function ReajustePrecoFixa() {
     let erros = 0
     for (const l of linhasAlteradas) {
       const novoValor = arredondar(Number(String(l.novoValor).replace(',', '.')))
-
-      if (l.precoAtualId) {
-        const { error } = await supabase
-          .from('d_atividades_preco_fixa')
-          .update({ vigencia_fim: dataReajuste })
-          .eq('id', l.precoAtualId)
-        if (error) { erros++; continue }
-      }
-
       const { error } = await supabase
         .from('d_atividades_preco_fixa')
-        .insert({ atividade_id: l.atividade_id, valor: novoValor, vigencia_inicio: dataReajuste, vigencia_fim: null })
+        .insert({ atividade_id: l.atividade_id, valor: novoValor, vigencia_inicio: dataReajuste })
       if (error) erros++
     }
     setSalvando(false)
@@ -161,7 +154,7 @@ export default function ReajustePrecoFixa() {
         <div style={{ fontSize: 13, color: '#374151', lineHeight: 1.7 }}>
           Só mostra atividades do tipo <strong>FIXA</strong> (preço fixo unitário) do contrato selecionado.
           Atividades do tipo <strong>UPE</strong> usam a tela de Preço UPE, não esta aqui.
-          Ao salvar, o preço atual de cada atividade alterada é encerrado na data do reajuste, e um novo preço passa a valer a partir dela — o histórico fica preservado.
+          Ao salvar, um novo preço passa a valer a partir da data do reajuste — o preço anterior fica registrado no histórico automaticamente, não precisa fechar vigência manualmente.
         </div>
       </div>
 

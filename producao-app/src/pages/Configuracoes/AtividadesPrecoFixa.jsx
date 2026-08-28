@@ -10,9 +10,7 @@ const COLUNAS = [
     tabela_ref: 'd_atividades', coluna_valor: 'id', coluna_label: 'DESCRICAO_BASICA_SISTEMA', pesquisavel: true,
     ajuda: 'Atividade (tipo UPE = FIXA) à qual este preço se aplica' },
   { nome: 'vigencia_inicio',  label: 'Vigência Início',   tipo: 'data',    obrigatorio: true,
-    ajuda: 'Data de início da validade deste preço' },
-  { nome: 'vigencia_fim',     label: 'Vigência Fim',      tipo: 'data',
-    ajuda: 'Data de término da validade (deixe vazio para vigência aberta)' },
+    ajuda: 'Data a partir da qual este preço vale. O preço vigente numa data é sempre o de maior Vigência Início que seja menor ou igual a ela — não precisa fechar o anterior.' },
   { nome: 'valor',            label: 'Valor',             tipo: 'decimal', obrigatorio: true,
     ajuda: 'Valor da atividade nesse período' },
 ]
