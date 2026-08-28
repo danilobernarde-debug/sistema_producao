@@ -4,6 +4,16 @@ import { useNavigate } from 'react-router-dom'
 // Ao fazer uma mudança relevante no sistema, adicionar uma entrada nova aqui.
 const VERSOES = [
   {
+    versao: 'bff33ad',
+    data: '2026-08-28',
+    resumo: 'Preço UPE por Contrato também simplificado: só Vigência Início',
+    itens: [
+      'Mesma lógica do Preço Fixa aplicada ao Preço UPE — sem precisar fechar vigência ao cadastrar um novo preço',
+      'Diferente do Preço Fixa, essa resolução acontece no front-end (Novo Registro / Editar Registro), não em trigger do banco — não precisou de SQL manual desta vez',
+      'Tela "Preço UPE por Contrato": campo Vigência Fim removido',
+    ],
+  },
+  {
     versao: '7491ff6',
     data: '2026-08-28',
     resumo: 'Preço Fixa simplificado: só Vigência Início, sem Vigência Fim',
