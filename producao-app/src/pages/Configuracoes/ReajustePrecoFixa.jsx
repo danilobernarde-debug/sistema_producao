@@ -151,7 +151,7 @@ export default function ReajustePrecoFixa() {
 
       <div className="pagina-header">
         <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-          <button className="btn btn-secundario" onClick={() => navegar('/configuracoes')}
+          <button className="btn btn-secundario" onClick={() => navegar(-1)}
             style={{ padding: '6px 12px', fontSize: 13 }}>← Voltar</button>
           <h1 className="pagina-titulo" style={{ margin: 0 }}>Reajuste de Preço Fixa</h1>
         </div>
