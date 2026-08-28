@@ -4,6 +4,16 @@ import { useNavigate } from 'react-router-dom'
 // Ao fazer uma mudança relevante no sistema, adicionar uma entrada nova aqui.
 const VERSOES = [
   {
+    versao: 'c66aeed',
+    data: '2026-08-28',
+    resumo: 'Reajuste de Preço Fixa por contrato',
+    itens: [
+      'Nova tela (Atividades → "Reajuste de Preço Fixa"): escolhe o contrato, lista as atividades tipo FIXA com o preço vigente, aplica um percentual geral (recalcula todas de uma vez, ainda editável linha a linha) ou digita o valor manualmente',
+      'Ao salvar, encerra o preço atual e cria um novo a partir da data do reajuste — mantém o histórico completo em d_atividades_preco_fixa',
+      'Página de Atualizações (esta aqui): histórico de versões publicadas, visível só para danilo@dbmachado.com',
+    ],
+  },
+  {
     versao: '60f2a2b',
     data: '2026-08-28',
     resumo: 'Sincronização com o histórico principal (GitHub) e novo cadastro de Metas',
