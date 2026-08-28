@@ -409,7 +409,7 @@ export default function EditarRegistro() {
       if (c.obrigatorio && !metaRegistro[nome]) erros[`reg_${nome}`] = 'Obrigatório'
     })
     const campoEquipe = camposRegistro.find(c => c.config_campos.nome === 'equipe' || c.config_campos.nome === 'equipe_id')
-    if (!contrato?.logica_contrato && campoEquipe?.obrigatorio && !equipeId) erros.equipe = 'Obrigatório'
+    if (campoEquipe?.obrigatorio && !equipeId) erros.equipe = 'Obrigatório'
     const campoObra = camposRegistro.find(c => c.config_campos.nome === 'obra_id')
     if (campoObra?.obrigatorio && !obraId) erros.obra_id = 'Obrigatório'
     const campoEnc = camposRegistro.find(c => c.config_campos.nome === 'encarregado_id')
@@ -674,7 +674,6 @@ export default function EditarRegistro() {
               <div className="campos-grid">
                 {camposRegistro.map(c => {
                   const nome = c.config_campos.nome
-                  if ((nome === 'equipe' || nome === 'equipe_id') && logicaContrato) return null
                   if (nome === 'equipe' || nome === 'equipe_id') return (
                     <div key={c.id} className="campo-grupo">
                       <label className="campo-label">Equipe {c.obrigatorio && <span className="obrigatorio">*</span>}</label>
