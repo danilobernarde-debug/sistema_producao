@@ -391,6 +391,31 @@ body {
   align-items: start;
 }
 
+/* Grid com coluna lateral fixa (lista/filtros) + conteúdo, empilha no mobile */
+.grid-sidebar {
+  display: grid;
+  grid-template-columns: var(--sidebar-w, 280px) 1fr;
+  gap: 16px;
+  align-items: start;
+}
+
+/* Painel de lista lateral (ex: GerenciarUsuarios) — fixo/alto no desktop, curto e não-sticky no mobile para não cobrir o painel de detalhes */
+.lista-lateral-card {
+  position: sticky;
+  top: 16px;
+}
+
+.lista-lateral-scroll {
+  overflow-y: auto;
+  max-height: calc(100vh - 220px);
+}
+
+/* Duas colunas iguais no desktop, empilhadas no mobile */
+.grid-2 {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+}
+
 /* Mobile */
 .sidebar-overlay {
   display: none;
@@ -457,14 +482,28 @@ body {
     grid-template-columns: 1fr;
   }
 
-  .graficos-grid {
+  .graficos-grid,
+  .grid-sidebar,
+  .grid-2 {
     grid-template-columns: 1fr;
+  }
+
+  .lista-lateral-card {
+    position: static;
+  }
+
+  .lista-lateral-scroll {
+    max-height: 280px;
   }
 
   .tabela th,
   .tabela td {
     padding: 8px;
     font-size: 12px;
+  }
+
+  .planejamento-tabs {
+    padding-left: 52px;
   }
 }
 

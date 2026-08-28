@@ -1,10 +1,17 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
+import html2canvas from 'html2canvas'
 import { supabase } from '../../supabaseClient'
 import { useCamposDinamicos } from '../../hooks/useCamposDinamicos'
 import CampoDinamico from '../../components/CampoDinamico'
 import BotaoCoordsMap from '../../components/BotaoCoordsMap'
 import SelectPesquisavel from '../../components/SelectPesquisavel'
+
+function fmtDataBR(iso) {
+  if (!iso) return '-'
+  const [y, m, d] = iso.split('-')
+  return `${d}/${m}/${y}`
+}
 
 const IDS_FAIXA_TO = new Set([17, 18, 19])
 function contratoParaEquipes(cid) { return IDS_FAIXA_TO.has(Number(cid)) ? 17 : Number(cid) }
@@ -43,6 +50,10 @@ export default function EditarRegistro() {
   const params = new URLSearchParams(window.location.search)
   const soLeitura = params.get('modo') === 'visualizar'
   const modoImprimir = params.get('print') === '1'
+  const modoImagem = params.get('imagem') === '1'
+  const resumoRef = useRef(null)
+  const [imagemUrl, setImagemUrl] = useState(null)
+  const [gerandoImagem, setGerandoImagem] = useState(false)
 
   const [carregando, setCarregando] = useState(true)
   const [salvando, setSalvando] = useState(false)
@@ -101,6 +112,37 @@ export default function EditarRegistro() {
       return () => clearTimeout(t)
     }
   }, [modoImprimir, carregando])
+
+  useEffect(() => {
+    if (modoImagem && !carregando) {
+      setGerandoImagem(true)
+      const t = setTimeout(async () => {
+        const canvas = await html2canvas(resumoRef.current, { backgroundColor: '#ffffff', scale: 2 })
+        setImagemUrl(canvas.toDataURL('image/png'))
+        setGerandoImagem(false)
+      }, 300)
+      return () => clearTimeout(t)
+    }
+  }, [modoImagem, carregando])
+
+  function baixarImagem() {
+    const a = document.createElement('a')
+    a.href = imagemUrl
+    a.download = `producao_${id}_${dataProducao || ''}.png`
+    a.click()
+  }
+
+  async function compartilharImagem() {
+    try {
+      const blob = await (await fetch(imagemUrl)).blob()
+      const file = new File([blob], `producao_${id}.png`, { type: 'image/png' })
+      if (navigator.canShare?.({ files: [file] })) {
+        await navigator.share({ files: [file], title: 'Resumo de Produção' })
+        return
+      }
+    } catch { /* usuário cancelou ou share não suportado */ }
+    baixarImagem()
+  }
 
   async function carregarRegistro() {
     setCarregando(true)
@@ -521,8 +563,99 @@ export default function EditarRegistro() {
   }))
   const opcoesRegionais = regionais.map(r => ({ valor: r.id, label: r.regional }))
 
+  const nomeEquipeResumo = logicaContrato ? null : (equipes.find(e => String(e.id) === equipeId)?.equipe || null)
+  const nomeTipoEquipeResumo = tiposEquipe.find(t => String(t.id) === tipoEquipeId)?.descricao || null
+  const nomeEncarregadoResumo = colaboradores.find(c => String(c.id) === String(encarregadoId))?.matricula_nome || null
+  const nomeRegionalResumo = regionais.find(r => String(r.id) === String(regionalId))?.regional || null
+  const colaboradoresResumo = logicaContrato ? adicionados : [...presentesList, ...adicionados]
+  const itensResumo = itens.map(it => {
+    const atvSel = atividades.find(a => String(a.id) === String(it.atividade_id))
+    const nome = atvSel ? (atvSel.codigo_op ? `[${atvSel.codigo_op}] ${atvSel.DESCRICAO_BASICA_SISTEMA}` : atvSel.DESCRICAO_BASICA_SISTEMA) : '-'
+    const temDadosLC = Number(it.comprimento) > 0 || Number(it.largura) > 0
+    const usaLC = atvSel?.comprimento_lagura && (temDadosLC || !it.id)
+    const qtd = usaLC ? Number(it.largura || 0) * Number(it.comprimento || 0) : Number(it.quantidade || 0)
+    const vals = calcularValores(it)
+    return { nome, qtd, unidade: usaLC ? 'm²' : (atvSel?.unidade || ''), total: vals?.total ?? null }
+  })
+  const totalGeralResumo = itensResumo.reduce((acc, it) => acc + (it.total || 0), 0)
+
   return (
     <div className="pagina">
+      {modoImagem && (
+        <>
+          <div ref={resumoRef} style={{ position: 'absolute', left: -9999, top: 0, width: 600, background: 'white', padding: 28, fontFamily: 'Arial, sans-serif', color: '#1e2a3b' }}>
+            <div style={{ fontSize: 20, fontWeight: 700, marginBottom: 2 }}>Resumo de Produção</div>
+            <div style={{ fontSize: 13, color: '#6b7280', marginBottom: 18 }}>{contrato?.descricao} — Lançamento #{id}</div>
+
+            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13, marginBottom: 18 }}>
+              <tbody>
+                <tr><td style={{ padding: '4px 0', color: '#6b7280', width: 140 }}>Data</td><td style={{ padding: '4px 0', fontWeight: 600 }}>{fmtDataBR(dataProducao)}</td></tr>
+                {nomeTipoEquipeResumo && <tr><td style={{ padding: '4px 0', color: '#6b7280' }}>Tipo de Equipe</td><td style={{ padding: '4px 0', fontWeight: 600 }}>{nomeTipoEquipeResumo}</td></tr>}
+                {nomeEquipeResumo && <tr><td style={{ padding: '4px 0', color: '#6b7280' }}>Equipe</td><td style={{ padding: '4px 0', fontWeight: 600 }}>{nomeEquipeResumo}</td></tr>}
+                {nomeEncarregadoResumo && <tr><td style={{ padding: '4px 0', color: '#6b7280' }}>Encarregado</td><td style={{ padding: '4px 0', fontWeight: 600 }}>{nomeEncarregadoResumo}</td></tr>}
+                {obraId && <tr><td style={{ padding: '4px 0', color: '#6b7280' }}>Obra</td><td style={{ padding: '4px 0', fontWeight: 600 }}>{obraId}</td></tr>}
+                {nomeRegionalResumo && <tr><td style={{ padding: '4px 0', color: '#6b7280' }}>Regional</td><td style={{ padding: '4px 0', fontWeight: 600 }}>{nomeRegionalResumo}</td></tr>}
+              </tbody>
+            </table>
+
+            <div style={{ fontSize: 14, fontWeight: 700, marginBottom: 8, borderBottom: '2px solid #1a56db', paddingBottom: 4 }}>Atividades Executadas</div>
+            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13, marginBottom: 18 }}>
+              <thead>
+                <tr><th style={{ textAlign: 'left', padding: '4px 0', color: '#6b7280' }}>Atividade</th><th style={{ textAlign: 'right', padding: '4px 0', color: '#6b7280' }}>Qtd</th><th style={{ textAlign: 'right', padding: '4px 0', color: '#6b7280' }}>Valor</th></tr>
+              </thead>
+              <tbody>
+                {itensResumo.map((it, i) => (
+                  <tr key={i} style={{ borderTop: '1px solid #f3f4f6' }}>
+                    <td style={{ padding: '5px 0' }}>{it.nome}</td>
+                    <td style={{ padding: '5px 0', textAlign: 'right' }}>{it.qtd.toLocaleString('pt-BR')}{it.unidade ? ` ${it.unidade}` : ''}</td>
+                    <td style={{ padding: '5px 0', textAlign: 'right', fontWeight: 600 }}>{it.total != null ? `R$ ${it.total.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : '-'}</td>
+                  </tr>
+                ))}
+              </tbody>
+              {totalGeralResumo > 0 && (
+                <tfoot>
+                  <tr style={{ borderTop: '2px solid #1a56db' }}>
+                    <td colSpan={2} style={{ padding: '6px 0', textAlign: 'right', fontWeight: 700 }}>Total</td>
+                    <td style={{ padding: '6px 0', textAlign: 'right', fontWeight: 700 }}>R$ {totalGeralResumo.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+                  </tr>
+                </tfoot>
+              )}
+            </table>
+
+            <div style={{ fontSize: 14, fontWeight: 700, marginBottom: 8, borderBottom: '2px solid #1a56db', paddingBottom: 4 }}>
+              Colaboradores Presentes ({colaboradoresResumo.length})
+            </div>
+            <div style={{ fontSize: 13, lineHeight: 1.6 }}>
+              {colaboradoresResumo.length === 0 ? '—' : colaboradoresResumo.map(c => c.matricula_nome).join(' • ')}
+            </div>
+
+            <div style={{ marginTop: 24, fontSize: 11, color: '#9ca3af' }}>
+              Gerado em {new Date().toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo' })} — Sistema Produção
+            </div>
+          </div>
+
+          <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', zIndex: 3000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}>
+            <div style={{ background: 'white', borderRadius: 10, padding: 20, maxWidth: 460, width: '100%', boxShadow: '0 8px 32px rgba(0,0,0,0.25)' }}>
+              <div style={{ fontWeight: 600, fontSize: 15, marginBottom: 14 }}>Resumo em imagem — Lançamento #{id}</div>
+              {gerandoImagem ? (
+                <div className="loading" style={{ height: 160 }}><div className="spinner" /> Gerando imagem...</div>
+              ) : (
+                <img src={imagemUrl} alt="Resumo de produção" style={{ width: '100%', borderRadius: 6, border: '1px solid #e5e7eb', marginBottom: 14 }} />
+              )}
+              <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
+                <button className="btn btn-secundario" onClick={() => navegar('/producao')}>Fechar</button>
+                {!gerandoImagem && (
+                  <>
+                    <button className="btn btn-secundario" onClick={baixarImagem}>⬇ Baixar</button>
+                    <button className="btn btn-primario" onClick={compartilharImagem}>📤 Compartilhar</button>
+                  </>
+                )}
+              </div>
+            </div>
+          </div>
+        </>
+      )}
+
       {modalMeta && (
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 2000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}>
           <div style={{ background: 'white', borderRadius: 10, padding: 24, maxWidth: 680, width: '100%', maxHeight: '80vh', display: 'flex', flexDirection: 'column', boxShadow: '0 8px 32px rgba(0,0,0,0.2)' }}>
@@ -886,8 +1019,8 @@ export default function EditarRegistro() {
                 ) : (
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginBottom: 12 }}>
                     {adicionados.map(c => (
-                      <div key={c.id} style={{ padding: '8px 12px', borderRadius: 6, background: '#f0f9ff', display: 'flex', alignItems: 'center', gap: 8 }}>
-                        <span style={{ flex: 1, minWidth: 0, fontSize: 13, fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{c.matricula_nome}</span>
+                      <div key={c.id} style={{ padding: '8px 12px', borderRadius: 6, background: '#f0f9ff', display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                        <span style={{ flex: '1 1 140px', minWidth: 0, fontSize: 13, fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{c.matricula_nome}</span>
                         <span style={{ fontSize: 12, color: '#6b7280', whiteSpace: 'nowrap', flexShrink: 0 }}>Equipe no dia:</span>
                         <select
                           className="campo-select"
@@ -931,8 +1064,8 @@ export default function EditarRegistro() {
 
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginBottom: 12 }}>
                   {presentesList.map(c => (
-                    <div key={c.id} style={{ padding: '8px 12px', borderRadius: 6, background: '#f0f9ff', display: 'flex', alignItems: 'center', gap: 8 }}>
-                      <span style={{ flex: 1, minWidth: 0, fontSize: 13, fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{c.matricula_nome}</span>
+                    <div key={c.id} style={{ padding: '8px 12px', borderRadius: 6, background: '#f0f9ff', display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                      <span style={{ flex: '1 1 140px', minWidth: 0, fontSize: 13, fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{c.matricula_nome}</span>
                       <span style={{ fontSize: 12, color: '#6b7280', whiteSpace: 'nowrap', flexShrink: 0 }}>Equipe no dia:</span>
                       <select
                         className="campo-select"
@@ -948,8 +1081,8 @@ export default function EditarRegistro() {
                     </div>
                   ))}
                   {adicionados.map(c => (
-                    <div key={c.id} style={{ padding: '8px 12px', borderRadius: 6, background: '#f9fafb', display: 'flex', alignItems: 'center', gap: 8 }}>
-                      <span style={{ flex: 1, minWidth: 0, fontSize: 13, fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{c.matricula_nome}</span>
+                    <div key={c.id} style={{ padding: '8px 12px', borderRadius: 6, background: '#f9fafb', display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                      <span style={{ flex: '1 1 140px', minWidth: 0, fontSize: 13, fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{c.matricula_nome}</span>
                       <span style={{ fontSize: 12, color: '#6b7280', whiteSpace: 'nowrap', flexShrink: 0 }}>Equipe no dia:</span>
                       <select
                         className="campo-select"

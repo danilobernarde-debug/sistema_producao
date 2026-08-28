@@ -17,7 +17,7 @@ export default function Login() {
     const error = await entrar(email, senha)
     setCarregando(false)
     if (error) {
-      setErro('E-mail ou senha incorretos.')
+      setErro(error.code === 'user_disabled' ? error.message : 'E-mail ou senha incorretos.')
     } else {
       navegar('/')
     }

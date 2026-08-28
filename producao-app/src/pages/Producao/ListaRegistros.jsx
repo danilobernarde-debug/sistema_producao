@@ -122,7 +122,6 @@ export default function ListaRegistros() {
   const [total, setTotal]                   = useState(0)
   const [confirmarExcluir, setConfirmarExcluir] = useState(null)
   const [pagina, setPagina]                 = useState(1)
-
   const [filtros, setFiltros] = useState(lerFiltrosSalvos)
 
   const [contratos, setContratos]       = useState([])
@@ -408,6 +407,8 @@ export default function ListaRegistros() {
   const contratoMap   = Object.fromEntries(contratos.map(c => [c.id, c.descricao]))
   const tipoEquipeMap = Object.fromEntries(tiposEquipe.map(t => [t.id, t.descricao]))
   const filtrosAtivos = filtros.filter(f => f.valor !== '').length
+
+
   const colunasAtivas = colunasOrdem
     .map(key => COLUNAS_DEF.find(c => c.key === key))
     .filter(c => c && colunasVisiveis.has(c.key))
@@ -619,6 +620,7 @@ export default function ListaRegistros() {
                           onVisualizar={() => navegar(`/producao/${r.id}/editar?modo=visualizar`)}
                           onEditar={() => navegar(`/producao/${r.id}/editar`)}
                           onImprimir={() => navegar(`/producao/${r.id}/editar?modo=visualizar&print=1`)}
+                          onImagem={() => navegar(`/producao/${r.id}/editar?modo=visualizar&imagem=1`)}
                           onExcluir={() => setConfirmarExcluir(r.id)}
                         />
                       </td>
@@ -667,7 +669,7 @@ export default function ListaRegistros() {
   )
 }
 
-function MenuAcoes({ onVisualizar, onEditar, onExcluir, onImprimir }) {
+function MenuAcoes({ onVisualizar, onEditar, onExcluir, onImprimir, onImagem }) {
   const [aberto, setAberto] = useState(false)
   const [pos, setPos] = useState({ top: 0, right: 0 })
   const btnRef = useRef(null)
@@ -708,6 +710,7 @@ function MenuAcoes({ onVisualizar, onEditar, onExcluir, onImprimir }) {
             { label: 'Visualizar', onClick: onVisualizar, cor: '#374151' },
             { label: 'Editar',     onClick: onEditar,     cor: '#374151' },
             { label: 'Imprimir',   onClick: onImprimir,   cor: '#374151' },
+            { label: 'Resumo (imagem)', onClick: onImagem, cor: '#374151' },
             { label: 'Excluir',    onClick: onExcluir,    cor: '#dc2626' },
           ].map(({ label, onClick, cor }) => (
             <button key={label} onClick={() => { setAberto(false); onClick() }} style={{

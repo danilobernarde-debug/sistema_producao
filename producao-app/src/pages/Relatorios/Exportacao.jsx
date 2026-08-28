@@ -77,8 +77,13 @@ export default function Exportacao() {
       .then(({ data }) => setContratos(data || []))
     supabase.from('d_tipo_equipe').select('id, descricao')
       .then(({ data }) => setTiposEquipe(data || []))
-    supabase.from('d_equipes').select('id, equipe').order('equipe')
-      .then(({ data }) => setEquipes((data || []).map(e => ({ valor: e.id, label: e.equipe }))))
+    supabase.from('d_equipes').select('id, equipe, contrato_id, d_contratos(descricao)').order('equipe')
+      .then(({ data }) => setEquipes((data || []).map(e => ({
+        valor: e.id,
+        label: e.equipe,
+        sublabel: e.d_contratos?.descricao,
+        contrato_id: e.contrato_id,
+      }))))
     supabase.from('d_colaboradores').select('id, matricula_nome').not('id', 'is', null).order('matricula_nome')
       .then(({ data }) => setEncarregados((data || []).map(e => ({ valor: e.id, label: e.matricula_nome }))))
   }, [])
@@ -134,7 +139,7 @@ export default function Exportacao() {
     const { inicio, fim } = calcularPeriodo()
     const todos = []
     let primeiraLinha = null
-    let total = null
+
     let from = 0
 
     try {
@@ -154,9 +159,8 @@ export default function Exportacao() {
         if (!primeiraLinha && linhas.length > 0) primeiraLinha = linhas[0]
         todos.push(...linhas)
         from += CHUNK
-        if (total === null) total = linhas.length < CHUNK ? from : null
-        setProgresso({ atual: from, total: total ?? from + CHUNK })
-        if (linhas.length < CHUNK) { total = from; break }
+        setProgresso({ atual: from, total: linhas.length < CHUNK ? from : from + CHUNK })
+        if (linhas.length < CHUNK) break
       }
     } catch (e) {
       setErro(`Erro inesperado: ${e.message}`)
@@ -304,7 +308,12 @@ export default function Exportacao() {
                       <input type="number" value={f.valor} onChange={e => alterarFiltrosDin(idx, 'valor', e.target.value)} style={{ ...selectStyle, minWidth: 120 }} placeholder="Digite..." />
                     ) : def.tipo === 'sel_equipe' ? (
                       <div style={{ minWidth: 220 }}>
-                        <SelectPesquisavel opcoes={equipes} valor={f.valor} onChange={v => alterarFiltrosDin(idx, 'valor', v)} placeholder="Pesquisar equipe..." />
+                        <SelectPesquisavel
+                          opcoes={contratoId ? equipes.filter(e => String(e.contrato_id) === String(contratoId)) : equipes}
+                          valor={f.valor}
+                          onChange={v => alterarFiltrosDin(idx, 'valor', v)}
+                          placeholder="Pesquisar equipe..."
+                        />
                       </div>
                     ) : def.tipo === 'sel_tequipe' ? (
                       <select value={f.valor} onChange={e => alterarFiltrosDin(idx, 'valor', e.target.value)} style={{ ...selectStyle, minWidth: 180 }}>
@@ -372,7 +381,7 @@ export default function Exportacao() {
       {relatorioAtivo === 'geral' && !carregando && (
         <>
           {dados && (
-            <div style={{ display: 'flex', gap: 0, marginBottom: 16, borderBottom: '2px solid #e5e7eb' }}>
+            <div style={{ display: 'flex', gap: 0, marginBottom: 16, borderBottom: '2px solid #e5e7eb', overflowX: 'auto' }}>
               {[
                 { id: 'geral',         label: 'Relatório Geral' },
                 { id: 'personalizado', label: 'Exportação Personalizada' },
@@ -383,7 +392,7 @@ export default function Exportacao() {
                     fontSize: 14, fontWeight: aba === a.id ? 600 : 400,
                     color: aba === a.id ? '#2563eb' : '#6b7280',
                     borderBottom: aba === a.id ? '2px solid #2563eb' : '2px solid transparent',
-                    marginBottom: -2,
+                    marginBottom: -2, whiteSpace: 'nowrap', flexShrink: 0,
                   }}>
                   {a.label}
                 </button>
@@ -438,8 +447,8 @@ export default function Exportacao() {
           )}
 
           {dados && aba === 'personalizado' && (
-            <div style={{ display: 'grid', gridTemplateColumns: '260px 1fr', gap: 16, alignItems: 'start' }}>
-              <div className="card" style={{ padding: 0, position: 'sticky', top: 16 }}>
+            <div className="grid-sidebar" style={{ '--sidebar-w': '260px' }}>
+              <div className="card lista-lateral-card" style={{ padding: 0 }}>
                 <div style={{ padding: '12px 14px', borderBottom: '1px solid #f3f4f6' }}>
                   <div style={{ fontWeight: 600, fontSize: 14, color: '#1e2a3b', marginBottom: 8 }}>Colunas</div>
                   <div style={{ display: 'flex', gap: 6 }}>
@@ -447,7 +456,7 @@ export default function Exportacao() {
                     <button className="btn btn-secundario" style={{ flex: 1, fontSize: 12, padding: '4px 0' }} onClick={limparTodas}>Nenhuma</button>
                   </div>
                 </div>
-                <div style={{ overflowY: 'auto', maxHeight: 'calc(100vh - 340px)', padding: '8px 0' }}>
+                <div className="lista-lateral-scroll" style={{ padding: '8px 0' }}>
                   {colunasBase.length > 0 && (
                     <>
                       <div style={{ padding: '6px 14px 4px', fontSize: 11, fontWeight: 600, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Dados da View</div>

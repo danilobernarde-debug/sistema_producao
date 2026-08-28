@@ -1,0 +1,8 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(git check-ignore *)",
+      "Bash(ls -R \"D:\\\\Sistemas Claude\\\\Sistema Produção\\\\producao-app\\\\supabase\" | head -50; echo ===; ls \"D:\\\\Sistemas Claude\\\\Sistema Produção\\\\supabase\" 2>/dev/null | head -30; echo ===; ls \"D:\\\\Sistemas Claude\\\\Sistema Produção\\\\producao-app\\\\public\")"
+    ]
+  }
+}

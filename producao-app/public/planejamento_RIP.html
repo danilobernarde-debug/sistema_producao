@@ -999,7 +999,8 @@ const TILE_LAYERS={
   road:    'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png',
   sat:     'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
 };
-let tileLayer;
+const SAT_STREETS_URL='https://server.arcgisonline.com/ArcGIS/rest/services/Reference/World_Transportation/MapServer/tile/{z}/{y}/{x}';
+let tileLayer, streetsLayer;
 
 function houseIcon(color){
   return L.divIcon({
@@ -1012,7 +1013,8 @@ function houseIcon(color){
 
 function initMap(){
   map=L.map('map',{zoomControl:false,preferCanvas:true}).setView([-16.8,-52.0],8);
-  tileLayer=L.tileLayer(TILE_LAYERS.sat,{attribution:'© Esri',maxZoom:19}).addTo(map);
+  tileLayer=L.tileLayer(TILE_LAYERS.sat,{attribution:'© Esri',maxZoom:19,maxNativeZoom:17}).addTo(map);
+  streetsLayer=L.tileLayer(SAT_STREETS_URL,{attribution:'© Esri',maxZoom:19}).addTo(map);
   // Zoom control — bottom left
   L.control.zoom({position:'bottomleft'}).addTo(map);
   radiusLayerGroup=L.layerGroup().addTo(map);
@@ -1026,8 +1028,12 @@ function initMap(){
 function setLayer(name){
   if(!map) return;
   map.removeLayer(tileLayer);
-  tileLayer=L.tileLayer(TILE_LAYERS[name],{attribution:'© OSM © CARTO',maxZoom:19}).addTo(map);
+  if(streetsLayer){ map.removeLayer(streetsLayer); streetsLayer=null; }
+  tileLayer=L.tileLayer(TILE_LAYERS[name],{attribution: name==='sat' ? '© Esri' : '© OSM © CARTO',maxZoom:19,maxNativeZoom: name==='sat' ? 17 : undefined}).addTo(map);
   tileLayer.bringToBack();
+  if(name==='sat'){
+    streetsLayer=L.tileLayer(SAT_STREETS_URL,{attribution:'© Esri',maxZoom:19}).addTo(map);
+  }
   document.querySelectorAll('.layer-btn').forEach(b=>b.classList.remove('active'));
   document.getElementById('lb-'+name).classList.add('active');
   layerFabOpen=false;

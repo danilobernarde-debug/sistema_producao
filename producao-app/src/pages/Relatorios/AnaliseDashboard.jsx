@@ -1,17 +1,12 @@
 import { useState, useEffect, useMemo, useCallback, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../../supabaseClient'
-import * as XLSX from 'xlsx'
 import {
   PieChart, Pie, Cell, Tooltip, Legend, ResponsiveContainer,
   BarChart, Bar, XAxis, YAxis, CartesianGrid,
 } from 'recharts'
 
 // ── Utilitários ───────────────────────────────────────────────────────────────
-function excelParaData(serial) {
-  const d = new Date(Math.round((Number(serial) - 25569) * 86400000))
-  return d.toISOString().split('T')[0]
-}
 function fmt(n) {
   return Number(n || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
 }
@@ -53,23 +48,17 @@ const CORES_PIE = ['#1a56db','#7e3af2','#0e9f6e','#f05252','#ff5a1f','#c27803','
 
 async function lerMetasAnuais(ano) {
   try {
-    const { data: { publicUrl } } = supabase.storage.from('Metas').getPublicUrl('Metas_por_tipo_equipe_id.xlsm')
-    const resp = await fetch(publicUrl)
-    const buffer = await resp.arrayBuffer()
-    const wb = XLSX.read(buffer, { type: 'array' })
-    const ws = wb.Sheets['Metas']
-    const rows = XLSX.utils.sheet_to_json(ws, { defval: null })
-    const mapa = {} // tid -> { [mes1]: meta, [mes2]: meta }
-    rows.forEach(row => {
-      const id   = row['tipo_equipe_id']
-      const data = row['data']
-      const meta = row[' meta ']
-      if (!id || !data || meta == null || Number(meta) === 0) return
-      const dataStr = excelParaData(Number(data))
-      if (!dataStr.startsWith(String(ano))) return
-      const mes = Number(dataStr.split('-')[1])
-      if (!mapa[id]) mapa[id] = {}
-      mapa[id][mes] = (mapa[id][mes] || 0) + Number(meta)
+    const { data } = await supabase
+      .from('d_metas_diarias')
+      .select('tipo_equipe_id, data, meta_diaria')
+      .gte('data', `${ano}-01-01`)
+      .lte('data', `${ano}-12-31`)
+    const mapa = {}
+    ;(data || []).forEach(row => {
+      const tid = String(row.tipo_equipe_id)
+      const mes = Number(row.data.split('-')[1])
+      if (!mapa[tid]) mapa[tid] = {}
+      mapa[tid][mes] = (mapa[tid][mes] || 0) + Number(row.meta_diaria)
     })
     return mapa
   } catch { return {} }
@@ -83,47 +72,74 @@ function valorReg(r) {
 
 async function fetchAllPages(buildQuery, pageSize = 1000) {
   const all = []
-  let from = 0
+  let offset = 0
   while (true) {
-    const { data, error } = await buildQuery().range(from, from + pageSize - 1)
+    const { data, error } = await buildQuery(offset, pageSize)
     if (error) throw new Error(error.message || JSON.stringify(error))
     if (!data?.length) break
     all.push(...data)
     if (data.length < pageSize) break
-    from += pageSize
+    offset += pageSize
   }
   return all
 }
 
-const CACHE_TTL_MS = 3 * 60 * 60 * 1000 // 3 horas
-const CACHE_VER = 'v5' // incrementar quando mudar estrutura do cache
-const _cacheAnos = {} // fallback em memória se sessionStorage estourar
+const CACHE_VER = 'v7' // incrementar quando mudar estrutura do cache
+const CACHE_DB = 'producao_dashboard_cache'
+const CACHE_STORE = 'anos'
+const _cacheAnos = {} // fallback em memória se IndexedDB falhar
 
-function cacheGet(ano) {
-  try {
-    const raw = sessionStorage.getItem(`dash_cache_${CACHE_VER}_${ano}`)
-    if (raw) {
-      const parsed = JSON.parse(raw)
-      parsed.carregadoEm = new Date(parsed.carregadoEm)
-      return parsed
-    }
-  } catch {}
-  return _cacheAnos[ano] || null
+// IndexedDB em vez de localStorage: o cache de um ano inteiro (todas as
+// equipes/atividades) facilmente passa da cota de 5-10MB do localStorage,
+// o que fazia o cacheSet falhar silenciosamente e o cache nunca pegar.
+function abrirCacheDB() {
+  return new Promise((resolve, reject) => {
+    const req = indexedDB.open(CACHE_DB, 1)
+    req.onupgradeneeded = () => req.result.createObjectStore(CACHE_STORE)
+    req.onsuccess = () => resolve(req.result)
+    req.onerror = () => reject(req.error)
+  })
 }
 
-function cacheSet(ano, valor) {
+async function cacheGet(ano) {
+  try {
+    const db = await abrirCacheDB()
+    const valor = await new Promise((resolve, reject) => {
+      const req = db.transaction(CACHE_STORE, 'readonly').objectStore(CACHE_STORE).get(`${CACHE_VER}_${ano}`)
+      req.onsuccess = () => resolve(req.result || null)
+      req.onerror = () => reject(req.error)
+    })
+    if (valor) valor.carregadoEm = new Date(valor.carregadoEm)
+    return valor
+  } catch {
+    return _cacheAnos[ano] || null
+  }
+}
+
+async function cacheSet(ano, valor) {
   _cacheAnos[ano] = valor
   try {
-    sessionStorage.setItem(`dash_cache_${CACHE_VER}_${ano}`, JSON.stringify({
-      ...valor,
-      carregadoEm: valor.carregadoEm.toISOString(),
-    }))
+    const db = await abrirCacheDB()
+    await new Promise((resolve, reject) => {
+      const tx = db.transaction(CACHE_STORE, 'readwrite')
+      tx.objectStore(CACHE_STORE).put({ ...valor, carregadoEm: valor.carregadoEm.toISOString() }, `${CACHE_VER}_${ano}`)
+      tx.oncomplete = resolve
+      tx.onerror = () => reject(tx.error)
+    })
   } catch {}
 }
 
-function cacheDel(ano) {
+async function cacheDel(ano) {
   delete _cacheAnos[ano]
-  try { sessionStorage.removeItem(`dash_cache_${CACHE_VER}_${ano}`) } catch {}
+  try {
+    const db = await abrirCacheDB()
+    await new Promise((resolve, reject) => {
+      const tx = db.transaction(CACHE_STORE, 'readwrite')
+      tx.objectStore(CACHE_STORE).delete(`${CACHE_VER}_${ano}`)
+      tx.oncomplete = resolve
+      tx.onerror = () => reject(tx.error)
+    })
+  } catch {}
 }
 
 // ── Componente principal ──────────────────────────────────────────────────────
@@ -146,6 +162,7 @@ export default function AnaliseDashboard() {
   const { contrato: f2Contrato, mes: f2Mes } = filtrosPorAba[2]
 
   const [viewRows, setViewRows]       = useState([])
+  const [colabRows, setColabRows]     = useState([])
   const [metas, setMetas]             = useState({}) // tid -> { mes: valor }
   const [carregando, setCarregando]   = useState(false)
   const [erroCarregar, setErroCarregar] = useState('')
@@ -184,11 +201,11 @@ export default function AnaliseDashboard() {
   useEffect(() => { carregarDados() }, [ano])
 
   async function carregarDados(forcar = false) {
-    const cached = cacheGet(ano)
-    const cacheValido = cached && (Date.now() - cached.carregadoEm.getTime() < CACHE_TTL_MS)
+    const cached = await cacheGet(ano)
 
-    if (!forcar && cacheValido) {
+    if (!forcar && cached) {
       setViewRows(cached.viewRows)
+      setColabRows(cached.colabRows || [])
       setMetas(cached.metas)
       setCacheInfo({ de: cached.carregadoEm })
       return
@@ -197,22 +214,26 @@ export default function AnaliseDashboard() {
     setCarregando(true)
     setCacheInfo(null)
     setErroCarregar('')
-    if (forcar) cacheDel(ano)
+    if (forcar) await cacheDel(ano)
 
     const ini = `${ano}-01-01`
     const fim = `${ano}-12-31`
     try {
-      const [viewData, resMetas] = await Promise.all([
-        fetchAllPages(() =>
-          supabase.rpc('fn_prod_dados_anuais', { p_ini: ini, p_fim: fim })
+      const [viewData, colabData, resMetas] = await Promise.all([
+        fetchAllPages((offset, limit) =>
+          supabase.rpc('fn_prod_relatorio_equipes', { p_inicio: ini, p_fim: fim, p_limit: limit, p_offset: offset })
             .order('registro_id', { ascending: true })
             .order('f_prod_atividade_id', { ascending: true })
             .order('equipe_id', { ascending: true })
         ),
+        fetchAllPages((offset, limit) =>
+          supabase.rpc('fn_prod_relatorio_colaboradores', { p_inicio: ini, p_fim: fim, p_limit: limit, p_offset: offset })
+        ),
         lerMetasAnuais(ano),
       ])
-      cacheSet(ano, { viewRows: viewData, metas: resMetas, carregadoEm: new Date() })
+      cacheSet(ano, { viewRows: viewData, colabRows: colabData, metas: resMetas, carregadoEm: new Date() })
       setViewRows(viewData)
+      setColabRows(colabData)
       setMetas(resMetas)
     } catch (e) {
       setErroCarregar(`Erro ao carregar dados: ${e?.message || e}`)
@@ -233,21 +254,25 @@ export default function AnaliseDashboard() {
   }, [viewRows])
 
   // Reconstrói registros a partir de viewRows (uma linha por atividade → agrupa por registro_id)
+  // Agrupa por registro_id + equipe_id: em contratos com logica_contrato = true
+  // um mesmo registro pode ter a produção dividida entre várias equipes
   const registros = useMemo(() => {
     const map = {}
     viewRows.forEach(v => {
-      if (!map[v.registro_id]) {
-        map[v.registro_id] = {
+      const chave = `${v.registro_id}::${v.equipe_id}`
+      if (!map[chave]) {
+        map[chave] = {
           id: v.registro_id,
           contrato_id: v.contrato_id,
           tipo_equipe_id: v.tipo_equipe_id,
           data_producao: v.data_producao_original ?? v.data_producao?.split('T')[0],
           equipe_id: v.equipe_id,
+          desc_equipe: v.desc_equipe,
           f_prod_atividades: [],
         }
       }
       if (v.atividade_id) {
-        map[v.registro_id].f_prod_atividades.push({
+        map[chave].f_prod_atividades.push({
           atividade_id: v.atividade_id,
           upe: v.upe,
           preco_upe: v.preco_upe,
@@ -259,13 +284,6 @@ export default function AnaliseDashboard() {
     return Object.values(map)
   }, [viewRows])
 
-  // Mapa equipe por registro_id
-  const equipeByReg = useMemo(() => {
-    const map = {}
-    viewRows.forEach(v => { if (v.desc_equipe && !map[v.registro_id]) map[v.registro_id] = v.desc_equipe })
-    return map
-  }, [viewRows])
-
   useEffect(() => {
     if (!drillEquipe) {
       setColabsDrill({ lista: [], porDia: {} })
@@ -275,7 +293,7 @@ export default function AnaliseDashboard() {
     const { equipeNome, mes } = drillEquipe
     const regIds = registros
       .filter(r => {
-        if (equipeByReg[r.id] !== equipeNome) return false
+        if (r.desc_equipe !== equipeNome) return false
         if (mes && Number(r.data_producao?.split('-')[1]) !== mes) return false
         return true
       })
@@ -300,12 +318,15 @@ export default function AnaliseDashboard() {
       const lista = []
       const porDia = {}
       const vistosPorDia = {}
+      const diasPorColab = {}
       ;(colabData || []).forEach(({ registro_id, colaborador_id, d_colaboradores: c }) => {
         if (!c) return
         const colab = { id: colaborador_id, nome: c.nome, matricula: c.matricula_nome }
         if (!vistos.has(colaborador_id)) { vistos.add(colaborador_id); lista.push(colab) }
         const dia = regDatas[registro_id]
         if (dia) {
+          if (!diasPorColab[colaborador_id]) diasPorColab[colaborador_id] = new Set()
+          diasPorColab[colaborador_id].add(dia)
           if (!vistosPorDia[dia]) vistosPorDia[dia] = new Set()
           if (!vistosPorDia[dia].has(colaborador_id)) {
             vistosPorDia[dia].add(colaborador_id)
@@ -314,6 +335,7 @@ export default function AnaliseDashboard() {
           }
         }
       })
+      lista.forEach(c => { c.diasTrabalhados = diasPorColab[c.id]?.size || 0 })
       lista.sort((a, b) => a.nome.localeCompare(b.nome))
       Object.values(porDia).forEach(arr => arr.sort((a, b) => a.nome.localeCompare(b.nome)))
       setColabsDrill({ lista, porDia })
@@ -322,30 +344,30 @@ export default function AnaliseDashboard() {
       ;(metaData || []).forEach(r => { newMeta[r.id] = r.metadata_registro })
       setMetadataDrill(newMeta)
     })
-  }, [drillEquipe, registros, equipeByReg])
+  }, [drillEquipe, registros])
 
   // Registros filtrados — aba 0 (Painel Principal)
   const regsFiltrados = useMemo(() => {
     return registros.filter(r => {
       if (!matchFiltro(r.contrato_id, f0Contrato)) return false
       if (f0Mes !== 0 && Number(r.data_producao?.split('-')[1]) !== f0Mes) return false
-      if (f0Equipe && equipeByReg[r.id] !== f0Equipe) return false
+      if (f0Equipe && r.desc_equipe !== f0Equipe) return false
       return true
     })
-  }, [registros, f0Contrato, f0Mes, f0Equipe, equipeByReg])
+  }, [registros, f0Contrato, f0Mes, f0Equipe])
 
   // Filtros parciais para gráficos do Painel Principal (aba 0)
   const regsExclContrato = useMemo(() => registros.filter(r => {
     if (f0Mes !== 0 && Number(r.data_producao?.split('-')[1]) !== f0Mes) return false
-    if (f0Equipe && equipeByReg[r.id] !== f0Equipe) return false
+    if (f0Equipe && r.desc_equipe !== f0Equipe) return false
     return true
-  }), [registros, f0Mes, f0Equipe, equipeByReg])
+  }), [registros, f0Mes, f0Equipe])
 
   const regsExclMes = useMemo(() => registros.filter(r => {
     if (!matchFiltro(r.contrato_id, f0Contrato)) return false
-    if (f0Equipe && equipeByReg[r.id] !== f0Equipe) return false
+    if (f0Equipe && r.desc_equipe !== f0Equipe) return false
     return true
-  }), [registros, f0Contrato, f0Equipe, equipeByReg])
+  }), [registros, f0Contrato, f0Equipe])
 
   const regsExclEquipe = useMemo(() => registros.filter(r => {
     if (!matchFiltro(r.contrato_id, f0Contrato)) return false
@@ -411,14 +433,14 @@ export default function AnaliseDashboard() {
   const dadosBarEquipe = useMemo(() => {
     const map = {}
     regsExclEquipe.forEach(r => {
-      const nome = equipeByReg[r.id]
+      const nome = r.desc_equipe
       if (!nome) return
       map[nome] = (map[nome] || 0) + valorReg(r)
     })
     return Object.entries(map)
       .map(([name, value]) => ({ name, value }))
       .sort((a, b) => b.value - a.value)
-  }, [regsExclEquipe, equipeByReg])
+  }, [regsExclEquipe])
 
   // ── Dados para Aba 1: Análise Mensal ─────────────────────────────────────────
   const dadosAnaliseMensal = useMemo(() => {
@@ -430,12 +452,19 @@ export default function AnaliseDashboard() {
     registros.forEach(r => {
       const cid = String(r.contrato_id)
       if (!matchFiltro(r.contrato_id, f1Contrato)) return
-      const nome = equipeByReg[r.id]
+      const nome = r.desc_equipe
       if (!nome) return
       const mes = Number(r.data_producao?.split('-')[1])
       if (!mes) return
       if (!prodMap[nome]) prodMap[nome] = { cid, tid: String(r.tipo_equipe_id) }
       prodMap[nome][mes] = (prodMap[nome][mes] || 0) + valorReg(r)
+    })
+
+    const encPorEquipe = {}
+    viewRows.forEach(v => {
+      if (!v.encarregado || !v.desc_equipe || encPorEquipe[v.desc_equipe]) return
+      if (!matchFiltro(v.contrato_id, f1Contrato)) return
+      encPorEquipe[v.desc_equipe] = v.encarregado.split(' ')[0]
     })
 
     // agrupar por contrato
@@ -450,7 +479,7 @@ export default function AnaliseDashboard() {
         mesesValores[m] = dados[m] || 0
       })
       const metaTid = metaPorTidMes[tid] || {}
-      contratoMap[cnome].equipes.push({ nome, mesesValores, metaTid })
+      contratoMap[cnome].equipes.push({ nome, encarregado: encPorEquipe[nome] || null, mesesValores, metaTid })
     })
 
     return Object.entries(contratoMap)
@@ -459,7 +488,7 @@ export default function AnaliseDashboard() {
         contrato: cnome, cid,
         equipes: eqs.sort((a, b) => a.nome.localeCompare(b.nome)),
       }))
-  }, [registros, contratos, metas, f1Contrato, equipeByReg])
+  }, [registros, contratos, metas, f1Contrato])
 
   // ── Dados para Aba 2: Produção Detalhada ─────────────────────────────────────
   const dadosDetalhada = useMemo(() => {
@@ -468,15 +497,21 @@ export default function AnaliseDashboard() {
 
     const atividadeMap = {} // equipeNome -> { [descAtiv]: { qtd, valor } }
     const prodEquipe = {}   // equipeNome -> { prod, tid, cid }
+    const diasPorEquipe = {} // equipeNome -> Set de datas
+    const encPorEquipe = {}  // equipeNome -> primeiro nome do encarregado
 
     registros.forEach(r => {
       if (!matchFiltro(r.contrato_id, f2Contrato)) return
       if (mesAtivo && Number(r.data_producao?.split('-')[1]) !== mesAtivo) return
-      const nome = equipeByReg[r.id]
+      const nome = r.desc_equipe
       if (!nome) return
       const val = valorReg(r)
-      if (!prodEquipe[nome]) prodEquipe[nome] = { prod: 0, tid: String(r.tipo_equipe_id), cid: String(r.contrato_id) }
+      if (!prodEquipe[nome]) {
+        prodEquipe[nome] = { prod: 0, tid: String(r.tipo_equipe_id), cid: String(r.contrato_id) }
+        diasPorEquipe[nome] = new Set()
+      }
       prodEquipe[nome].prod += val
+      if (r.data_producao && val > 0) diasPorEquipe[nome].add(r.data_producao)
 
       ;(r.f_prod_atividades || []).forEach(a => {
         const desc = a.d_atividades?.DESCRICAO_BASICA_SISTEMA || 'Sem descrição'
@@ -488,15 +523,54 @@ export default function AnaliseDashboard() {
       })
     })
 
-    return Object.entries(prodEquipe)
-      .map(([nome, { prod, tid, cid }]) => ({
+    viewRows.forEach(v => {
+      if (!v.encarregado || !v.desc_equipe) return
+      if (!matchFiltro(v.contrato_id, f2Contrato)) return
+      if (mesAtivo && Number(v.data_producao?.split('-')[1]) !== mesAtivo) return
+      if (!encPorEquipe[v.desc_equipe]) encPorEquipe[v.desc_equipe] = v.encarregado.split(' ')[0]
+    })
+
+    // Colaboradores por equipe: produção, dias trabalhados e média
+    const colabPorEquipe = {}
+    colabRows.forEach(c => {
+      if (!matchFiltro(c.contrato_id, f2Contrato)) return
+      if (mesAtivo && Number(c.data_producao?.split('-')[1]) !== mesAtivo) return
+      if (!c.desc_equipe) return
+      if (!colabPorEquipe[c.desc_equipe]) colabPorEquipe[c.desc_equipe] = new Map()
+      const val = Number(c.valor_por_colaborador || 0)
+      const data = c.data_producao?.split('T')[0]
+      if (!colabPorEquipe[c.desc_equipe].has(c.colaborador_id)) {
+        colabPorEquipe[c.desc_equipe].set(c.colaborador_id, { id: c.colaborador_id, nome: c.nome_colaborador, prod: 0, dias: new Set() })
+      }
+      const entry = colabPorEquipe[c.desc_equipe].get(c.colaborador_id)
+      entry.prod += val
+      if (val > 0 && data) entry.dias.add(data)
+    })
+
+    const contratoMap = {}
+    Object.entries(prodEquipe).forEach(([nome, { prod, tid, cid }]) => {
+      const chave = chaveContrato(cid)
+      const cnome = nomeContrato(cid, contratos.find(c => c.id === chave)?.descricao)
+      if (!contratoMap[cnome]) contratoMap[cnome] = { equipes: [] }
+      contratoMap[cnome].equipes.push({
         nome, prod, tid, cid,
+        encarregado: encPorEquipe[nome] || null,
+        diasTrabalhados: diasPorEquipe[nome]?.size || 0,
+        colaboradores: colabPorEquipe[nome]
+          ? [...colabPorEquipe[nome].values()]
+              .map(c => ({ id: c.id, nome: c.nome, prod: c.prod, diasTrabalhados: c.dias.size, media: c.dias.size > 0 ? c.prod / c.dias.size : 0 }))
+              .sort((a, b) => b.prod - a.prod)
+          : [],
         atividades: Object.entries(atividadeMap[nome] || {})
           .map(([desc, d]) => ({ desc, ...d }))
           .sort((a, b) => b.valor - a.valor),
-      }))
-      .sort((a, b) => b.prod - a.prod)
-  }, [registros, equipeByReg, f2Contrato, f2Mes])
+      })
+    })
+
+    return Object.entries(contratoMap)
+      .sort(([a], [b]) => a.localeCompare(b))
+      .map(([contrato, { equipes }]) => ({ contrato, equipes }))
+  }, [registros, colabRows, contratos, f2Contrato, f2Mes])
 
   // ── Dados para Aba 3: Detalhe Equipe ─────────────────────────────────────────
   const dadosDetalheEquipe = useMemo(() => {
@@ -504,7 +578,7 @@ export default function AnaliseDashboard() {
     const { equipeNome, mes } = drillEquipe
 
     const regsEquipe = registros.filter(r => {
-      if (equipeByReg[r.id] !== equipeNome) return false
+      if (r.desc_equipe !== equipeNome) return false
       if (mes && Number(r.data_producao?.split('-')[1]) !== mes) return false
       return true
     })
@@ -564,8 +638,13 @@ export default function AnaliseDashboard() {
     const metaEquipe = tid && mesNum ? (metas[tid]?.[mesNum] || 0) : 0
     const perc = metaEquipe > 0 ? (totalProd / metaEquipe) * 100 : null
 
+    const encSet = new Set()
+    viewRows.filter(v => regIds.has(v.registro_id) && v.encarregado)
+      .forEach(v => encSet.add(v.encarregado))
+    const encarregados = [...encSet]
+
     return {
-      equipeNome, mes,
+      equipeNome, mes, encarregados,
       totalProd, metaEquipe, perc,
       dias: dias.map(d => ({
         data: d,
@@ -584,7 +663,7 @@ export default function AnaliseDashboard() {
         ])
       ),
     }
-  }, [drillEquipe, registros, viewRows, equipeByReg, metas, metadataDrill])
+  }, [drillEquipe, registros, viewRows, metas, metadataDrill])
 
   // ── Handlers ─────────────────────────────────────────────────────────────────
   function clicarCelulaAnaliseMensal(equipeNome, mes) {
@@ -613,7 +692,7 @@ export default function AnaliseDashboard() {
       style={telaCheia ? { background: '#f8fafc', overflowY: 'auto', padding: 24 } : {}}>
       <div className="pagina-header">
         <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-          <button className="btn btn-secundario" onClick={() => navegar(-1)}
+          <button className="btn btn-secundario" onClick={() => aba === 3 ? setAba(1) : navegar(-1)}
             style={{ padding: '6px 12px', fontSize: 13 }}>← Voltar</button>
           <h1 className="pagina-titulo" style={{ margin: 0 }}>Dashboard de Produção</h1>
         </div>
@@ -628,7 +707,7 @@ export default function AnaliseDashboard() {
             <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
               {cacheInfo && (
                 <span style={{ fontSize: 11, color: '#9ca3af' }}>
-                  Cache de {cacheInfo.de.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
+                  Cache de {cacheInfo.de.toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
                 </span>
               )}
               <button onClick={() => carregarDados(true)} title="Forçar atualização dos dados"
@@ -696,24 +775,17 @@ export default function AnaliseDashboard() {
               </button>
             )}
           </>}
-          <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 6,
-            fontSize: 11, color: '#9ca3af', alignSelf: 'flex-end', paddingBottom: 2 }}>
-            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>
-            </svg>
-            Dados atualizados a cada 3 horas
-          </div>
         </div>
       </div>
 
       {/* Abas visíveis (tab 3 só aparece após drill-down) */}
-      <div style={{ display: 'flex', gap: 0, marginBottom: 20, borderBottom: '2px solid #e5e7eb' }}>
+      <div style={{ display: 'flex', gap: 0, marginBottom: 20, borderBottom: '2px solid #e5e7eb', overflowX: 'auto' }}>
         {ABAS_VISIVEIS.map((label, i) => (
           <button key={i} onClick={() => setAba(i)} style={{
             padding: '10px 18px', fontSize: 13, fontWeight: aba === i ? 700 : 500,
             color: aba === i ? '#1a56db' : '#6b7280', background: 'none', border: 'none',
             borderBottom: aba === i ? '3px solid #1a56db' : '3px solid transparent',
-            cursor: 'pointer', marginBottom: -2, transition: 'color .15s',
+            cursor: 'pointer', marginBottom: -2, transition: 'color .15s', whiteSpace: 'nowrap', flexShrink: 0,
           }}>{label}</button>
         ))}
       </div>
@@ -758,13 +830,13 @@ export default function AnaliseDashboard() {
         {aba === 2 && <ProducaoDetalhada
           dados={dadosDetalhada} dadosBarMes={dadosBarMes2}
           filtroMes={f2Mes} onClickMes={clicarBarMes}
-          regsExclMes={regsExclMes2} equipeByReg={equipeByReg}
+          regsExclMes={regsExclMes2}
+          metas={metas} ano={ano}
         />}
         {aba === 3 && <DetalheEquipe
           dados={dadosDetalheEquipe}
           colaboradores={colaboradoresDrill.lista}
           colaboradoresPorDia={colaboradoresDrill.porDia}
-          onVoltar={() => setAba(1)}
         />}
       </div>
     </div>
@@ -780,7 +852,7 @@ function PainelPrincipal({ dadosPizza, dadosBarMes, dadosTabelaMes, dadosBarEqui
 
   return (
     <div>
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginBottom: 16 }}>
+      <div className="graficos-grid" style={{ marginBottom: 16 }}>
         {/* Pizza - produção por contrato */}
         <div className="card" style={{ padding: '16px' }}>
           <div style={{ fontSize: 13, fontWeight: 700, color: '#374151', marginBottom: 4 }}>Produção por Contrato</div>
@@ -832,7 +904,7 @@ function PainelPrincipal({ dadosPizza, dadosBarMes, dadosTabelaMes, dadosBarEqui
         </div>
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
+      <div className="graficos-grid">
         {/* Tabela mensal com flutuação */}
         <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
           <div style={{ background: '#1e2a3b', color: 'white', padding: '10px 16px', fontSize: 13, fontWeight: 700 }}>
@@ -900,6 +972,7 @@ function PainelPrincipal({ dadosPizza, dadosBarMes, dadosTabelaMes, dadosBarEqui
 // ── Aba 1: Análise Mensal ─────────────────────────────────────────────────────
 function AnaliseMensal({ dados, filtroMes, onClickCelula }) {
   const [expandidos, setExpandidos] = useState({})
+  const [tooltip, setTooltip] = useState(null) // { meta, perc, val, x, y }
   const mesesCols = filtroMes ? [filtroMes] : Array.from({ length: 12 }, (_, i) => i + 1)
 
   function toggle(cnome) {
@@ -908,6 +981,28 @@ function AnaliseMensal({ dados, filtroMes, onClickCelula }) {
 
   return (
     <div className="card" style={{ padding: 0 }}>
+      {tooltip && (
+        <div style={{
+          position: 'fixed', zIndex: 9999, pointerEvents: 'none',
+          left: tooltip.x, top: tooltip.y - 8,
+          transform: 'translate(-50%, -100%)',
+          background: '#1e2a3b', color: 'white',
+          padding: '8px 14px', borderRadius: 8,
+          fontSize: 12, whiteSpace: 'nowrap',
+          boxShadow: '0 4px 16px rgba(0,0,0,0.3)',
+          lineHeight: 1.6,
+        }}>
+          {tooltip.meta > 0 ? (<>
+            <div style={{ color: '#94a3b8' }}>Meta: <span style={{ color: 'white', fontWeight: 600 }}>R$ {fmt(tooltip.meta)}</span></div>
+            <div style={{ color: '#94a3b8' }}>Alcançado: <span style={{
+              fontWeight: 700, fontSize: 13,
+              color: tooltip.perc >= 100 ? '#4ade80' : tooltip.perc >= 70 ? '#fbbf24' : '#f87171'
+            }}>{tooltip.perc !== null ? `${tooltip.perc.toFixed(1)}%` : '—'}</span></div>
+          </>) : (
+            <div style={{ color: '#94a3b8' }}>Sem meta cadastrada</div>
+          )}
+        </div>
+      )}
       <div style={{ background: '#1e2a3b', color: 'white', padding: '10px 16px', fontSize: 13, fontWeight: 700, borderRadius: '8px 8px 0 0' }}>
         Análise de Produção Mensal
         <span style={{ fontSize: 11, opacity: .7, marginLeft: 8 }}>· Clique em uma célula para ver o detalhe</span>
@@ -952,8 +1047,8 @@ function AnaliseMensal({ dados, filtroMes, onClickCelula }) {
                 ...(aberto ? eqs.map(eq => (
                   <tr key={eq.nome} style={{ borderBottom: '1px solid #f3f4f6' }}>
                     <td style={{ padding: '7px 12px 7px 24px', color: '#374151', fontWeight: 600, position: 'sticky', left: 0, background: 'white', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', width: 160, minWidth: 160, maxWidth: 160 }}
-                      title={eq.nome}>
-                      {eq.nome}
+                      title={eq.encarregado ? `${eq.nome} - ${eq.encarregado}` : eq.nome}>
+                      {eq.nome}{eq.encarregado && <span style={{ fontWeight: 400, color: '#9ca3af' }}>-{eq.encarregado}</span>}
                     </td>
                     {mesesCols.map(m => {
                       const val = eq.mesesValores[m] || 0
@@ -968,9 +1063,19 @@ function AnaliseMensal({ dados, filtroMes, onClickCelula }) {
                             background: cor.bg, color: cor.text,
                             fontWeight: val > 0 ? 600 : 400,
                             cursor: val > 0 ? 'pointer' : 'default',
+                            position: 'relative',
                           }}
-                          onMouseEnter={e => { if (val > 0) e.currentTarget.style.filter = 'brightness(0.94)' }}
-                          onMouseLeave={e => { e.currentTarget.style.filter = '' }}>
+                          onMouseEnter={e => {
+                            e.currentTarget.style.filter = 'brightness(0.94)'
+                            if (val > 0) {
+                              const rect = e.currentTarget.getBoundingClientRect()
+                              setTooltip({ meta, perc, val, x: rect.left + rect.width / 2, y: rect.top })
+                            }
+                          }}
+                          onMouseLeave={e => {
+                            e.currentTarget.style.filter = ''
+                            setTooltip(null)
+                          }}>
                           {val > 0 ? `R$ ${fmt(val)}` : ''}
                         </td>
                       )
@@ -987,103 +1092,289 @@ function AnaliseMensal({ dados, filtroMes, onClickCelula }) {
 }
 
 // ── Aba 2: Produção Detalhada ─────────────────────────────────────────────────
-function ProducaoDetalhada({ dados, dadosBarMes, filtroMes, onClickMes, regsExclMes, equipeByReg }) {
+function ProducaoDetalhada({ dados, dadosBarMes, filtroMes, onClickMes, regsExclMes, metas, ano }) {
   const [equipeSelecionada, setEquipeSelecionada] = useState(null)
+  const [expandidos, setExpandidos] = useState({})
+  const [sortCol, setSortCol] = useState('prod')
+  const [sortDir, setSortDir] = useState('desc')
+  const [expandidosColab, setExpandidosColab] = useState({})
 
-  const totalGeral = dados.reduce((s, d) => s + d.prod, 0)
+  function toggleColab(e, equipeNome) {
+    e.stopPropagation()
+    setExpandidosColab(p => ({ ...p, [equipeNome]: !p[equipeNome] }))
+  }
+
+  function toggleSort(col) {
+    if (sortCol === col) setSortDir(d => d === 'asc' ? 'desc' : 'asc')
+    else { setSortCol(col); setSortDir(col === 'nome' ? 'asc' : 'desc') }
+  }
+
+  function toggle(cnome) {
+    setExpandidos(p => ({ ...p, [cnome]: p[cnome] === false ? true : false }))
+  }
+
+  const todasEquipes = useMemo(() => dados.flatMap(g => g.equipes), [dados])
+  const totalGeral = todasEquipes.reduce((s, d) => s + d.prod, 0)
+
+  const hoje = new Date()
+  const mesLimite = (!filtroMes && ano === hoje.getFullYear()) ? hoje.getMonth() + 1 : 12
+  const totalDiasPeriodo = filtroMes
+    ? new Date(ano, filtroMes, 0).getDate()
+    : ano < hoje.getFullYear()
+      ? (ano % 4 === 0 && (ano % 100 !== 0 || ano % 400 === 0) ? 366 : 365)
+      : ano > hoje.getFullYear()
+        ? (ano % 4 === 0 && (ano % 100 !== 0 || ano % 400 === 0) ? 366 : 365)
+        : Math.floor((hoje - new Date(ano, 0, 1)) / 86400000) + 1
+
+  function getMeta(tid) {
+    return filtroMes
+      ? (metas?.[tid]?.[filtroMes] || 0)
+      : Object.entries(metas?.[tid] || {})
+          .filter(([m]) => Number(m) <= mesLimite)
+          .reduce((s, [, v]) => s + v, 0)
+  }
+
+  function sortEquipes(equipes) {
+    return [...equipes].sort((a, b) => {
+      let va, vb
+      const metaA = getMeta(a.tid), metaB = getMeta(b.tid)
+      switch (sortCol) {
+        case 'nome':     va = a.nome; vb = b.nome; break
+        case 'prod':     va = a.prod; vb = b.prod; break
+        case 'diasT':    va = a.diasTrabalhados; vb = b.diasTrabalhados; break
+        case 'media':    va = a.diasTrabalhados > 0 ? a.prod / a.diasTrabalhados : 0
+                         vb = b.diasTrabalhados > 0 ? b.prod / b.diasTrabalhados : 0; break
+        case 'meta':     va = metaA; vb = metaB; break
+        case 'metaPerc': va = metaA > 0 ? a.prod / metaA : -1
+                         vb = metaB > 0 ? b.prod / metaB : -1; break
+        default:         va = a.prod; vb = b.prod
+      }
+      if (typeof va === 'string') return sortDir === 'asc' ? va.localeCompare(vb) : vb.localeCompare(va)
+      return sortDir === 'asc' ? va - vb : vb - va
+    })
+  }
 
   const dadosBarMesLocal = useMemo(() => {
     if (!equipeSelecionada) return dadosBarMes
     const map = {}
     regsExclMes.forEach(r => {
-      if (equipeByReg[r.id] !== equipeSelecionada) return
+      if (r.desc_equipe !== equipeSelecionada) return
       const mes = Number(r.data_producao?.split('-')[1])
       if (!mes) return
       map[mes] = (map[mes] || 0) + valorReg(r)
     })
     return Array.from({ length: 12 }, (_, i) => ({ mes: MESES[i], valor: map[i + 1] || 0, mesNum: i + 1 }))
-  }, [equipeSelecionada, dadosBarMes, regsExclMes, equipeByReg])
+  }, [equipeSelecionada, dadosBarMes, regsExclMes])
+
+  const COLS = [
+    { h: 'Equipe',      col: 'nome',     align: 'left',  w: 160 },
+    { h: 'Produção',    col: 'prod',     align: 'right', w: null },
+    { h: 'Dias T./Total', col: 'diasT', align: 'center', w: 90 },
+    { h: 'Média/Dia',   col: 'media',    align: 'right', w: 100 },
+    { h: 'Meta',        col: 'meta',     align: 'right', w: 110 },
+    { h: 'Atingimento', col: 'metaPerc', align: 'center', w: 90 },
+  ]
+
+  const thStyle = (col, align) => ({
+    padding: '9px 12px', textAlign: align, fontWeight: 600, fontSize: 11,
+    letterSpacing: .3, textTransform: 'uppercase',
+    color: sortCol === col ? '#1a56db' : '#6b7280',
+    borderBottom: sortCol === col ? '2px solid #1a56db' : '2px solid #e2e8f0',
+    position: 'sticky', top: 0, background: '#f8fafc', zIndex: 1,
+    whiteSpace: 'nowrap', cursor: col ? 'pointer' : 'default', userSelect: 'none',
+  })
 
   return (
     <div>
-      <div className="card" style={{ padding: 16, marginBottom: 16 }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 12 }}>
-          <div style={{ fontSize: 13, fontWeight: 700, color: '#374151' }}>
-            Produção por Mês{equipeSelecionada ? ` — ${equipeSelecionada}` : ''}
+      {/* Gráfico */}
+      <div className="card" style={{ padding: '16px 16px 12px', marginBottom: 16 }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
+          <div style={{ fontSize: 13, fontWeight: 700, color: '#1e2a3b' }}>
+            Produção por Mês
+            {equipeSelecionada && <span style={{ fontWeight: 400, color: '#1a56db', marginLeft: 8 }}>— {equipeSelecionada}</span>}
           </div>
           {equipeSelecionada && (
             <button onClick={() => setEquipeSelecionada(null)}
-              style={{ fontSize: 11, padding: '2px 8px', borderRadius: 4, border: '1px solid #e5e7eb',
-                background: '#f3f4f6', color: '#6b7280', cursor: 'pointer' }}>
-              ✕ limpar
+              style={{ fontSize: 11, padding: '3px 10px', borderRadius: 20, border: '1px solid #bfdbfe',
+                background: '#eff6ff', color: '#1a56db', cursor: 'pointer', fontWeight: 600 }}>
+              ✕ limpar filtro
             </button>
           )}
         </div>
         <ResponsiveContainer width="100%" height={200}>
-          <BarChart data={dadosBarMesLocal}>
-            <CartesianGrid strokeDasharray="3 3" vertical={false} />
-            <XAxis dataKey="mes" tick={{ fontSize: 11 }} />
-            <YAxis tickFormatter={v => fmtMi(v)} tick={{ fontSize: 10 }} width={70} />
-            <Tooltip formatter={v => `R$ ${fmt(v)}`} />
-            <Bar dataKey="valor" name="Produção" cursor="pointer"
+          <BarChart data={dadosBarMesLocal} barCategoryGap="30%">
+            <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f0f0f0" />
+            <XAxis dataKey="mes" tick={{ fontSize: 11, fill: '#6b7280' }} axisLine={false} tickLine={false} />
+            <YAxis tickFormatter={v => fmtMi(v)} tick={{ fontSize: 10, fill: '#9ca3af' }} width={65} axisLine={false} tickLine={false} />
+            <Tooltip formatter={v => [`R$ ${fmt(v)}`, 'Produção']} cursor={{ fill: '#f1f5f9' }} />
+            <Bar dataKey="valor" name="Produção" cursor="pointer" radius={[4, 4, 0, 0]}
               onClick={d => onClickMes(d.mesNum)}>
               {dadosBarMesLocal.map((d, i) => (
-                <Cell key={i} fill={filtroMes === d.mesNum ? '#1a56db' : '#93c5fd'} />
+                <Cell key={i} fill={filtroMes === d.mesNum ? '#1a56db' : '#60a5fa'} />
               ))}
             </Bar>
           </BarChart>
         </ResponsiveContainer>
       </div>
 
+      {/* Tabela */}
       <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
-        <div style={{ background: '#1e2a3b', color: 'white', padding: '10px 16px', fontSize: 13, fontWeight: 700 }}>
+        <div style={{ background: 'linear-gradient(90deg, #1e2a3b, #1a3a6b)', color: 'white',
+          padding: '10px 16px', fontSize: 13, fontWeight: 700, display: 'flex', alignItems: 'center', gap: 10 }}>
           Análise de Produção Detalhada
-          <span style={{ fontSize: 11, opacity: .7, marginLeft: 8 }}>· Clique em uma equipe para filtrar o gráfico</span>
+          <span style={{ fontSize: 11, opacity: .6, fontWeight: 400 }}>· Clique na equipe para filtrar o gráfico</span>
         </div>
-        <div style={{ overflowX: 'auto', overflowY: 'auto', maxHeight: 360 }}>
+        <div style={{ overflowX: 'auto', overflowY: 'auto', maxHeight: 480 }}>
           <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
             <thead>
-              <tr style={{ background: '#f1f5f9' }}>
-                <th style={{ padding: '8px 12px', textAlign: 'left', fontWeight: 600, color: '#374151', borderBottom: '2px solid #e2e8f0', minWidth: 140, position: 'sticky', top: 0, background: '#f1f5f9', zIndex: 1 }}>Equipe</th>
-                <th style={{ padding: '8px 10px', textAlign: 'right', fontWeight: 600, color: '#374151', borderBottom: '2px solid #e2e8f0', position: 'sticky', top: 0, background: '#f1f5f9', zIndex: 1 }}>Produção R$</th>
-                <th style={{ padding: '8px 10px', textAlign: 'right', fontWeight: 600, color: '#374151', borderBottom: '2px solid #e2e8f0', position: 'sticky', top: 0, background: '#f1f5f9', zIndex: 1 }}>Qtd. Serviço</th>
-                <th style={{ padding: '8px 10px', textAlign: 'right', fontWeight: 600, color: '#374151', borderBottom: '2px solid #e2e8f0', position: 'sticky', top: 0, background: '#f1f5f9', zIndex: 1 }}>UPEs</th>
+              <tr style={{ background: '#f8fafc' }}>
+                {COLS.map(({ h, col, align, w }) => (
+                  <th key={h} onClick={() => col && toggleSort(col)}
+                    style={{ ...thStyle(col, align), ...(w ? { minWidth: w } : {}) }}>
+                    {h}{col && sortCol === col ? (sortDir === 'asc' ? ' ↑' : ' ↓') : ''}
+                  </th>
+                ))}
               </tr>
             </thead>
             <tbody>
-              {dados.map(({ nome, prod, atividades }) => {
-                const selecionada = equipeSelecionada === nome
-                const totalQtd = atividades.reduce((s, a) => s + a.qtd, 0)
-                const totalUpe = atividades.reduce((s, a) => s + a.upe, 0)
-                return (
-                  <tr key={nome} style={{ borderBottom: '1px solid #e5e7eb', cursor: 'pointer',
-                    background: selecionada ? '#eff6ff' : (equipeSelecionada ? '#f9fafb' : 'white') }}
-                    onClick={() => setEquipeSelecionada(prev => prev === nome ? null : nome)}
-                    onMouseEnter={e => { if (!selecionada) e.currentTarget.style.background = '#f0f9ff' }}
-                    onMouseLeave={e => { e.currentTarget.style.background = selecionada ? '#eff6ff' : (equipeSelecionada ? '#f9fafb' : 'white') }}>
-                    <td style={{ padding: '8px 12px', fontWeight: 600, color: selecionada ? '#1a56db' : '#374151' }}>
-                      {nome}
+              {dados.map(({ contrato, equipes }) => {
+                const aberto = expandidos[contrato] !== false
+                const totalContrato = equipes.reduce((s, e) => s + e.prod, 0)
+                const metaContrato = equipes.reduce((s, e) => s + getMeta(e.tid), 0)
+                const percContrato = metaContrato > 0 ? (totalContrato / metaContrato) * 100 : null
+                const bgPerc = percContrato === null ? null : percContrato >= 100 ? '#dcfce7' : percContrato >= 70 ? '#fef9c3' : '#fee2e2'
+                const txPerc = percContrato === null ? '#9ca3af' : percContrato >= 100 ? '#15803d' : percContrato >= 70 ? '#92400e' : '#b91c1c'
+                return [
+                  <tr key={contrato} onClick={() => toggle(contrato)}
+                    style={{ background: '#1e2a3b', cursor: 'pointer', borderBottom: '2px solid #0f172a' }}>
+                    <td style={{ padding: '9px 14px', color: 'white', fontWeight: 700, fontSize: 12, whiteSpace: 'nowrap' }}>
+                      <span style={{ opacity: .6, marginRight: 6 }}>{aberto ? '▾' : '▸'}</span>{contrato}
                     </td>
-                    <td style={{ padding: '8px 10px', textAlign: 'right', fontWeight: 600,
-                      color: selecionada ? '#1a56db' : '#1e2a3b' }}>
-                      R$ {fmt(prod)}
+                    <td style={{ padding: '9px 12px', textAlign: 'right', color: '#93c5fd', fontWeight: 700 }}>
+                      R$ {fmt(totalContrato)}
                     </td>
-                    <td style={{ padding: '8px 10px', textAlign: 'right', color: '#374151' }}>
-                      {totalQtd.toLocaleString('pt-BR')}
+                    <td colSpan={2} />
+                    <td style={{ padding: '9px 12px', textAlign: 'right', color: '#94a3b8', fontWeight: 600 }}>
+                      {metaContrato > 0 ? `R$ ${fmt(metaContrato)}` : ''}
                     </td>
-                    <td style={{ padding: '8px 10px', textAlign: 'right', color: '#374151' }}>
-                      {totalUpe.toLocaleString('pt-BR', { maximumFractionDigits: 2 })}
+                    <td style={{ padding: '9px 12px', textAlign: 'center' }}>
+                      {percContrato !== null && (
+                        <span style={{ background: bgPerc, color: txPerc, fontWeight: 700, fontSize: 11,
+                          padding: '2px 8px', borderRadius: 20 }}>
+                          {percContrato.toFixed(1)}%
+                        </span>
+                      )}
                     </td>
-                  </tr>
-                )
+                  </tr>,
+                  ...(aberto ? sortEquipes(equipes).flatMap(({ nome, prod, tid, diasTrabalhados, encarregado, colaboradores }) => {
+                    const selecionada = equipeSelecionada === nome
+                    const meta = getMeta(tid)
+                    const metaPerc = prod > 0 && meta > 0 ? (prod / meta) * 100 : null
+                    const mediaDia = diasTrabalhados > 0 ? prod / diasTrabalhados : 0
+                    const bgBadge = metaPerc === null ? '#f3f4f6' : metaPerc >= 100 ? '#dcfce7' : metaPerc >= 70 ? '#fef9c3' : '#fee2e2'
+                    const txBadge = metaPerc === null ? '#9ca3af' : metaPerc >= 100 ? '#15803d' : metaPerc >= 70 ? '#92400e' : '#b91c1c'
+                    const accentColor = metaPerc === null ? '#e5e7eb' : metaPerc >= 100 ? '#16a34a' : metaPerc >= 70 ? '#d97706' : '#dc2626'
+                    const bgRow = selecionada ? '#eff6ff' : equipeSelecionada ? '#f9fafb' : 'white'
+                    const colabAberto = expandidosColab[nome]
+
+                    const equipeRow = (
+                      <tr key={nome}
+                        style={{ borderBottom: colabAberto ? 'none' : '1px solid #f1f5f9', cursor: 'pointer', background: bgRow }}
+                        onClick={() => setEquipeSelecionada(prev => prev === nome ? null : nome)}
+                        onMouseEnter={e => { if (!selecionada) e.currentTarget.style.background = '#f0f9ff' }}
+                        onMouseLeave={e => { e.currentTarget.style.background = bgRow }}>
+                        <td style={{ padding: '8px 12px 8px 0', borderLeft: `3px solid ${accentColor}` }}>
+                          {colaboradores.length > 0 && (
+                            <button
+                              onClick={e => toggleColab(e, nome)}
+                              style={{ marginLeft: 8, marginRight: 4, width: 18, height: 18, fontSize: 10,
+                                lineHeight: 1, background: 'none', border: '1px solid #d1d5db',
+                                borderRadius: 4, cursor: 'pointer', color: '#6b7280', padding: 0,
+                                display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}>
+                              {colabAberto ? '▾' : '▸'}
+                            </button>
+                          )}
+                          <span style={{ paddingLeft: colaboradores.length > 0 ? 0 : 28, color: selecionada ? '#1a56db' : '#1e2a3b', fontWeight: 600 }}>
+                            {nome}
+                          </span>
+                          {encarregado && (
+                            <span style={{ fontWeight: 400, color: selecionada ? '#3b82f6' : '#9ca3af' }}>-{encarregado}</span>
+                          )}
+                        </td>
+                        <td style={{ padding: '8px 12px', textAlign: 'right', fontWeight: 700,
+                          color: selecionada ? '#1a56db' : '#1e2a3b' }}>
+                          R$ {fmt(prod)}
+                        </td>
+                        <td style={{ padding: '8px 12px', textAlign: 'center', color: '#374151' }}>
+                          <span style={{ fontWeight: 700 }}>{diasTrabalhados}</span>
+                          <span style={{ color: '#9ca3af' }}>/{totalDiasPeriodo}</span>
+                        </td>
+                        <td style={{ padding: '8px 12px', textAlign: 'right', color: '#374151' }}>
+                          {mediaDia > 0 ? `R$ ${fmt(mediaDia)}` : <span style={{ color: '#d1d5db' }}>—</span>}
+                        </td>
+                        <td style={{ padding: '8px 12px', textAlign: 'right', color: '#374151' }}>
+                          {meta > 0 ? `R$ ${fmt(meta)}` : <span style={{ color: '#d1d5db' }}>—</span>}
+                        </td>
+                        <td style={{ padding: '8px 12px', textAlign: 'center' }}>
+                          <span style={{ background: bgBadge, color: txBadge, fontWeight: 700, fontSize: 11,
+                            padding: '2px 8px', borderRadius: 20, whiteSpace: 'nowrap' }}>
+                            {metaPerc !== null ? `${metaPerc.toFixed(1)}%` : '—'}
+                          </span>
+                        </td>
+                      </tr>
+                    )
+
+                    const colabSubRows = colabAberto
+                      ? colaboradores.map((c, i) => (
+                          <tr key={c.id} style={{ background: i % 2 === 0 ? '#f8fafc' : '#f1f5f9', borderBottom: i === colaboradores.length - 1 ? '1px solid #e5e7eb' : '1px solid #f1f5f9' }}>
+                            <td style={{ padding: '5px 12px 5px 46px', fontSize: 11, color: '#374151', fontWeight: 500 }}>
+                              {c.nome}
+                            </td>
+                            <td style={{ padding: '5px 12px', textAlign: 'right', fontSize: 11, color: '#374151' }}>
+                              R$ {fmt(c.prod)}
+                            </td>
+                            <td style={{ padding: '5px 12px', textAlign: 'center', fontSize: 11, color: '#374151' }}>
+                              <span style={{ fontWeight: 600 }}>{c.diasTrabalhados}</span>
+                              <span style={{ color: '#9ca3af' }}>/{totalDiasPeriodo}</span>
+                            </td>
+                            <td style={{ padding: '5px 12px', textAlign: 'right', fontSize: 11, color: '#374151' }}>
+                              {c.media > 0 ? `R$ ${fmt(c.media)}` : <span style={{ color: '#d1d5db' }}>—</span>}
+                            </td>
+                            <td colSpan={2} />
+                          </tr>
+                        ))
+                      : []
+
+                    return [equipeRow, ...colabSubRows]
+                  }) : []),
+                ]
               })}
             </tbody>
             <tfoot style={{ position: 'sticky', bottom: 0, zIndex: 1 }}>
-              <tr style={{ background: '#1e2a3b', color: 'white' }}>
-                <td style={{ padding: '8px 12px', fontWeight: 700 }}>Total</td>
-                <td style={{ padding: '8px 10px', textAlign: 'right', fontWeight: 700 }}>R$ {fmt(totalGeral)}</td>
-                <td colSpan={2} />
-              </tr>
+              {(() => {
+                const totalMeta = todasEquipes.reduce((s, d) => s + getMeta(d.tid), 0)
+                const totalPerc = totalMeta > 0 ? (totalGeral / totalMeta) * 100 : null
+                const bgTotalPerc = totalPerc === null ? null : totalPerc >= 100 ? '#dcfce7' : totalPerc >= 70 ? '#fef9c3' : '#fee2e2'
+                const txTotalPerc = totalPerc === null ? 'white' : totalPerc >= 100 ? '#15803d' : totalPerc >= 70 ? '#92400e' : '#b91c1c'
+                return (
+                  <tr style={{ background: '#1e2a3b', color: 'white', borderTop: '2px solid #0f172a' }}>
+                    <td style={{ padding: '9px 14px', fontWeight: 700 }}>Total Geral</td>
+                    <td style={{ padding: '9px 12px', textAlign: 'right', fontWeight: 700, color: '#93c5fd' }}>R$ {fmt(totalGeral)}</td>
+                    <td colSpan={2} />
+                    <td style={{ padding: '9px 12px', textAlign: 'right', fontWeight: 700, color: '#94a3b8' }}>
+                      {totalMeta > 0 ? `R$ ${fmt(totalMeta)}` : ''}
+                    </td>
+                    <td style={{ padding: '9px 12px', textAlign: 'center' }}>
+                      {totalPerc !== null && (
+                        <span style={{ background: bgTotalPerc, color: txTotalPerc, fontWeight: 700, fontSize: 11,
+                          padding: '2px 8px', borderRadius: 20 }}>
+                          {totalPerc.toFixed(1)}%
+                        </span>
+                      )}
+                    </td>
+                  </tr>
+                )
+              })()}
             </tfoot>
           </table>
         </div>
@@ -1093,7 +1384,7 @@ function ProducaoDetalhada({ dados, dadosBarMes, filtroMes, onClickMes, regsExcl
 }
 
 // ── Aba 3: Detalhe Equipe (Drill-Down) ────────────────────────────────────────
-function DetalheEquipe({ dados, colaboradores, colaboradoresPorDia, onVoltar }) {
+function DetalheEquipe({ dados, colaboradores, colaboradoresPorDia }) {
   const [diaSelecionado, setDiaSelecionado] = useState(null)
 
   if (!dados) {
@@ -1104,7 +1395,7 @@ function DetalheEquipe({ dados, colaboradores, colaboradoresPorDia, onVoltar }) 
     )
   }
 
-  const { equipeNome, mes, totalProd, metaEquipe, perc, dias, atividades, atividadesPorDia } = dados
+  const { equipeNome, mes, encarregados, totalProd, metaEquipe, perc, dias, atividades, atividadesPorDia } = dados
   const corP = perc !== null ? (perc >= 100 ? '#16a34a' : perc >= 80 ? '#d97706' : '#dc2626') : '#6b7280'
   const mesLabel = mes ? MESES_FULL[mes - 1] : 'Período completo'
 
@@ -1120,43 +1411,61 @@ function DetalheEquipe({ dados, colaboradores, colaboradoresPorDia, onVoltar }) 
   return (
     <div>
       {/* Cabeçalho */}
-      <div className="card" style={{ padding: '16px 20px', marginBottom: 16,
-        background: 'linear-gradient(135deg, #1e2a3b, #1a56db)', color: 'white' }}>
-        <button onClick={onVoltar} style={{ background: 'rgba(255,255,255,.15)', border: 'none',
-          color: 'white', padding: '4px 12px', borderRadius: 4, cursor: 'pointer', fontSize: 12, marginBottom: 12 }}>
-          ← Voltar
-        </button>
-        <div style={{ display: 'flex', gap: 32, flexWrap: 'wrap', alignItems: 'flex-start' }}>
-          <div>
-            <div style={{ fontSize: 11, opacity: .7 }}>Equipe</div>
-            <div style={{ fontSize: 20, fontWeight: 700 }}>{equipeNome}</div>
-            <div style={{ fontSize: 13, opacity: .75 }}>{mesLabel}</div>
+      <div className="card" style={{ padding: 0, marginBottom: 16, overflow: 'hidden',
+        background: 'linear-gradient(135deg, #1e2a3b 0%, #1a3a6b 100%)', color: 'white' }}>
+
+        {/* Linha superior: identidade da equipe */}
+        <div style={{ padding: '14px 20px 12px', borderBottom: '1px solid rgba(255,255,255,.1)' }}>
+          <div style={{ display: 'flex', alignItems: 'baseline', gap: 12, flexWrap: 'wrap' }}>
+            <div style={{ fontSize: 22, fontWeight: 800, letterSpacing: -.3 }}>{equipeNome}</div>
+            <div style={{ fontSize: 13, opacity: .65, fontWeight: 400 }}>{mesLabel}</div>
           </div>
-          <div>
-            <div style={{ fontSize: 11, opacity: .7 }}>Produção</div>
-            <div style={{ fontSize: 18, fontWeight: 700 }}>R$ {fmt(totalProd)}</div>
+          {encarregados?.length > 0 && (
+            <div style={{ marginTop: 6, display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+              <span style={{ fontSize: 10, fontWeight: 600, letterSpacing: .8, opacity: .55, textTransform: 'uppercase' }}>
+                Encarregado{encarregados.length > 1 ? 's' : ''}
+              </span>
+              {encarregados.map(enc => (
+                <span key={enc} style={{
+                  fontSize: 12, fontWeight: 600,
+                  background: 'rgba(255,255,255,.15)',
+                  border: '1px solid rgba(255,255,255,.2)',
+                  borderRadius: 20, padding: '2px 10px',
+                }}>
+                  {enc}
+                </span>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* Linha inferior: métricas */}
+        <div style={{ display: 'flex', flexWrap: 'wrap' }}>
+          <div style={{ padding: '12px 24px', borderRight: '1px solid rgba(255,255,255,.1)' }}>
+            <div style={{ fontSize: 10, fontWeight: 600, letterSpacing: .8, opacity: .55, textTransform: 'uppercase', marginBottom: 4 }}>Produção</div>
+            <div style={{ fontSize: 20, fontWeight: 700 }}>R$ {fmt(totalProd)}</div>
           </div>
           {metaEquipe > 0 && <>
-            <div>
-              <div style={{ fontSize: 11, opacity: .7 }}>Meta</div>
-              <div style={{ fontSize: 18, fontWeight: 700 }}>R$ {fmt(metaEquipe)}</div>
+            <div style={{ padding: '12px 24px', borderRight: '1px solid rgba(255,255,255,.1)' }}>
+              <div style={{ fontSize: 10, fontWeight: 600, letterSpacing: .8, opacity: .55, textTransform: 'uppercase', marginBottom: 4 }}>Meta</div>
+              <div style={{ fontSize: 20, fontWeight: 700 }}>R$ {fmt(metaEquipe)}</div>
             </div>
-            <div>
-              <div style={{ fontSize: 11, opacity: .7 }}>%</div>
-              <div style={{ fontSize: 22, fontWeight: 900, color: corP }}>{perc?.toFixed(2)}%</div>
+            <div style={{ padding: '12px 24px' }}>
+              <div style={{ fontSize: 10, fontWeight: 600, letterSpacing: .8, opacity: .55, textTransform: 'uppercase', marginBottom: 4 }}>Atingimento</div>
+              <div style={{ fontSize: 24, fontWeight: 900, color: corP }}>{perc?.toFixed(1)}%</div>
             </div>
           </>}
         </div>
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, alignItems: 'start' }}>
+      <div className="graficos-grid">
         {/* Coluna esquerda: Tabela diária */}
         <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
           <div style={{ background: '#374151', color: 'white', padding: '8px 14px', fontSize: 12, fontWeight: 700 }}>
             Acompanhamento de Produção Diária
             <span style={{ fontSize: 11, opacity: .7, marginLeft: 8 }}>· Clique para filtrar atividades</span>
           </div>
-          <div style={{ overflowY: 'auto', maxHeight: 400 }}>
+          <div style={{ overflowX: 'auto', overflowY: 'auto', maxHeight: 400 }}>
           <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 11 }}>
             <thead>
               <tr style={{ background: '#f1f5f9' }}>
@@ -1230,7 +1539,7 @@ function DetalheEquipe({ dados, colaboradores, colaboradoresPorDia, onVoltar }) 
               </>
             )}
           </div>
-          <div style={{ overflowY: 'auto', maxHeight: 360 }}>
+          <div style={{ overflowX: 'auto', overflowY: 'auto', maxHeight: 360 }}>
             <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 11 }}>
               <thead>
                 <tr style={{ background: '#f1f5f9' }}>
@@ -1290,6 +1599,9 @@ function DetalheEquipe({ dados, colaboradores, colaboradoresPorDia, onVoltar }) 
                   <tr style={{ background: '#f1f5f9' }}>
                     <th style={{ padding: '7px 12px', textAlign: 'left', fontWeight: 600, color: '#374151', borderBottom: '2px solid #e2e8f0', position: 'sticky', top: 0, background: '#f1f5f9', width: 36 }}>#</th>
                     <th style={{ padding: '7px 12px', textAlign: 'left', fontWeight: 600, color: '#374151', borderBottom: '2px solid #e2e8f0', position: 'sticky', top: 0, background: '#f1f5f9' }}>Matrícula / Nome</th>
+                    {!diaSelecionado && (
+                      <th style={{ padding: '7px 12px', textAlign: 'right', fontWeight: 600, color: '#374151', borderBottom: '2px solid #e2e8f0', position: 'sticky', top: 0, background: '#f1f5f9', whiteSpace: 'nowrap' }}>Dias Trab.</th>
+                    )}
                   </tr>
                 </thead>
                 <tbody>
@@ -1297,6 +1609,9 @@ function DetalheEquipe({ dados, colaboradores, colaboradoresPorDia, onVoltar }) 
                     <tr key={c.id} style={{ borderBottom: '1px solid #f3f4f6', background: i % 2 === 0 ? 'white' : '#fafafa' }}>
                       <td style={{ padding: '6px 12px', color: '#9ca3af' }}>{i + 1}</td>
                       <td style={{ padding: '6px 12px', color: '#374151', fontWeight: 500 }}>{c.matricula || c.nome}</td>
+                      {!diaSelecionado && (
+                        <td style={{ padding: '6px 12px', textAlign: 'right', color: '#374151', fontWeight: 600 }}>{c.diasTrabalhados ?? '—'}</td>
+                      )}
                     </tr>
                   ))}
                 </tbody>

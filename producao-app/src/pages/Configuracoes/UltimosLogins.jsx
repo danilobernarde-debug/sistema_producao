@@ -10,7 +10,7 @@ function fmtDataHora(iso) {
 
 export default function UltimosLogins() {
   const navegar = useNavigate()
-  const [logs, setLogs] = useState([])
+  const [usuarios, setUsuarios] = useState([])
   const [carregando, setCarregando] = useState(true)
   const [busca, setBusca] = useState('')
 
@@ -19,20 +19,18 @@ export default function UltimosLogins() {
   async function carregar() {
     setCarregando(true)
     const { data } = await supabase
-      .from('d_login_log')
+      .from('view_pageview_usuarios')
       .select('*')
-      .order('criado_em', { ascending: false })
-      .limit(500)
-    setLogs(data || [])
+    setUsuarios(data || [])
     setCarregando(false)
   }
 
-  const logsFiltrados = busca.trim()
-    ? logs.filter(l =>
-        (l.nome || '').toLowerCase().includes(busca.toLowerCase()) ||
-        (l.email || '').toLowerCase().includes(busca.toLowerCase())
+  const usuariosFiltrados = busca.trim()
+    ? usuarios.filter(u =>
+        (u.nome || '').toLowerCase().includes(busca.toLowerCase()) ||
+        (u.email || '').toLowerCase().includes(busca.toLowerCase())
       )
-    : logs
+    : usuarios
 
   return (
     <div className="pagina">
@@ -56,32 +54,39 @@ export default function UltimosLogins() {
 
       {carregando ? (
         <div className="loading"><div className="spinner" />Carregando...</div>
-      ) : logsFiltrados.length === 0 ? (
-        <div className="vazio">Nenhum login encontrado.</div>
+      ) : usuariosFiltrados.length === 0 ? (
+        <div className="vazio">Nenhum usuário encontrado.</div>
       ) : (
         <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
+          <div style={{ overflowX: 'auto' }}>
           <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
             <thead>
               <tr style={{ background: '#f9fafb', borderBottom: '1px solid #e5e7eb' }}>
                 <th style={{ padding: '10px 16px', textAlign: 'left', fontWeight: 600, color: '#374151' }}>#</th>
                 <th style={{ padding: '10px 16px', textAlign: 'left', fontWeight: 600, color: '#374151' }}>Nome</th>
                 <th style={{ padding: '10px 16px', textAlign: 'left', fontWeight: 600, color: '#374151' }}>E-mail</th>
-                <th style={{ padding: '10px 16px', textAlign: 'left', fontWeight: 600, color: '#374151' }}>Data / Hora</th>
+                <th style={{ padding: '10px 16px', textAlign: 'left', fontWeight: 600, color: '#374151' }}>Último acesso</th>
+                <th style={{ padding: '10px 16px', textAlign: 'left', fontWeight: 600, color: '#374151' }}>Páginas acessadas</th>
               </tr>
             </thead>
             <tbody>
-              {logsFiltrados.map((l, i) => (
-                <tr key={l.id} style={{ borderBottom: '1px solid #f3f4f6', background: i % 2 === 0 ? '#fff' : '#fafafa' }}>
+              {usuariosFiltrados.map((u, i) => (
+                <tr
+                  key={u.email}
+                  onClick={() => navegar(`/configuracoes/logins/${encodeURIComponent(u.email)}`)}
+                  style={{ borderBottom: '1px solid #f3f4f6', background: i % 2 === 0 ? '#fff' : '#fafafa', cursor: 'pointer' }}>
                   <td style={{ padding: '9px 16px', color: '#9ca3af' }}>{i + 1}</td>
-                  <td style={{ padding: '9px 16px', fontWeight: 500, color: '#1e2a3b' }}>{l.nome || <span style={{ color: '#9ca3af' }}>—</span>}</td>
-                  <td style={{ padding: '9px 16px', color: '#4b5563' }}>{l.email}</td>
-                  <td style={{ padding: '9px 16px', color: '#6b7280', whiteSpace: 'nowrap' }}>{fmtDataHora(l.criado_em)}</td>
+                  <td style={{ padding: '9px 16px', fontWeight: 500, color: '#1e2a3b' }}>{u.nome || <span style={{ color: '#9ca3af' }}>—</span>}</td>
+                  <td style={{ padding: '9px 16px', color: '#4b5563' }}>{u.email}</td>
+                  <td style={{ padding: '9px 16px', color: '#6b7280', whiteSpace: 'nowrap' }}>{fmtDataHora(u.ultimo_acesso)}</td>
+                  <td style={{ padding: '9px 16px', color: '#6b7280' }}>{u.total_paginas}</td>
                 </tr>
               ))}
             </tbody>
           </table>
+          </div>
           <div style={{ padding: '8px 16px', borderTop: '1px solid #f3f4f6', fontSize: 12, color: '#9ca3af' }}>
-            {logsFiltrados.length} registro{logsFiltrados.length !== 1 ? 's' : ''}
+            {usuariosFiltrados.length} usuário{usuariosFiltrados.length !== 1 ? 's' : ''}
           </div>
         </div>
       )}

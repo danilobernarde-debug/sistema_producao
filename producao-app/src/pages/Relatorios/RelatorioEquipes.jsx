@@ -1,13 +1,6 @@
 import { useState, useEffect, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../../supabaseClient'
-import * as XLSX from 'xlsx'
-
-function excelParaData(serial) {
-  const d = new Date(Math.round((Number(serial) - 25569) * 86400000))
-  return d.toISOString().split('T')[0]
-}
-
 function fmt(n) {
   return Number(n || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
 }
@@ -24,21 +17,15 @@ function inicioMes() {
 }
 
 async function lerMetas(dataInicio, dataFim) {
-  const { data: { publicUrl } } = supabase.storage.from('Metas').getPublicUrl('Metas_por_tipo_equipe_id.xlsm')
-  const resp = await fetch(publicUrl)
-  const buffer = await resp.arrayBuffer()
-  const wb = XLSX.read(buffer, { type: 'array' })
-  const ws = wb.Sheets['Metas']
-  const rows = XLSX.utils.sheet_to_json(ws, { defval: null })
+  const { data } = await supabase
+    .from('d_metas_diarias')
+    .select('tipo_equipe_id, meta_diaria')
+    .gte('data', dataInicio)
+    .lte('data', dataFim)
   const mapa = {}
-  rows.forEach(row => {
-    const id   = row['tipo_equipe_id']
-    const data = row['data']
-    const meta = row[' meta ']
-    if (!id || !data || meta == null || Number(meta) === 0) return
-    const dataStr = excelParaData(Number(data))
-    if (dataStr < dataInicio || dataStr > dataFim) return
-    mapa[id] = (mapa[id] || 0) + Number(meta)
+  ;(data || []).forEach(row => {
+    const tid = String(row.tipo_equipe_id)
+    mapa[tid] = (mapa[tid] || 0) + Number(row.meta_diaria)
   })
   return mapa
 }
@@ -269,27 +256,25 @@ export default function RelatorioEquipes() {
       .then(({ data }) => setEquipes(data || []))
   }, [])
 
-  useEffect(() => { if (dataInicio && dataFim) buscarDados() }, [dataInicio, dataFim])
 
   async function buscarDados() {
     setCarregando(true)
+    setErroMeta('')
     const [resReg, resView, resMetas] = await Promise.all([
       supabase.from('f_prod_registro')
         .select('id, data_producao, contrato_id, tipo_equipe_id, equipe_id, f_prod_atividades(upe, preco_upe, quantidade)')
         .gte('data_producao', dataInicio)
         .lte('data_producao', dataFim)
         .limit(100000),
-      supabase.from('view_prod_relatorio_equipes')
-        .select('registro_id, data_producao, desc_equipe, desc_atividade, justificativa, metadata_registro')
-        .gte('data_producao_original', dataInicio)
-        .lte('data_producao_original', dataFim)
-        .limit(100000),
+      supabase.rpc('fn_prod_relatorio_equipes', { p_inicio: dataInicio, p_fim: dataFim, p_limit: 100000, p_offset: 0 }),
       lerMetas(dataInicio, dataFim).catch(() => {
-        setErroMeta('Não foi possível carregar o arquivo de metas.')
+        setErroMeta('Não foi possível carregar as metas.')
         return {}
       }),
     ])
-setRegistros(resReg.data || [])
+    if (resReg.error) console.error('[RelatorioEquipes] f_prod_registro error:', resReg.error)
+    if (resView.error) console.error('[RelatorioEquipes] view_prod_relatorio_equipes error:', resView.error)
+    setRegistros(resReg.data || [])
     setViewRows(resView.data || [])
     setMetas(resMetas)
     setCarregando(false)
@@ -493,7 +478,6 @@ setRegistros(resReg.data || [])
             style={{ padding: '6px 12px', fontSize: 13 }}>← Voltar</button>
           <h1 className="pagina-titulo" style={{ margin: 0 }}>Relatório de Produção</h1>
         </div>
-        {carregando && <span style={{ fontSize: 13, color: '#9ca3af' }}>Carregando...</span>}
       </div>
 
       {erroMeta && (
@@ -514,6 +498,11 @@ setRegistros(resReg.data || [])
             <input type="date" className="campo-input" value={dataFim}
               onChange={e => setDataFim(e.target.value)} style={{ width: 160 }} />
           </div>
+          <button className="btn btn-primario" onClick={buscarDados}
+            disabled={carregando || !dataInicio || !dataFim}
+            style={{ alignSelf: 'flex-end' }}>
+            {carregando ? 'Carregando...' : 'Buscar'}
+          </button>
           <button className="btn btn-primario" onClick={baixarHtml}
             disabled={gerando || carregando || totalTipos === 0}
             style={{ alignSelf: 'flex-end' }}>

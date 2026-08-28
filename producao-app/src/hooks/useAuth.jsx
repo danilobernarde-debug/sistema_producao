@@ -33,25 +33,33 @@ export function AuthProvider({ children }) {
       .select('*, d_auth_roles(name)')
       .eq('uuid', uuid)
       .single()
+    if (data && data.ativo === false) {
+      await supabase.auth.signOut()
+      setUsuario(null)
+      setPerfil(null)
+      setCarregando(false)
+      return
+    }
     setPerfil(data)
     setCarregando(false)
   }
 
   async function entrar(email, senha) {
     const { data, error } = await supabase.auth.signInWithPassword({ email, password: senha })
-    if (!error && data?.user) {
-      const { data: perfData } = await supabase
-        .from('d_auth_user')
-        .select('nome')
-        .eq('uuid', data.user.id)
-        .single()
-      await supabase.from('d_login_log').insert({
-        user_uuid: data.user.id,
-        nome: perfData?.nome ?? null,
-        email: data.user.email,
-      })
+    if (error) {
+      if (error.code === 'user_banned') {
+        return { code: 'user_disabled', message: 'Usuário desativado. Contate o administrador.' }
+      }
+      return error
     }
-    return error
+
+    const { data: perfilData } = await supabase
+      .from('d_auth_user').select('ativo').eq('uuid', data.user.id).single()
+    if (perfilData && perfilData.ativo === false) {
+      await supabase.auth.signOut()
+      return { code: 'user_disabled', message: 'Usuário desativado. Contate o administrador.' }
+    }
+    return null
   }
 
   async function sair() {

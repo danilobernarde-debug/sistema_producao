@@ -253,9 +253,10 @@ export default function FormBuilder() {
     setSemEquipesNoTipo(false)
     if (!contratoId || !tipoEquipeId) { setRegistroFields([]); setAtividadeFields([]); return }
     carregarConfig()
+    const contratoIdEquipes = [17, 18, 19].includes(Number(contratoId)) ? 17 : Number(contratoId)
     supabase
       .from('d_equipes').select('id', { count: 'exact', head: true })
-      .eq('contrato_id', contratoId).eq('tipo_equipe_id', tipoEquipeId).eq('is_ativo', true)
+      .eq('contrato_id', contratoIdEquipes).eq('tipo_equipe_id', tipoEquipeId).eq('is_ativo', true)
       .then(({ count }) => setSemEquipesNoTipo((count ?? 0) === 0))
   }, [contratoId, tipoEquipeId])
 

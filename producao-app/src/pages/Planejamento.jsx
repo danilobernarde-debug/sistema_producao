@@ -23,7 +23,7 @@ export default function Planejamento() {
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100vh' }}>
-      <div style={{ display: 'flex', alignItems: 'center', background: '#1e2a3b', flexShrink: 0 }}>
+      <div className="planejamento-tabs" style={{ display: 'flex', alignItems: 'center', background: '#1e2a3b', flexShrink: 0, overflowX: 'auto' }}>
         <div style={{ display: 'flex', flex: 1 }}>
           {ABAS.map((a, i) => (
             <button
@@ -39,6 +39,8 @@ export default function Planejamento() {
                 fontSize: 14,
                 cursor: 'pointer',
                 transition: 'color 0.15s',
+                whiteSpace: 'nowrap',
+                flexShrink: 0,
               }}
             >
               {a.label}

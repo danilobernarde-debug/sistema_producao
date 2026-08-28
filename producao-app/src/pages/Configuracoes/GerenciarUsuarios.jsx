@@ -7,7 +7,7 @@ export default function GerenciarUsuarios() {
   const navegar = useNavigate()
   const [usuarios, setUsuarios]               = useState([])
   const [selecionado, setSelecionado]         = useState(null)
-  const [form, setForm]                       = useState({ nome: '', role_id: '' })
+  const [form, setForm]                       = useState({ nome: '', role_id: '', ativo: true })
   const [roles, setRoles]                     = useState([])
   const [todosContratos, setTodosContratos]   = useState([])
   const [contratosUsuario, setContratosUsuario] = useState([])
@@ -37,7 +37,7 @@ export default function GerenciarUsuarios() {
 
   async function selecionarUsuario(u) {
     setSelecionado(u)
-    setForm({ nome: u.nome || '', role_id: u.role_id || '' })
+    setForm({ nome: u.nome || '', role_id: u.role_id || '', ativo: u.ativo !== false })
     setErro('')
     setSucesso('')
     const { data } = await supabase.from('d_auth_contratos').select('contrato_id').eq('user_uuid', u.uuid)
@@ -51,11 +51,18 @@ export default function GerenciarUsuarios() {
     const { error } = await supabase.from('d_auth_user')
       .update({ nome: form.nome, role_id: form.role_id || null })
       .eq('uuid', selecionado.uuid)
+    if (error) { setSalvando(false); setErro(error.message); return }
+
+    if (form.ativo !== (selecionado.ativo !== false)) {
+      const { error: errAtivo } = await supabase.rpc('definir_status_usuario', {
+        p_uuid: selecionado.uuid, p_ativo: form.ativo,
+      })
+      if (errAtivo) { setSalvando(false); setErro(errAtivo.message); return }
+    }
     setSalvando(false)
-    if (error) { setErro(error.message); return }
     setSucesso('Perfil salvo.')
     await carregarDados()
-    setSelecionado(prev => ({ ...prev, nome: form.nome, role_id: form.role_id }))
+    setSelecionado(prev => ({ ...prev, nome: form.nome, role_id: form.role_id, ativo: form.ativo }))
   }
 
   async function toggleContrato(contratoId) {
@@ -177,10 +184,10 @@ export default function GerenciarUsuarios() {
       {carregando ? (
         <div className="loading"><div className="spinner" /> Carregando...</div>
       ) : (
-        <div style={{ display: 'grid', gridTemplateColumns: '300px 1fr', gap: 16, alignItems: 'start' }}>
+        <div className="grid-sidebar" style={{ '--sidebar-w': '300px' }}>
 
           {/* Lista de usuários */}
-          <div className="card" style={{ padding: 0, overflow: 'hidden', position: 'sticky', top: 16 }}>
+          <div className="card lista-lateral-card" style={{ padding: 0, overflow: 'hidden' }}>
             <div style={{ padding: '12px 12px 8px', borderBottom: '1px solid #f3f4f6' }}>
               <input
                 className="campo-input"
@@ -190,7 +197,7 @@ export default function GerenciarUsuarios() {
                 onChange={e => setBusca(e.target.value)}
               />
             </div>
-            <div style={{ overflowY: 'auto', maxHeight: 'calc(100vh - 220px)' }}>
+            <div className="lista-lateral-scroll">
               {usuariosFiltrados.length === 0 ? (
                 <div className="vazio" style={{ padding: 24 }}>Nenhum usuário encontrado.</div>
               ) : usuariosFiltrados.map(u => (
@@ -201,9 +208,16 @@ export default function GerenciarUsuarios() {
                   padding: '12px 16px', cursor: 'pointer', borderBottom: '1px solid #f3f4f6',
                   background: selecionado?.uuid === u.uuid ? '#eff6ff' : 'white',
                   borderLeft: selecionado?.uuid === u.uuid ? '3px solid #2563eb' : '3px solid transparent',
+                  opacity: u.ativo === false ? 0.55 : 1,
                 }}
               >
-                <div style={{ fontWeight: 600, fontSize: 14, color: '#1e2a3b' }}>{u.nome || '(sem nome)'}</div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                  <div style={{ fontWeight: 600, fontSize: 14, color: '#1e2a3b' }}>{u.nome || '(sem nome)'}</div>
+                  {u.ativo === false && (
+                    <span style={{ fontSize: 10, fontWeight: 600, color: '#dc2626', background: '#fef2f2',
+                      border: '1px solid #fecaca', borderRadius: 10, padding: '1px 6px' }}>Desativado</span>
+                  )}
+                </div>
                 <div style={{ fontSize: 12, color: '#6b7280', marginTop: 2 }}>{u.email}</div>
                 <div style={{ fontSize: 11, color: '#9ca3af', marginTop: 2 }}>{u.d_auth_roles?.name || 'Sem perfil'}</div>
               </div>
@@ -266,6 +280,12 @@ export default function GerenciarUsuarios() {
                     </select>
                   </div>
                 </div>
+
+                <label className="checkbox-grupo" style={{ marginTop: 12, flexWrap: 'wrap' }}>
+                  <input type="checkbox" checked={form.ativo} onChange={e => setForm(p => ({ ...p, ativo: e.target.checked }))} />
+                  Usuário ativo
+                  {!form.ativo && <span style={{ color: '#dc2626', fontSize: 12 }}>— não poderá fazer login enquanto desativado</span>}
+                </label>
 
                 {erro && <div className="erro-mensagem" style={{ marginTop: 12 }}>{erro}</div>}
                 {sucesso && <div style={{ marginTop: 12, color: '#16a34a', fontSize: 13 }}>{sucesso}</div>}

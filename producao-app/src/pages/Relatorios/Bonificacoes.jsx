@@ -95,11 +95,7 @@ export default function Bonificacoes() {
     setFiltroColab('')
 
     const { data, error } = await supabase
-      .from('view_prod_relatorio_colaborador')
-      .select('colaborador_id, nome_colaborador, contrato_id, desc_contrato, equipe_id, desc_equipe, tipo_equipe_id, quantidade_total_upe_por_colaborador, valor_por_colaborador, data_producao')
-      .gte('data_producao', inicio)
-      .lte('data_producao', fim)
-      .limit(20000)
+      .rpc('fn_prod_relatorio_colaboradores', { p_inicio: inicio, p_fim: fim })
 
     setCarregando(false)
     setBuscou(true)
