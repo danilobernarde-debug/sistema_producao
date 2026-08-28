@@ -4,6 +4,16 @@ import { useNavigate } from 'react-router-dom'
 // Ao fazer uma mudança relevante no sistema, adicionar uma entrada nova aqui.
 const VERSOES = [
   {
+    versao: '7491ff6',
+    data: '2026-08-28',
+    resumo: 'Preço Fixa simplificado: só Vigência Início, sem Vigência Fim',
+    itens: [
+      'O preço vigente numa data é sempre o de maior Vigência Início que seja menor ou igual a ela — não precisa mais fechar o preço anterior ao cadastrar um novo',
+      'Reajuste de Preço Fixa e Preço Fixa por Vigência: campo Vigência Fim removido da tela',
+      'Requer rodar sql_preco_fixa_sem_vigencia_fim.sql no Supabase (atualiza o trigger que resolve o preço no lançamento)',
+    ],
+  },
+  {
     versao: 'c66aeed',
     data: '2026-08-28',
     resumo: 'Reajuste de Preço Fixa por contrato',
