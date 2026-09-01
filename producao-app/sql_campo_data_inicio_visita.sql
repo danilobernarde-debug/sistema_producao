@@ -14,17 +14,24 @@
 -- de coluna nova em f_prod_registro nem código especial no
 -- formulário (CampoDinamico.jsx já renderiza tipo='data' genérico).
 --
--- Idempotente.
+-- Idempotente e seguro rodar de novo mesmo que a v1 (nome
+-- data_inicio_visita) já tenha rodado antes — renomeia em vez de
+-- duplicar.
 -- ============================================================
 
-INSERT INTO config_campos (nome, label, tipo, is_coluna_real, secao_permitida)
-SELECT 'data_inicio_visita', 'Data Início da Visita', 'data', false, 'registro'
-WHERE NOT EXISTS (SELECT 1 FROM config_campos WHERE nome = 'data_inicio_visita');
+-- 1) Renomeia se já existir com o nome antigo (v1 deste script)
+UPDATE config_campos SET nome = 'data_inicio' WHERE nome = 'data_inicio_visita';
 
+-- 2) Cria já com o nome definitivo, se ainda não existir de jeito nenhum
+INSERT INTO config_campos (nome, label, tipo, is_coluna_real, secao_permitida)
+SELECT 'data_inicio', 'Data Início da Visita', 'data', false, 'registro'
+WHERE NOT EXISTS (SELECT 1 FROM config_campos WHERE nome = 'data_inicio');
+
+-- 3) Garante o vínculo com Limpeza de Subestação (contrato 21, tipo 16)
 INSERT INTO config_campos_contrato (campo_id, contrato_id, tipo_equipe_id, secao, obrigatorio, ordem)
 SELECT cc.id, 21, 16, 'registro', false, 2
 FROM config_campos cc
-WHERE cc.nome = 'data_inicio_visita'
+WHERE cc.nome = 'data_inicio'
 AND NOT EXISTS (
   SELECT 1 FROM config_campos_contrato x
   WHERE x.campo_id = cc.id AND x.contrato_id = 21 AND x.tipo_equipe_id = 16 AND x.secao = 'registro'
@@ -34,4 +41,4 @@ AND NOT EXISTS (
 SELECT cc.id AS campo_id, cc.nome, cc.label, ccc.contrato_id, ccc.tipo_equipe_id, ccc.obrigatorio, ccc.ordem
 FROM config_campos cc
 JOIN config_campos_contrato ccc ON ccc.campo_id = cc.id
-WHERE cc.nome = 'data_inicio_visita';
+WHERE cc.nome = 'data_inicio';

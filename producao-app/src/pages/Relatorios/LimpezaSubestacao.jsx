@@ -22,7 +22,7 @@ function agruparPorRegistro(dados) {
       porRegistro.set(rid, {
         registro_id: rid,
         data: row.data_producao_original,
-        dataInicioManual: row.data_inicio_visita || null,
+        dataInicioManual: row.data_inicio || null,
         subestacao_id: row.subestacao_id,
         os: row.os || '',
         equipeRegional: row.equipe_regional || '',
@@ -52,7 +52,7 @@ function agruparPorRegistro(dados) {
 
 // Reconstrói "visitas" (1 linha = 1 OS concluída). Prioriza a Data Início
 // digitada manualmente no próprio registro de conclusão (campo dinâmico
-// data_inicio_visita); na ausência dela, cai no comportamento antigo —
+// data_inicio); na ausência dela, cai no comportamento antigo —
 // casa a conclusão com o "Em Andamento" mais recente ainda aberto da
 // mesma subestação (lançamentos anteriores a esse campo existir).
 function montarVisitas(registros) {
