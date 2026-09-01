@@ -4,6 +4,16 @@ import { useNavigate } from 'react-router-dom'
 // Ao fazer uma mudança relevante no sistema, adicionar uma entrada nova aqui.
 const VERSOES = [
   {
+    versao: '633c5c4',
+    data: '2026-08-28',
+    resumo: 'Limpeza de Subestação: Data Início da Visita digitada direto no lançamento',
+    itens: [
+      'Novo campo "Data Início da Visita" no lançamento de Limpeza de Subestação — dá pra digitar o início da visita direto no registro de conclusão, sem precisar criar um lançamento separado de "Em Andamento" só pra marcar quando começou',
+      'Elimina a ambiguidade de casar visitas pelo número da OS: o relatório de exportação passa a usar essa data quando preenchida, mantendo o pareamento antigo (por subestação + "Em Andamento" mais recente) só pros lançamentos que já existem',
+      'Requer rodar sql_campo_data_inicio_visita.sql no Supabase pra cadastrar o campo',
+    ],
+  },
+  {
     versao: 'ad1c54d',
     data: '2026-08-28',
     resumo: 'Ordenação por clique no cabeçalho das listagens',
