@@ -22,6 +22,7 @@ function agruparPorRegistro(dados) {
       porRegistro.set(rid, {
         registro_id: rid,
         data: row.data_producao_original,
+        dataInicioManual: row.data_inicio_visita || null,
         subestacao_id: row.subestacao_id,
         os: row.os || '',
         equipeRegional: row.equipe_regional || '',
@@ -49,10 +50,11 @@ function agruparPorRegistro(dados) {
   return [...porRegistro.values()]
 }
 
-// Reconstrói "visitas" (1 linha = 1 OS concluída) casando cada conclusão com o
-// "Em Andamento" mais recente ainda aberto da mesma subestação — mesma lógica
-// usada no backfill histórico, adaptada para o par Em Andamento + conclusão
-// que o lançamento atual gera (no lugar de 1 linha por dia).
+// Reconstrói "visitas" (1 linha = 1 OS concluída). Prioriza a Data Início
+// digitada manualmente no próprio registro de conclusão (campo dinâmico
+// data_inicio_visita); na ausência dela, cai no comportamento antigo —
+// casa a conclusão com o "Em Andamento" mais recente ainda aberto da
+// mesma subestação (lançamentos anteriores a esse campo existir).
 function montarVisitas(registros) {
   const porSubestacao = new Map()
   for (const r of registros) {
@@ -69,7 +71,7 @@ function montarVisitas(registros) {
       if (r.temConclusao) {
         visitas.push({
           subestacao_id: r.subestacao_id,
-          dataInicial:   pendente ? pendente.data : r.data,
+          dataInicial:   r.dataInicioManual || (pendente ? pendente.data : r.data),
           dataFinal:     r.data,
           os:            r.os || pendente?.os || '',
           equipeRegional: r.equipeRegional || pendente?.equipeRegional || '',
