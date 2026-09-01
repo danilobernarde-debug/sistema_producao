@@ -1,5 +1,5 @@
 -- ============================================================
--- Novo campo dinâmico: "Data Início da Visita"
+-- Novo campo dinâmico: "Data Início"
 -- Só pra Limpeza de Subestação (contrato 21, tipo de equipe 16).
 --
 -- Substitui a necessidade de lançar "Em Andamento - Sem Produção"
@@ -19,12 +19,13 @@
 -- duplicar.
 -- ============================================================
 
--- 1) Renomeia se já existir com o nome antigo (v1 deste script)
-UPDATE config_campos SET nome = 'data_inicio' WHERE nome = 'data_inicio_visita';
+-- 1) Renomeia/ajusta o rótulo se já existir com o nome antigo (v1 deste script)
+UPDATE config_campos SET nome = 'data_inicio', label = 'Data Início' WHERE nome = 'data_inicio_visita';
+UPDATE config_campos SET label = 'Data Início' WHERE nome = 'data_inicio' AND label <> 'Data Início';
 
--- 2) Cria já com o nome definitivo, se ainda não existir de jeito nenhum
+-- 2) Cria já com o nome/rótulo definitivos, se ainda não existir de jeito nenhum
 INSERT INTO config_campos (nome, label, tipo, is_coluna_real, secao_permitida)
-SELECT 'data_inicio', 'Data Início da Visita', 'data', false, 'registro'
+SELECT 'data_inicio', 'Data Início', 'data', false, 'registro'
 WHERE NOT EXISTS (SELECT 1 FROM config_campos WHERE nome = 'data_inicio');
 
 -- 3) Garante o vínculo com Limpeza de Subestação (contrato 21, tipo 16)
