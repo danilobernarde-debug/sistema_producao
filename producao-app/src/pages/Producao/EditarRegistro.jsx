@@ -455,7 +455,7 @@ export default function EditarRegistro() {
 
     setSalvando(true)
     try {
-      await supabase.from('f_prod_registro').update({
+      const { error: erReg } = await supabase.from('f_prod_registro').update({
         data_producao: dataProducao,
         equipe_id: contrato?.logica_contrato ? null : (equipeId ? Number(equipeId) : null),
         encarregado_id: encarregadoId ? Number(encarregadoId) : null,
@@ -463,9 +463,12 @@ export default function EditarRegistro() {
         obra_id: obraId ? Number(obraId) : null,
         metadata_registro: metaRegistro,
       }).eq('id', id)
+      if (erReg) throw erReg
 
-      await supabase.from('f_prod_atividades').delete().eq('registro_id', id)
-      await supabase.from('f_prod_atividades').insert(itens.map(it => {
+      const { error: erDelAtiv } = await supabase.from('f_prod_atividades').delete().eq('registro_id', id)
+      if (erDelAtiv) throw erDelAtiv
+
+      const { error: erAtiv } = await supabase.from('f_prod_atividades').insert(itens.map(it => {
         const atv = atividades.find(a => String(a.id) === String(it.atividade_id))
         const temDadosLCSave = Number(it.comprimento) > 0 || Number(it.largura) > 0
         const usaLC = atv?.comprimento_lagura && (temDadosLCSave || !it.id)
@@ -486,8 +489,10 @@ export default function EditarRegistro() {
           origem: 'sistema-claude',
         }
       }))
+      if (erAtiv) throw erAtiv
 
-      await supabase.from('f_prod_colaboradores').delete().eq('registro_id', id)
+      const { error: erDelColabs } = await supabase.from('f_prod_colaboradores').delete().eq('registro_id', id)
+      if (erDelColabs) throw erDelColabs
 
       let presenca = []
       if (contrato?.logica_contrato) {

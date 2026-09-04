@@ -369,7 +369,7 @@ export default function NovoRegistro() {
         }).select('id').single()
       if (erReg) throw erReg
 
-      await supabase.from('f_prod_atividades').insert(
+      const { error: erAtiv } = await supabase.from('f_prod_atividades').insert(
         itens.map(it => {
           const atv = atividades.find(a => String(a.id) === String(it.atividade_id))
           const usaLC = atv?.comprimento_lagura
@@ -391,6 +391,7 @@ export default function NovoRegistro() {
           }
         })
       )
+      if (erAtiv) throw erAtiv
 
       let presenca = []
       if (contrato?.logica_contrato) {
