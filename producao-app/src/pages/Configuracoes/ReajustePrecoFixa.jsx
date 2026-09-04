@@ -51,7 +51,7 @@ export default function ReajustePrecoFixa() {
     let precos = []
     if (ids.length > 0) {
       const { data } = await supabase
-        .from('d_atividades_preco_fixa')
+        .from('d_atividades_preco_fixo')
         .select('atividade_id, valor, vigencia_inicio')
         .in('atividade_id', ids)
         .order('vigencia_inicio', { ascending: false })
@@ -115,7 +115,7 @@ export default function ReajustePrecoFixa() {
     for (const l of linhasAlteradas) {
       const novoValor = arredondar(Number(String(l.novoValor).replace(',', '.')))
       const { error } = await supabase
-        .from('d_atividades_preco_fixa')
+        .from('d_atividades_preco_fixo')
         .insert({ atividade_id: l.atividade_id, valor: novoValor, vigencia_inicio: dataReajuste })
       if (error) erros++
     }

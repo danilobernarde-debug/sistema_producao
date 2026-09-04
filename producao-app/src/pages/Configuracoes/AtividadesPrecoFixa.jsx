@@ -59,7 +59,7 @@ export default function AtividadesPrecoFixa() {
     let precos = []
     if (ids.length) {
       const { data } = await supabase
-        .from('d_atividades_preco_fixa')
+        .from('d_atividades_preco_fixo')
         .select('id, atividade_id, valor, vigencia_inicio')
         .in('atividade_id', ids)
         .order('vigencia_inicio', { ascending: false })
@@ -108,8 +108,8 @@ export default function AtividadesPrecoFixa() {
       vigencia_inicio: modalPreco.vigencia_inicio,
     }
     const { error } = modalPreco.id
-      ? await supabase.from('d_atividades_preco_fixa').update(payload).eq('id', modalPreco.id)
-      : await supabase.from('d_atividades_preco_fixa').insert(payload)
+      ? await supabase.from('d_atividades_preco_fixo').update(payload).eq('id', modalPreco.id)
+      : await supabase.from('d_atividades_preco_fixo').insert(payload)
     setSalvando(false)
 
     if (error) {
@@ -124,7 +124,7 @@ export default function AtividadesPrecoFixa() {
   }
 
   async function excluirPreco() {
-    const { error } = await supabase.from('d_atividades_preco_fixa').delete().eq('id', confirmarExcluir.id)
+    const { error } = await supabase.from('d_atividades_preco_fixo').delete().eq('id', confirmarExcluir.id)
     setConfirmarExcluir(null)
     if (error) { mostrarToast('Erro ao excluir'); return }
     mostrarToast('Preço excluído')

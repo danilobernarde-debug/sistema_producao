@@ -213,7 +213,7 @@ export default function EditarRegistro() {
     const idsFixa = ativsCarregadas.filter(a => a.tipo_preco === 'fixo').map(a => a.id)
     if (idsFixa.length) {
       const { data: precos } = await supabase
-        .from('d_atividades_preco_fixa').select('atividade_id, valor, vigencia_inicio')
+        .from('d_atividades_preco_fixo').select('atividade_id, valor, vigencia_inicio')
         .in('atividade_id', idsFixa)
       setPrecosFixa(precos || [])
     } else {

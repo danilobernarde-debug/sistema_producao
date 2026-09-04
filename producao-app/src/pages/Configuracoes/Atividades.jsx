@@ -137,7 +137,7 @@ export default function Atividades() {
       .filter(a => a.tipo_preco === 'fixo' && a.upe != null)
       .map(a => ({ atividade_id: a.id, valor: a.upe, vigencia_inicio: '2000-01-01' }))
     if (precosFixa.length) {
-      await supabase.from('d_atividades_preco_fixa').insert(precosFixa)
+      await supabase.from('d_atividades_preco_fixo').insert(precosFixa)
     }
 
     setImportando(false)
