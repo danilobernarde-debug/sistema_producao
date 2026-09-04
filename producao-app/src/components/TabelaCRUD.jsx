@@ -4,6 +4,12 @@ import { supabase } from '../supabaseClient'
 
 const POR_PAGINA = 30
 
+function formatarDataBR(v) {
+  if (!v) return '-'
+  const [a, m, dia] = v.split('-')
+  return `${dia}/${m}/${a}`
+}
+
 function traduzirErro(mensagem, colunas) {
   const nullMatch = mensagem.match(/null value in column "([^"]+)"/)
   if (nullMatch) {
@@ -35,6 +41,7 @@ export default function TabelaCRUD({
   voltarPara,
   filtros = [], // nomes de colunas tipo 'select' que viram dropdowns de filtro
   botoesExtra = null,
+  abaixoHeader = null, // conteúdo extra renderizado logo abaixo do header (ex: abas de navegação)
 }) {
   const navegar = useNavigate()
   const [registros, setRegistros]         = useState([])
@@ -48,6 +55,7 @@ export default function TabelaCRUD({
   const [salvando, setSalvando]           = useState(false)
   const [confirmarExcluir, setConfirmarExcluir] = useState(null)
   const [opcoesSelect, setOpcoesSelect]   = useState({})
+  const [opcoesFiltroDinamico, setOpcoesFiltroDinamico] = useState({})
   const [filtrosAtivos, setFiltrosAtivos] = useState({})
   const [ordenacaoAtiva, setOrdenacaoAtiva] = useState(null) // null = usa ordenarPor padrão; ou { coluna, direcao }
   const reqId           = useRef(0)
@@ -71,33 +79,12 @@ export default function TabelaCRUD({
     })
   }, []) // eslint-disable-line
 
-  async function buscar(pag = 1, filtrosOverride = null, buscaOverride = null, ordenacaoOverride = undefined) {
-    setCarregando(true)
-    const meuReq = ++reqId.current
-    const from = (pag - 1) * POR_PAGINA
-    const to   = from + POR_PAGINA - 1
-
-    let q = supabase.from(tabela).select('*', { count: 'exact' }).range(from, to)
-    const ord = ordenacaoOverride !== undefined ? ordenacaoOverride : ordenacaoAtiva
-    if (ord) {
-      q = q.order(ord.coluna, { ascending: ord.direcao === 'asc' })
-    } else {
-      const ordens = Array.isArray(ordenarPor) ? ordenarPor : [ordenarPor]
-      ordens.forEach(col => { q = q.order(col) })
-    }
-    const buscaVal = buscaOverride ?? busca
-    if (buscaPor && buscaVal.trim()) {
-      const colBusca = colunas.find(c => c.nome === buscaPor)
-      if (colBusca?.tipo === 'numero') {
-        const num = Number(buscaVal)
-        if (!isNaN(num)) q = q.eq(buscaPor, num)
-      } else {
-        q = q.ilike(buscaPor, `%${buscaVal.trim()}%`)
-      }
-    }
-
-    const fa = filtrosOverride ?? filtrosAtivos
+  // Aplica os filtros ativos numa query, exceto o filtro `excetoNome` (usado
+  // pra calcular as opções de um filtro considerando os outros já escolhidos,
+  // sem o filtro se auto-restringir aos próprios valores já selecionados).
+  async function aplicarFiltros(q, fa, excetoNome = null) {
     for (const nome of filtros) {
+      if (nome === excetoNome) continue
       const val = fa[nome]
       if (val === '' || val === null || val === undefined) continue
       const col = colunas.find(c => c.nome === nome)
@@ -115,6 +102,41 @@ export default function TabelaCRUD({
       else if (col?.tipo === 'numero') { const n = Number(val); if (!isNaN(n)) q = q.eq(nome, n) }
       else q = q.eq(nome, val)
     }
+    return q
+  }
+
+  async function buscar(pag = 1, filtrosOverride = null, buscaOverride = null, ordenacaoOverride = undefined) {
+    setCarregando(true)
+    const meuReq = ++reqId.current
+    const from = (pag - 1) * POR_PAGINA
+    const to   = from + POR_PAGINA - 1
+
+    let q = supabase.from(tabela).select('*', { count: 'exact' }).range(from, to)
+    const ord = ordenacaoOverride !== undefined ? ordenacaoOverride : ordenacaoAtiva
+    if (ord) {
+      q = q.order(ord.coluna, { ascending: ord.direcao === 'asc' })
+      // Desempate estável: sem isso, empates na coluna ordenada podem sair em
+      // ordem diferente a cada página (o banco não garante ordem entre empates),
+      // fazendo a lista parecer "desordenar" ao paginar.
+      if (ord.coluna !== chavePrimaria) q = q.order(chavePrimaria, { ascending: true })
+    } else {
+      const ordens = Array.isArray(ordenarPor) ? ordenarPor : [ordenarPor]
+      ordens.forEach(col => { q = q.order(col) })
+      if (!ordens.includes(chavePrimaria)) q = q.order(chavePrimaria, { ascending: true })
+    }
+    const buscaVal = buscaOverride ?? busca
+    if (buscaPor && buscaVal.trim()) {
+      const colBusca = colunas.find(c => c.nome === buscaPor)
+      if (colBusca?.tipo === 'numero') {
+        const num = Number(buscaVal)
+        if (!isNaN(num)) q = q.eq(buscaPor, num)
+      } else {
+        q = q.ilike(buscaPor, `%${buscaVal.trim()}%`)
+      }
+    }
+
+    const fa = filtrosOverride ?? filtrosAtivos
+    q = await aplicarFiltros(q, fa)
 
     const { data, count } = await q
     if (meuReq !== reqId.current) return  // resposta antiga, descarta
@@ -124,6 +146,23 @@ export default function TabelaCRUD({
   }
 
   useEffect(() => { buscar(pagina) }, [pagina])  // eslint-disable-line
+
+  // Para filtros de data marcados com `opcoesDinamicas`: busca os valores
+  // realmente existentes na tabela (respeitando os demais filtros ativos,
+  // ex: contrato selecionado), pra virar um dropdown em vez de date picker livre.
+  useEffect(() => {
+    const colsDinamicas = filtros.map(n => colunas.find(c => c.nome === n)).filter(c => c?.opcoesDinamicas)
+    if (!colsDinamicas.length) return
+    colsDinamicas.forEach(async col => {
+      let q = supabase.from(tabela).select(col.nome)
+      q = await aplicarFiltros(q, filtrosAtivos, col.nome)
+      const { data } = await q
+      const valores = [...new Set((data || []).map(r => r[col.nome]).filter(v => v !== null && v !== undefined))].sort()
+      setOpcoesFiltroDinamico(prev => ({ ...prev, [col.nome]: valores }))
+      const atual = filtrosAtivos[col.nome]
+      if (atual && !valores.includes(atual)) mudarFiltro(col.nome, '')
+    })
+  }, [filtrosAtivos]) // eslint-disable-line
 
   useEffect(() => {
     const buscaAtual = busca
@@ -232,11 +271,7 @@ export default function TabelaCRUD({
       const opts = opcoesSelect[col.nome] || []
       return opts.find(o => String(o.valor) === String(v))?.label ?? v ?? '-'
     }
-    if (col.tipo === 'data') {
-      if (!v) return '-'
-      const [a, m, dia] = v.split('-')
-      return `${dia}/${m}/${a}`
-    }
+    if (col.tipo === 'data') return formatarDataBR(v)
     return v ?? '-'
   }
 
@@ -257,6 +292,8 @@ export default function TabelaCRUD({
           <button className="btn btn-primario" onClick={abrirNovo}>+ Novo</button>
         </div>
       </div>
+
+      {abaixoHeader}
 
       {(buscaPor || filtros.length > 0) && (
         <div className="card" style={{ marginBottom: 16 }}>
@@ -298,6 +335,22 @@ export default function TabelaCRUD({
                 )
               }
               if (col?.tipo === 'data') {
+                if (col?.opcoesDinamicas) {
+                  const valoresData = opcoesFiltroDinamico[nome] || []
+                  return (
+                    <select
+                      key={nome}
+                      className="campo-select"
+                      style={{ flex: 1, minWidth: 160 }}
+                      title={`${col?.label}${col?.ajuda ? ' — ' + col.ajuda : ''}`}
+                      value={filtrosAtivos[nome] || ''}
+                      onChange={e => mudarFiltro(nome, e.target.value)}
+                    >
+                      <option value="">Todos — {col?.label}</option>
+                      {valoresData.map(v => <option key={v} value={v}>{formatarDataBR(v)}</option>)}
+                    </select>
+                  )
+                }
                 return (
                   <input
                     key={nome}
@@ -355,7 +408,9 @@ export default function TabelaCRUD({
                   <tr>
                     {colunasTabela.map(c => (
                       <th key={c.nome} onClick={() => alternarOrdenacao(c.nome)}
-                        style={{ cursor: 'pointer', userSelect: 'none', whiteSpace: 'nowrap' }}
+                        style={{ cursor: 'pointer', userSelect: 'none', whiteSpace: 'nowrap',
+                          maxWidth: c.larguraMax, overflow: c.larguraMax ? 'hidden' : undefined,
+                          textOverflow: c.larguraMax ? 'ellipsis' : undefined }}
                         title="Clique para ordenar">
                         {c.label}
                         <span style={{ marginLeft: 4, fontSize: 10, color: ordenacaoAtiva?.coluna === c.nome ? '#1a56db' : '#d1d5db' }}>
@@ -369,7 +424,15 @@ export default function TabelaCRUD({
                 <tbody>
                   {registros.map(r => (
                     <tr key={r[chavePrimaria]}>
-                      {colunasTabela.map(c => <td key={c.nome}>{exibirValor(c, r)}</td>)}
+                      {colunasTabela.map(c => (
+                        <td key={c.nome}
+                          style={c.larguraMax ? {
+                            maxWidth: c.larguraMax, overflow: 'hidden',
+                            textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+                          } : undefined}
+                          title={c.larguraMax ? String(exibirValor(c, r)) : undefined}
+                        >{exibirValor(c, r)}</td>
+                      ))}
                       <td>
                         <div style={{ display: 'flex', gap: 6 }}>
                           <button className="btn btn-secundario" style={{ padding: '4px 10px', fontSize: 12 }}

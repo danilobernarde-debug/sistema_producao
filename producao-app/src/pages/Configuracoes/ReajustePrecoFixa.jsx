@@ -42,9 +42,9 @@ export default function ReajustePrecoFixa() {
     setCarregando(true)
     const { data: atividades } = await supabase
       .from('d_atividades')
-      .select('id, codigo_op, DESCRICAO_BASICA_SISTEMA')
+      .select('id, codigo_op, descricao')
       .eq('contrato_id', Number(contratoId))
-      .eq('tipo_upe_fixa', 'FIXA')
+      .eq('tipo_upe_fixa', 'fixo')
       .order('codigo_op')
 
     const ids = (atividades || []).map(a => a.id)
@@ -68,7 +68,7 @@ export default function ReajustePrecoFixa() {
       return {
         atividade_id: a.id,
         codigo_op: a.codigo_op,
-        descricao: a.DESCRICAO_BASICA_SISTEMA,
+        descricao: a.descricao,
         valorAtual: p?.valor ?? null,
         vigenciaInicioAtual: p?.vigencia_inicio ?? null,
         novoValor: '',
@@ -146,14 +146,14 @@ export default function ReajustePrecoFixa() {
         <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
           <button className="btn btn-secundario" onClick={() => navegar(-1)}
             style={{ padding: '6px 12px', fontSize: 13 }}>← Voltar</button>
-          <h1 className="pagina-titulo" style={{ margin: 0 }}>Reajuste de Preço Fixa</h1>
+          <h1 className="pagina-titulo" style={{ margin: 0 }}>Reajuste de Preço Fixo</h1>
         </div>
       </div>
 
       <div className="card" style={{ marginBottom: 16, background: '#f0f9ff', border: '1px solid #bae6fd' }}>
         <div style={{ fontSize: 13, color: '#374151', lineHeight: 1.7 }}>
-          Só mostra atividades do tipo <strong>FIXA</strong> (preço fixo unitário) do contrato selecionado.
-          Atividades do tipo <strong>UPE</strong> usam a tela de Preço UPE, não esta aqui.
+          Só mostra atividades do tipo <strong>Fixo</strong> (preço fixo unitário) do contrato selecionado.
+          Atividades do tipo <strong>UPE</strong> (Unidade Padrão de Execução) usam a tela de Preço UPE, não esta aqui.
           Ao salvar, um novo preço passa a valer a partir da data do reajuste — o preço anterior fica registrado no histórico automaticamente, não precisa fechar vigência manualmente.
         </div>
       </div>
@@ -192,13 +192,13 @@ export default function ReajustePrecoFixa() {
       <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
         {!contratoId ? (
           <div style={{ padding: 40, textAlign: 'center', color: '#9ca3af', fontSize: 13 }}>
-            Selecione um contrato para ver as atividades FIXA.
+            Selecione um contrato para ver as atividades do tipo Fixo.
           </div>
         ) : carregando ? (
           <div style={{ padding: 40, textAlign: 'center', color: '#9ca3af', fontSize: 13 }}>Carregando...</div>
         ) : linhas.length === 0 ? (
           <div style={{ padding: 40, textAlign: 'center', color: '#9ca3af', fontSize: 13 }}>
-            Nenhuma atividade FIXA cadastrada para este contrato.
+            Nenhuma atividade do tipo Fixo cadastrada para este contrato.
           </div>
         ) : (
           <div style={{ overflowX: 'auto' }}>

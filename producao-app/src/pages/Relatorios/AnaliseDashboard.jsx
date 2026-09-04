@@ -252,7 +252,7 @@ export default function AnaliseDashboard() {
           upe: v.upe,
           preco_upe: v.preco_upe,
           quantidade: v.quantidade,
-          d_atividades: { DESCRICAO_BASICA_SISTEMA: v.desc_atividade },
+          d_atividades: { descricao: v.desc_atividade },
         })
       }
     })
@@ -479,7 +479,7 @@ export default function AnaliseDashboard() {
       prodEquipe[nome].prod += val
 
       ;(r.f_prod_atividades || []).forEach(a => {
-        const desc = a.d_atividades?.DESCRICAO_BASICA_SISTEMA || 'Sem descrição'
+        const desc = a.d_atividades?.descricao || 'Sem descrição'
         if (!atividadeMap[nome]) atividadeMap[nome] = {}
         if (!atividadeMap[nome][desc]) atividadeMap[nome][desc] = { qtd: 0, upe: 0, valor: 0 }
         atividadeMap[nome][desc].qtd   += Number(a.quantidade || 0)
@@ -541,7 +541,7 @@ export default function AnaliseDashboard() {
     const atividadesPorDia = {}
     regsEquipe.forEach(r => {
       ;(r.f_prod_atividades || []).forEach(a => {
-        const desc = a.d_atividades?.DESCRICAO_BASICA_SISTEMA || 'Sem descrição'
+        const desc = a.d_atividades?.descricao || 'Sem descrição'
         const qtd = Number(a.quantidade || 0)
         const upe = Number(a.upe || 0)
         const valor = upe * Number(a.preco_upe || 0) * qtd

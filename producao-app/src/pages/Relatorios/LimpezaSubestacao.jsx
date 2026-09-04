@@ -4,7 +4,7 @@ import { CHUNK, expandirMetadata, exportarXLSX } from './exportUtils'
 
 const COD_ROCAGEM   = new Set(['LSE-P', 'LSE-M', 'LSE-G', 'LSE-GG', 'LSE-XG'])
 const COD_CAPINA    = new Set(['CQ-CHAV', 'CQ-MT', 'CQ-AT'])
-const COD_ANDAMENTO = 'LSE-AND'
+const COD_ANDAMENTO = 'jus.232'
 
 const HEADERS = [
   'SUPERINTENDÊNCIA', 'NOME DA SUBESTAÇÃO', 'MUNICÍPIO', 'PORTE', 'OS',

@@ -17,7 +17,7 @@ function contratoParaEquipes(cid) { return IDS_FAIXA_TO.has(Number(cid)) ? 17 : 
 // contrato/tipo de equipe.
 const CODIGO_ROCAGEM_POR_PORTE = { P: 'LSE-P', M: 'LSE-M', G: 'LSE-G', GG: 'LSE-GG', XG: 'LSE-XG' }
 const CODIGO_CAPINA_POR_TIPO = { MT: 'CQ-MT', AT: 'CQ-AT', CHAVEAMENTO: 'CQ-CHAV' }
-const CODIGO_EM_ANDAMENTO = 'LSE-AND'
+const CODIGO_EM_ANDAMENTO = 'jus.232'
 
 function formatarValorMeta(v) {
   if (v === null || v === undefined || v === '') return <span style={{ color: '#9ca3af' }}>—</span>
@@ -68,6 +68,7 @@ export default function EditarRegistro() {
   const [equipesContrato, setEquipesContrato] = useState([])
   const [regionais, setRegionais] = useState([])
   const [precosUpe, setPrecosUpe] = useState([])
+  const [precosFixa, setPrecosFixa] = useState([])
 
   const [contratoId, setContratoId] = useState('')
   const [tipoEquipeId, setTipoEquipeId] = useState('')
@@ -187,12 +188,12 @@ export default function EditarRegistro() {
     const { data: te } = await supabase
       .from('d_tipo_equipe').select('grupo_atividades').eq('id', reg.tipo_equipe_id).single()
     const grupoAtiv = te?.grupo_atividades
-    const campos = 'id, codigo_op, DESCRICAO_BASICA_SISTEMA, unidade, tipo_upe_fixa, UPE, tipo_lm_lv, comprimento_lagura, referencia_codigo'
+    const campos = 'id, codigo_op, descricao, unidade, tipo_upe_fixa, upe, tipo_lm_lv, comprimento_lagura'
 
     // contrato_id = reg.contrato_id  OU  contrato_id IS NULL (aparecem para todos)
     let qAtiv = supabase.from('d_atividades').select(campos)
       .or(`contrato_id.eq.${reg.contrato_id},contrato_id.is.null`)
-      .order('DESCRICAO_BASICA_SISTEMA')
+      .order('descricao')
     qAtiv = grupoAtiv != null
       ? qAtiv.or(`tipo_equipe_id.is.null,tipo_equipe_id.eq.0,tipo_equipe_id.eq.${grupoAtiv}`)
       : qAtiv.or(`tipo_equipe_id.is.null,tipo_equipe_id.eq.0`)
@@ -208,6 +209,16 @@ export default function EditarRegistro() {
     }
 
     setAtividades(ativsCarregadas)
+
+    const idsFixa = ativsCarregadas.filter(a => a.tipo_upe_fixa === 'fixo').map(a => a.id)
+    if (idsFixa.length) {
+      const { data: precos } = await supabase
+        .from('d_atividades_preco_fixa').select('atividade_id, valor, vigencia_inicio')
+        .in('atividade_id', idsFixa)
+      setPrecosFixa(precos || [])
+    } else {
+      setPrecosFixa([])
+    }
 
     // Todos colaboradores do contrato
     const eqMap = {}
@@ -310,7 +321,7 @@ export default function EditarRegistro() {
         ].filter(Boolean))
         setItens(prev => prev.map(it => {
           const atv = atividades.find(a => String(a.id) === String(it.atividade_id))
-          const aindaValido = !atv || permitidos.has(atv.codigo_op) || atv.referencia_codigo === 'justificativa'
+          const aindaValido = !atv || permitidos.has(atv.codigo_op) || atv.tipo_upe_fixa === 'justificativa'
           return aindaValido ? it : { ...it, atividade_id: '' }
         }))
       })
@@ -527,6 +538,23 @@ export default function EditarRegistro() {
     return norm[0] || null
   }
 
+  function pickPrecoFixa(atividadeId, dataAlvo) {
+    const doAtiv = precosFixa.filter(p => p.atividade_id === atividadeId)
+    if (!doAtiv.length) return null
+    // Mesma lógica de vigência do trigger atualizar_upe_f_prod_serv: maior
+    // vigencia_inicio <= data_producao.
+    const norm = doAtiv
+      .map(r => ({ ...r, _ini: r.vigencia_inicio ? new Date(r.vigencia_inicio) : null }))
+      .filter(r => r._ini && !isNaN(r._ini))
+      .sort((a, b) => b._ini - a._ini)
+    const d = dataAlvo ? new Date(dataAlvo) : null
+    if (d && !isNaN(d)) {
+      const vigente = norm.find(r => r._ini <= d)
+      if (vigente) return vigente
+    }
+    return norm[0] || null
+  }
+
   function calcularValores(item) {
     if (!item.atividade_id) return null
     const atv = atividades.find(a => String(a.id) === String(item.atividade_id))
@@ -537,10 +565,16 @@ export default function EditarRegistro() {
       ? Number(item.largura || 0) * Number(item.comprimento || 0)
       : Number(item.quantidade || 0)
     if (qtd <= 0) return null
-    const upe = Number(atv.UPE) || 0
+    let upe = Number(atv.upe) || 0
     let precoUpe = null
-    if (atv.tipo_upe_fixa === 'FIXA') precoUpe = 1
-    else if (atv.tipo_upe_fixa === 'UPE') {
+    if (atv.tipo_upe_fixa === 'fixo' || atv.tipo_upe_fixa === 'justificativa') {
+      precoUpe = 1
+      // Preço com vigência (tela de Reajuste de Preço Fixo) tem prioridade sobre
+      // o valor estático de d_atividades.upe — mesma regra do trigger do banco.
+      const vigente = pickPrecoFixa(atv.id, dataProducao)
+      if (vigente) upe = Number(vigente.valor) || 0
+    }
+    else if (atv.tipo_upe_fixa === 'upe') {
       const vigente = pickPrecoVigente(dataProducao)
       if (!vigente) return null
       if (atv.tipo_lm_lv === 'LM') precoUpe = Number(vigente.upe_lm) || null
@@ -748,7 +782,7 @@ export default function EditarRegistro() {
                       : Number(item.quantidade || 0)
                     const vals = calcularValores(item)
                     const nomeAtv = atvSel
-                      ? (atvSel.codigo_op ? `[${atvSel.codigo_op}] ${atvSel.DESCRICAO_BASICA_SISTEMA}` : atvSel.DESCRICAO_BASICA_SISTEMA)
+                      ? (atvSel.codigo_op ? `[${atvSel.codigo_op}] ${atvSel.descricao}` : atvSel.descricao)
                       : '-'
                     return (
                       <tr key={idx}>
@@ -798,11 +832,11 @@ export default function EditarRegistro() {
                     ].filter(Boolean))
                   : null
                 const atividadesParaEscolha = codigosPermitidos
-                  ? atividades.filter(a => codigosPermitidos.has(a.codigo_op) || a.referencia_codigo === 'justificativa')
+                  ? atividades.filter(a => codigosPermitidos.has(a.codigo_op) || a.tipo_upe_fixa === 'justificativa')
                   : atividades
                 const opcoesAtividades = atividadesParaEscolha.map(a => ({
                   valor: a.id,
-                  label: a.codigo_op ? `[${a.codigo_op}] ${a.DESCRICAO_BASICA_SISTEMA}` : a.DESCRICAO_BASICA_SISTEMA,
+                  label: a.codigo_op ? `[${a.codigo_op}] ${a.descricao}` : a.descricao,
                 })).sort((a, b) => a.label.localeCompare(b.label, 'pt-BR'))
                 const atvSel = atividades.find(a => String(a.id) === String(item.atividade_id))
                 const temDadosLC = Number(item.comprimento) > 0 || Number(item.largura) > 0

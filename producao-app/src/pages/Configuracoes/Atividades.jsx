@@ -1,28 +1,29 @@
 import { useState, useEffect, useRef } from 'react'
-import { useNavigate } from 'react-router-dom'
 import * as XLSX from 'xlsx'
 import TabelaCRUD from '../../components/TabelaCRUD'
 import { Modal } from '../../components/TabelaCRUD'
+import AbasAtividades from '../../components/AbasAtividades'
 import { supabase } from '../../supabaseClient'
 
 const COLUNAS = [
   { nome: 'codigo_op',              label: 'Código OP',        tipo: 'texto',
     ajuda: 'Código da ordem de produção (exibido entre colchetes no lançamento)' },
-  { nome: 'DESCRICAO_BASICA_SISTEMA', label: 'Descrição',       tipo: 'texto',    obrigatorio: true,
+  { nome: 'descricao',              label: 'Descrição',        tipo: 'texto',    obrigatorio: true,   larguraMax: 320,
     ajuda: 'Nome da atividade exibido no lançamento de produção' },
   { nome: 'contrato_id',            label: 'Contrato',         tipo: 'select',   obrigatorio: false,
     tabela_ref: 'd_contratos', coluna_valor: 'id', coluna_label: 'descricao', pesquisavel: true,
     ajuda: 'Contrato ao qual a atividade pertence. Deixe vazio para aparecer em todos os contratos.' },
   { nome: 'unidade',                label: 'Unidade',          tipo: 'texto',
     ajuda: 'Unidade de medida da quantidade (ex: m, un, m²)' },
-  { nome: 'tipo_upe_fixa',          label: 'Tipo UPE',         tipo: 'select',
+  { nome: 'tipo_upe_fixa',          label: 'Tipo',             tipo: 'select',
     opcoes: [
-      { valor: 'UPE',  label: 'UPE — usa preço por contrato/período' },
-      { valor: 'FIXA', label: 'FIXA — preço fixo (UPE = 1)' },
+      { valor: 'upe',            label: 'UPE' },
+      { valor: 'fixo',           label: 'Fixo' },
+      { valor: 'justificativa',  label: 'Justificativa' },
     ],
-    ajuda: 'UPE: usa tabela de preço do contrato. FIXA: valor fixo unitário.' },
-  { nome: 'UPE',                    label: 'Valor UPE',        tipo: 'decimal',  ocultarLista: true,
-    ajuda: 'Valor fixo da UPE (usado apenas quando Tipo UPE = FIXA)' },
+    ajuda: 'UPE: usa tabela de preço do contrato. Fixo: valor fixo unitário. Justificativa: atividade sem produção/preço, só para registrar observação.' },
+  { nome: 'upe',                    label: 'Valor UPE',        tipo: 'decimal',  ocultarLista: true,  somenteLeitura: true,
+    ajuda: 'Valor fixo legado (usado apenas quando Tipo = Fixo ou Justificativa e não há preço cadastrado em Preço Fixo). O preço agora é gerenciado pela aba Preço Fixo, não mais por aqui.' },
   { nome: 'tipo_lm_lv',             label: 'LM / LV',          tipo: 'select',   ocultarLista: true,
     opcoes: [
       { valor: 'LM', label: 'LM — Linha de Média tensão' },
@@ -37,8 +38,8 @@ const COLUNAS = [
 
 // Colunas do modelo Excel na ordem certa
 const COLUNAS_MODELO = [
-  'codigo_op', 'DESCRICAO_BASICA_SISTEMA', 'contrato_id', 'unidade',
-  'tipo_upe_fixa', 'UPE', 'tipo_lm_lv', 'comprimento_lagura', 'tipo_equipe_id',
+  'codigo_op', 'descricao', 'contrato_id', 'unidade',
+  'tipo_upe_fixa', 'upe', 'tipo_lm_lv', 'comprimento_lagura', 'tipo_equipe_id',
 ]
 
 function baixarModelo() {
@@ -49,7 +50,6 @@ function baixarModelo() {
 }
 
 export default function Atividades() {
-  const navegar = useNavigate()
   const [modalImport, setModalImport] = useState(false)
   const [linhas, setLinhas]           = useState([])
   const [erroImport, setErroImport]   = useState('')
@@ -102,11 +102,11 @@ export default function Atividades() {
 
     return {
       codigo_op:              row['codigo_op']              || null,
-      DESCRICAO_BASICA_SISTEMA: row['DESCRICAO_BASICA_SISTEMA'] || null,
+      descricao:              row['descricao']              || null,
       contrato_id,
       unidade:                row['unidade']               || null,
       tipo_upe_fixa:          row['tipo_upe_fixa']         || null,
-      UPE:                    row['UPE'] !== '' && row['UPE'] != null ? Number(row['UPE']) : null,
+      upe:                    row['upe'] !== '' && row['upe'] != null ? Number(row['upe']) : null,
       tipo_lm_lv:             row['tipo_lm_lv']            || null,
       comprimento_lagura:     ['true','1','sim','yes'].includes(String(row['comprimento_lagura']).toLowerCase()),
       tipo_equipe_id:         row['tipo_equipe_id'] !== '' && row['tipo_equipe_id'] != null ? Number(row['tipo_equipe_id']) : null,
@@ -116,32 +116,40 @@ export default function Atividades() {
   async function importar() {
     setImportando(true)
     setErroImport('')
-    const registros = linhas.map(parseLinha).filter(r => r.DESCRICAO_BASICA_SISTEMA)
+    const registros = linhas.map(parseLinha).filter(r => r.descricao)
     if (registros.length === 0) {
       setErroImport('Nenhuma linha com Descrição preenchida encontrada.')
       setImportando(false)
       return
     }
 
-    const { error } = await supabase.from('d_atividades').insert(registros)
+    const { data, error } = await supabase.from('d_atividades').insert(registros).select('id, tipo_upe_fixa, upe')
+
+    if (error) {
+      setImportando(false)
+      setErroImport(`Erro: ${error.message}`)
+      return
+    }
+
+    // Atividades tipo Fixo com UPE preenchida já entram com o preço inicial
+    // cadastrado em Preço Fixo (vigência 01/01/2000), pra não ficar sem preço.
+    const precosFixa = (data || [])
+      .filter(a => a.tipo_upe_fixa === 'fixo' && a.upe != null)
+      .map(a => ({ atividade_id: a.id, valor: a.upe, vigencia_inicio: '2000-01-01' }))
+    if (precosFixa.length) {
+      await supabase.from('d_atividades_preco_fixa').insert(precosFixa)
+    }
+
     setImportando(false)
-
-    if (error) { setErroImport(`Erro: ${error.message}`); return }
-
-    setImportOk({ inseridos: registros.length })
+    setImportOk({ inseridos: registros.length, precos: precosFixa.length })
     setLinhas([])
     setRecarregar(r => r + 1)
   }
 
   const botoesExtra = (
-    <>
-      <button className="btn btn-secundario" onClick={() => navegar('/configuracoes/reajuste-preco-fixa')}>
-        📈 Reajuste de Preço Fixa
-      </button>
-      <button className="btn btn-secundario" onClick={abrirImport}>
-        ⬆ Importar XLSX
-      </button>
-    </>
+    <button className="btn btn-secundario" onClick={abrirImport}>
+      ⬆ Importar XLSX
+    </button>
   )
 
   return (
@@ -150,11 +158,12 @@ export default function Atividades() {
         titulo="Atividades"
         tabela="d_atividades"
         colunas={COLUNAS}
-        ordenarPor="DESCRICAO_BASICA_SISTEMA"
-        buscaPor="DESCRICAO_BASICA_SISTEMA"
+        ordenarPor="descricao"
+        buscaPor="descricao"
         voltarPara="/configuracoes"
         filtros={['contrato_id', 'tipo_upe_fixa', 'tipo_lm_lv']}
         botoesExtra={botoesExtra}
+        abaixoHeader={<AbasAtividades />}
         key={recarregar}
       />
 
@@ -172,7 +181,7 @@ export default function Atividades() {
               </ol>
               <div style={{ marginTop: 4, fontSize: 12, color: '#6b7280' }}>
                 <strong>contrato_id:</strong> ID numérico ou nome do contrato &nbsp;|&nbsp;
-                <strong>tipo_upe_fixa:</strong> UPE ou FIXA &nbsp;|&nbsp;
+                <strong>tipo_upe_fixa:</strong> upe, fixo ou justificativa &nbsp;|&nbsp;
                 <strong>tipo_lm_lv:</strong> LM ou LV &nbsp;|&nbsp;
                 <strong>comprimento_lagura:</strong> true ou false
               </div>
@@ -227,6 +236,11 @@ export default function Atividades() {
             {importOk && (
               <div style={{ background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: 8, padding: '12px 14px', color: '#16a34a', fontSize: 14 }}>
                 ✓ {importOk.inseridos} atividade{importOk.inseridos !== 1 ? 's' : ''} importada{importOk.inseridos !== 1 ? 's' : ''} com sucesso!
+                {importOk.precos > 0 && (
+                  <div style={{ fontSize: 12, marginTop: 4, color: '#166534' }}>
+                    {importOk.precos} atividade{importOk.precos !== 1 ? 's' : ''} do tipo Fixo já {importOk.precos !== 1 ? 'entraram' : 'entrou'} com preço cadastrado em Preço Fixo (vigência 01/01/2000).
+                  </div>
+                )}
               </div>
             )}
 
