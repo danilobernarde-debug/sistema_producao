@@ -44,7 +44,7 @@ export default function ReajustePrecoFixa() {
       .from('d_atividades')
       .select('id, codigo_op, descricao')
       .eq('contrato_id', Number(contratoId))
-      .eq('tipo_upe_fixa', 'fixo')
+      .eq('tipo_preco', 'fixo')
       .order('codigo_op')
 
     const ids = (atividades || []).map(a => a.id)

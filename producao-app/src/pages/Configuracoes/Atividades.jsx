@@ -15,7 +15,7 @@ const COLUNAS = [
     ajuda: 'Contrato ao qual a atividade pertence. Deixe vazio para aparecer em todos os contratos.' },
   { nome: 'unidade',                label: 'Unidade',          tipo: 'texto',
     ajuda: 'Unidade de medida da quantidade (ex: m, un, m²)' },
-  { nome: 'tipo_upe_fixa',          label: 'Tipo',             tipo: 'select',
+  { nome: 'tipo_preco',          label: 'Tipo',             tipo: 'select',
     opcoes: [
       { valor: 'upe',            label: 'UPE' },
       { valor: 'fixo',           label: 'Fixo' },
@@ -39,7 +39,7 @@ const COLUNAS = [
 // Colunas do modelo Excel na ordem certa
 const COLUNAS_MODELO = [
   'codigo_op', 'descricao', 'contrato_id', 'unidade',
-  'tipo_upe_fixa', 'upe', 'tipo_lm_lv', 'comprimento_lagura', 'tipo_equipe_id',
+  'tipo_preco', 'upe', 'tipo_lm_lv', 'comprimento_lagura', 'tipo_equipe_id',
 ]
 
 function baixarModelo() {
@@ -105,7 +105,7 @@ export default function Atividades() {
       descricao:              row['descricao']              || null,
       contrato_id,
       unidade:                row['unidade']               || null,
-      tipo_upe_fixa:          row['tipo_upe_fixa']         || null,
+      tipo_preco:          row['tipo_preco']         || null,
       upe:                    row['upe'] !== '' && row['upe'] != null ? Number(row['upe']) : null,
       tipo_lm_lv:             row['tipo_lm_lv']            || null,
       comprimento_lagura:     ['true','1','sim','yes'].includes(String(row['comprimento_lagura']).toLowerCase()),
@@ -123,7 +123,7 @@ export default function Atividades() {
       return
     }
 
-    const { data, error } = await supabase.from('d_atividades').insert(registros).select('id, tipo_upe_fixa, upe')
+    const { data, error } = await supabase.from('d_atividades').insert(registros).select('id, tipo_preco, upe')
 
     if (error) {
       setImportando(false)
@@ -134,7 +134,7 @@ export default function Atividades() {
     // Atividades tipo Fixo com UPE preenchida já entram com o preço inicial
     // cadastrado em Preço Fixo (vigência 01/01/2000), pra não ficar sem preço.
     const precosFixa = (data || [])
-      .filter(a => a.tipo_upe_fixa === 'fixo' && a.upe != null)
+      .filter(a => a.tipo_preco === 'fixo' && a.upe != null)
       .map(a => ({ atividade_id: a.id, valor: a.upe, vigencia_inicio: '2000-01-01' }))
     if (precosFixa.length) {
       await supabase.from('d_atividades_preco_fixa').insert(precosFixa)
@@ -161,7 +161,7 @@ export default function Atividades() {
         ordenarPor="descricao"
         buscaPor="descricao"
         voltarPara="/configuracoes"
-        filtros={['contrato_id', 'tipo_upe_fixa', 'tipo_lm_lv']}
+        filtros={['contrato_id', 'tipo_preco', 'tipo_lm_lv']}
         botoesExtra={botoesExtra}
         abaixoHeader={<AbasAtividades />}
         key={recarregar}
@@ -181,7 +181,7 @@ export default function Atividades() {
               </ol>
               <div style={{ marginTop: 4, fontSize: 12, color: '#6b7280' }}>
                 <strong>contrato_id:</strong> ID numérico ou nome do contrato &nbsp;|&nbsp;
-                <strong>tipo_upe_fixa:</strong> upe, fixo ou justificativa &nbsp;|&nbsp;
+                <strong>tipo_preco:</strong> upe, fixo ou justificativa &nbsp;|&nbsp;
                 <strong>tipo_lm_lv:</strong> LM ou LV &nbsp;|&nbsp;
                 <strong>comprimento_lagura:</strong> true ou false
               </div>
