@@ -4,6 +4,24 @@ import { useNavigate } from 'react-router-dom'
 // Ao fazer uma mudança relevante no sistema, adicionar uma entrada nova aqui.
 const VERSOES = [
   {
+    versao: 'd5906d1',
+    data: '2026-09-04',
+    resumo: 'Tabela renomeada: d_atividades_preco_fixa → d_atividades_preco_fixo',
+    itens: [
+      'Renomeação aplicada direto no banco (com correção da função do trigger que resolve o preço vigente no lançamento)',
+      'Sem impacto visível pra quem usa o sistema — só organização interna do banco',
+    ],
+  },
+  {
+    versao: '60c57f3',
+    data: '2026-09-04',
+    resumo: 'Trava no banco contra cadastro errado de Tipo e LM/LV em Atividades',
+    itens: [
+      'd_atividades.tipo_preco só aceita upe, fixo ou justificativa; tipo_lm_lv só aceita LM ou LV',
+      'Protege principalmente a importação por XLSX, que aceitava qualquer texto nessas colunas — agora um erro de digitação é barrado na hora em vez de entrar errado silenciosamente',
+    ],
+  },
+  {
     versao: 'f561f46',
     data: '2026-09-04',
     resumo: 'Correção crítica: lançamento de produção estava salvando sem atividade',
