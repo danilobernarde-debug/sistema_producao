@@ -4,6 +4,39 @@ import { useNavigate } from 'react-router-dom'
 // Ao fazer uma mudança relevante no sistema, adicionar uma entrada nova aqui.
 const VERSOES = [
   {
+    versao: 'f561f46',
+    data: '2026-09-04',
+    resumo: 'Correção crítica: lançamento de produção estava salvando sem atividade',
+    itens: [
+      'Um trigger do banco (atualizar_is_justificativa) ainda dependia da coluna d_atividades.referencia_codigo, removida anteriormente — isso bloqueava toda inserção de atividade em Novo Registro/Editar Registro, silenciosamente',
+      'Corrigido o trigger direto no banco (sql_corrigir_trigger_is_justificativa.sql) pra usar tipo_preco no lugar',
+      'Novo Registro e Editar Registro agora verificam erro ao salvar as atividades do registro — se algo falhar, mostra aviso em vez de salvar o registro incompleto sem avisar',
+    ],
+  },
+  {
+    versao: '5d16489',
+    data: '2026-09-04',
+    resumo: 'Coluna tipo_upe_fixa renomeada para tipo_preco',
+    itens: [
+      'Nome mais claro pro que a coluna representa hoje (3 valores: upe, fixo, justificativa — não só upe/fixa como antes)',
+      'Requer rodar sql_renomear_tipo_upe_fixa.sql no Supabase',
+    ],
+  },
+  {
+    versao: '25f2cc1',
+    data: '2026-09-04',
+    resumo: 'Telas dedicadas de Preço Fixo/UPE, abas de navegação e renomeação de colunas em Atividades',
+    itens: [
+      'Preço Fixo e Preço UPE viraram telas dedicadas (agrupadas por atividade/contrato, preço vigente em destaque, agendados e histórico recolhível), no lugar da tabela genérica de antes',
+      'Abas de navegação (Cadastro / Preço Fixo / Preço UPE) compartilhadas entre as telas de Atividades — removidas dos cards separados em Configurações',
+      'Novo Registro/Editar Registro passam a resolver o preço Fixo pela vigência cadastrada (igual já fazia com UPE), em vez de sempre usar o valor estático da atividade',
+      'Migrado o conceito de "atividade de justificativa" (antes na coluna removida referencia_codigo) para tipo_preco = \'justificativa\'; código da atividade "Em Andamento" da Limpeza de Subestação virou jus.232',
+      'Tabelas com ordenação por cabeçalho agora têm desempate estável (evita linha repetida/sumida ao paginar) e suporte a largura máxima de coluna',
+      'Renomeadas as colunas de d_atividades: DESCRICAO_BASICA_SISTEMA → descricao, UPE → upe, ADICIONAL_30 → adicional_30, e os valores FIXA → fixo / UPE → upe',
+      'Requer ter rodado sql_renomear_colunas_atividades.sql (e sql_migrar_justificativa_para_tipo_upe_fixa.sql) no Supabase',
+    ],
+  },
+  {
     versao: '633c5c4',
     data: '2026-08-28',
     resumo: 'Limpeza de Subestação: Data Início da Visita digitada direto no lançamento',
