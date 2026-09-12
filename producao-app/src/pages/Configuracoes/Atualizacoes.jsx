@@ -4,6 +4,44 @@ import { useNavigate } from 'react-router-dom'
 // Ao fazer uma mudança relevante no sistema, adicionar uma entrada nova aqui.
 const VERSOES = [
   {
+    versao: '03a3b56',
+    data: '2026-09-12',
+    resumo: 'Grupo Equipe vira select e Contrato obrigatório condicional em Atividades',
+    itens: [
+      'Campo "Grupo Equipe (opcional)" deixa de ser número livre e passa a ser select pesquisável com as opções de d_tipo_equipe',
+      'Contrato passa a ser obrigatório ao cadastrar/editar atividade, exceto quando Tipo = Justificativa',
+      'Importação por XLSX aplica a mesma regra: bloqueia o import inteiro e lista as linhas sem contrato quando tipo_preco é upe ou fixo',
+    ],
+  },
+  {
+    versao: '985beff',
+    data: '2026-09-12',
+    resumo: 'Mantém contrato selecionado ao ir de Preço Fixo pra Reajuste',
+    itens: [
+      'Botão "Reajuste de Preço Fixo" leva o contrato selecionado via query string, que a tela de Reajuste já lê na inicialização',
+      'Ícone de ajuda ao lado do título de Reajuste de Preço Fixo, abrindo modal com a explicação — substitui o card de aviso fixo abaixo do título',
+    ],
+  },
+  {
+    versao: 'a7edff8',
+    data: '2026-09-12',
+    resumo: 'Resumo em PDF/imagem no lançamento e correção da impressão',
+    itens: [
+      'Ações "Resumo (PDF)" e "Resumo (imagem)" em cada lançamento de produção, substituindo a antiga ação "Imprimir"',
+      'A impressão (window.print) tinha um bug de paginação: containers flex não quebram entre páginas, jogando todo o conteúdo pra folha 2',
+      'Mantido fix de @media print (display:block nesses containers) pra impressão manual via Ctrl+P',
+    ],
+  },
+  {
+    versao: '15c80b7',
+    data: '2026-09-12',
+    resumo: 'Restaura Painel de Equipes e enriquece Produção Detalhada no Dashboard',
+    itens: [
+      'Nova tela /relatorios/painel: status de cada equipe (parada, paralisada, % da meta) no período, com colaboradores e justificativas/observações',
+      'Aba "Produção Detalhada" do Dashboard: agrupamento por contrato, dias trabalhados, encarregado, meta e % de atingimento por equipe, colaboradores expansíveis',
+    ],
+  },
+  {
     versao: 'd5906d1',
     data: '2026-09-04',
     resumo: 'Tabela renomeada: d_atividades_preco_fixa → d_atividades_preco_fixo',
