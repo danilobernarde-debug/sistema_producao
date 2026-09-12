@@ -10,10 +10,35 @@ function arredondar(n) {
   return Math.round(Number(n) * 100) / 100
 }
 
+function PainelInfo({ aberto, onFechar }) {
+  if (!aberto) return null
+  return (
+    <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.45)', zIndex: 2000, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+      onClick={onFechar}>
+      <div style={{ background: 'white', borderRadius: 12, padding: 28, width: 460, maxWidth: '94vw', boxShadow: '0 8px 32px rgba(0,0,0,0.2)' }}
+        onClick={e => e.stopPropagation()}>
+
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
+          <div style={{ fontSize: 16, fontWeight: 700, color: '#1e2a3b' }}>Como funciona o Reajuste de Preço Fixo</div>
+          <button onClick={onFechar} style={{ background: 'none', border: 'none', fontSize: 20, cursor: 'pointer', color: '#9ca3af', lineHeight: 1 }}>×</button>
+        </div>
+
+        <div style={{ fontSize: 13, color: '#374151', lineHeight: 1.7, background: '#f0f9ff', border: '1px solid #bae6fd', borderRadius: 8, padding: '12px 16px' }}>
+          Só mostra atividades do tipo <strong>Fixo</strong> (preço fixo unitário) do contrato selecionado. Atividades do tipo <strong>UPE</strong> (Unidade Padrão de Execução) usam a tela de Preço UPE, não esta aqui. Ao salvar, um novo preço passa a valer a partir da data do reajuste — o preço anterior fica registrado no histórico automaticamente, não precisa fechar vigência manualmente.
+        </div>
+
+        <div style={{ marginTop: 22, display: 'flex', justifyContent: 'flex-end' }}>
+          <button className="btn btn-primario" onClick={onFechar}>Entendi</button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 export default function ReajustePrecoFixa() {
   const navegar = useNavigate()
   const [contratos, setContratos] = useState([])
-  const [contratoId, setContratoId] = useState('')
+  const [contratoId, setContratoId] = useState(() => new URLSearchParams(window.location.search).get('contrato') || '')
   const [linhas, setLinhas] = useState([])          // [{ atividade_id, codigo_op, descricao, precoAtualId, valorAtual, vigenciaInicioAtual, novoValor }]
   const [carregando, setCarregando] = useState(false)
   const [dataReajuste, setDataReajuste] = useState('')
@@ -21,6 +46,7 @@ export default function ReajustePrecoFixa() {
   const [salvando, setSalvando] = useState(false)
   const [erro, setErro] = useState('')
   const [toast, setToast] = useState(null)
+  const [painelInfo, setPainelInfo] = useState(false)
 
   useEffect(() => {
     supabase.from('d_contratos').select('id, descricao').order('descricao').then(({ data }) => setContratos(data || []))
@@ -131,6 +157,8 @@ export default function ReajustePrecoFixa() {
 
   return (
     <div className="pagina">
+      <PainelInfo aberto={painelInfo} onFechar={() => setPainelInfo(false)} />
+
       {toast && (
         <div style={{
           position: 'fixed', bottom: 28, right: 28, zIndex: 9999,
@@ -147,14 +175,11 @@ export default function ReajustePrecoFixa() {
           <button className="btn btn-secundario" onClick={() => navegar(-1)}
             style={{ padding: '6px 12px', fontSize: 13 }}>← Voltar</button>
           <h1 className="pagina-titulo" style={{ margin: 0 }}>Reajuste de Preço Fixo</h1>
-        </div>
-      </div>
-
-      <div className="card" style={{ marginBottom: 16, background: '#f0f9ff', border: '1px solid #bae6fd' }}>
-        <div style={{ fontSize: 13, color: '#374151', lineHeight: 1.7 }}>
-          Só mostra atividades do tipo <strong>Fixo</strong> (preço fixo unitário) do contrato selecionado.
-          Atividades do tipo <strong>UPE</strong> (Unidade Padrão de Execução) usam a tela de Preço UPE, não esta aqui.
-          Ao salvar, um novo preço passa a valer a partir da data do reajuste — o preço anterior fica registrado no histórico automaticamente, não precisa fechar vigência manualmente.
+          <button
+            onClick={() => setPainelInfo(true)}
+            title="Como funciona"
+            style={{ background: 'none', border: '1.5px solid #60a5fa', borderRadius: '50%', width: 24, height: 24, cursor: 'pointer', fontSize: 13, color: '#60a5fa', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, fontWeight: 700, lineHeight: 1 }}
+          >ℹ</button>
         </div>
       </div>
 

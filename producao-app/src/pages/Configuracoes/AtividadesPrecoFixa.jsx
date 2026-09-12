@@ -150,7 +150,9 @@ export default function AtividadesPrecoFixa() {
             style={{ padding: '6px 12px', fontSize: 13 }}>← Voltar</button>
           <h1 className="pagina-titulo" style={{ margin: 0 }}>Preço Fixo por Vigência</h1>
         </div>
-        <button className="btn btn-secundario" onClick={() => navegar('/configuracoes/reajuste-preco-fixa')}>
+        <button className="btn btn-secundario" onClick={() => navegar(
+          contratoId ? `/configuracoes/reajuste-preco-fixa?contrato=${contratoId}` : '/configuracoes/reajuste-preco-fixa'
+        )}>
           📈 Reajuste de Preço Fixo
         </button>
       </div>
