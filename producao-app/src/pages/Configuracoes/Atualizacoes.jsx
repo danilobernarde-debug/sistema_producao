@@ -4,6 +4,23 @@ import { useNavigate } from 'react-router-dom'
 // Ao fazer uma mudança relevante no sistema, adicionar uma entrada nova aqui.
 const VERSOES = [
   {
+    versao: '10599aa',
+    data: '2026-09-12',
+    resumo: 'Corrige erro de permissão em Bonificações',
+    itens: [
+      'Bonificações consultava a view_prod_relatorio_colaborador diretamente, cujo acesso foi revogado numa migração de segurança anterior — passou a dar "permission denied for view" pra qualquer usuário',
+      'Agora usa a função fn_prod_relatorio_colaboradores (mesma RPC segura que o Painel de Equipes já usa)',
+    ],
+  },
+  {
+    versao: 'b69d715',
+    data: '2026-09-12',
+    resumo: 'Ícone de ajuda no Painel de Equipes',
+    itens: [
+      'Explica como PARADO e PARALISADA são calculados, as faixas de cor por % da meta, o período padrão e os ícones de cada card',
+    ],
+  },
+  {
     versao: '03a3b56',
     data: '2026-09-12',
     resumo: 'Grupo Equipe vira select e Contrato obrigatório condicional em Atividades',
