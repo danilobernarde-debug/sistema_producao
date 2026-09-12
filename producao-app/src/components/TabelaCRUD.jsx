@@ -552,7 +552,7 @@ function InfoTooltip({ texto }) {
           background: '#1e2a3b', color: 'white', borderRadius: 6,
           padding: '7px 11px', fontSize: 12, zIndex: 9999,
           boxShadow: '0 4px 12px rgba(0,0,0,0.25)',
-          width: TOOLTIP_W, whiteSpace: 'normal', lineHeight: 1.5,
+          width: TOOLTIP_W, whiteSpace: 'pre-line', lineHeight: 1.5,
           pointerEvents: 'none',
         }}>
           {texto}

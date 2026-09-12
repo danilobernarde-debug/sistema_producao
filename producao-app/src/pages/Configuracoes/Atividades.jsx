@@ -23,8 +23,10 @@ const COLUNAS = [
       { valor: 'justificativa',  label: 'Justificativa' },
     ],
     ajuda: 'UPE: usa tabela de preço do contrato. Fixo: valor fixo unitário. Justificativa: atividade sem produção/preço, só para registrar observação.' },
-  { nome: 'upe',                    label: 'Valor UPE',        tipo: 'decimal',  ocultarLista: true,  somenteLeitura: true,
-    ajuda: 'Valor fixo legado (usado apenas quando Tipo = Fixo ou Justificativa e não há preço cadastrado em Preço Fixo). O preço agora é gerenciado pela aba Preço Fixo, não mais por aqui.' },
+  { nome: 'upe',                    label: 'UPE da atividade', tipo: 'decimal', ocultarLista: true,
+    obrigatorio: form => form.tipo_preco === 'upe',
+    visibleWhen: { campo: 'tipo_preco', valor: 'upe' },
+    ajuda: 'Quantidade de UPE (Unidade Padrão de Execução) correspondente à execução de uma unidade desta atividade, conforme definido na tabela contratual.\n\nEsse índice será utilizado para calcular a produção total da atividade:\n\nUPE Total = Quantidade Executada × UPE da Atividade' },
   { nome: 'tipo_lm_lv',             label: 'LM / LV',          tipo: 'select',   ocultarLista: true,
     opcoes: [
       { valor: 'LM', label: 'LM — Linha de Média tensão' },
