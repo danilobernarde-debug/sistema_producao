@@ -10,9 +10,10 @@ const COLUNAS = [
     ajuda: 'Código da ordem de produção (exibido entre colchetes no lançamento)' },
   { nome: 'descricao',              label: 'Descrição',        tipo: 'texto',    obrigatorio: true,   larguraMax: 320,
     ajuda: 'Nome da atividade exibido no lançamento de produção' },
-  { nome: 'contrato_id',            label: 'Contrato',         tipo: 'select',   obrigatorio: false,
+  { nome: 'contrato_id',            label: 'Contrato',         tipo: 'select',
+    obrigatorio: form => form.tipo_preco !== 'justificativa',
     tabela_ref: 'd_contratos', coluna_valor: 'id', coluna_label: 'descricao', pesquisavel: true,
-    ajuda: 'Contrato ao qual a atividade pertence. Deixe vazio para aparecer em todos os contratos.' },
+    ajuda: 'Contrato ao qual a atividade pertence. Obrigatório para atividades do tipo UPE ou Fixo. Atividades de Justificativa podem ficar sem contrato (aparecem em todos).' },
   { nome: 'unidade',                label: 'Unidade',          tipo: 'texto',
     ajuda: 'Unidade de medida da quantidade (ex: m, un, m²)' },
   { nome: 'tipo_preco',          label: 'Tipo',             tipo: 'select',
@@ -32,8 +33,9 @@ const COLUNAS = [
     ajuda: 'Define qual preço UPE usar (LM ou LV). Relevante quando Tipo UPE = UPE.' },
   { nome: 'comprimento_lagura',     label: 'Usa C × L',        tipo: 'checkbox', ocultarLista: true,
     ajuda: 'Quando marcado, a quantidade é calculada como Comprimento × Largura' },
-  { nome: 'tipo_equipe_id',         label: 'Grupo Equipe',     tipo: 'numero',   ocultarLista: true,
-    ajuda: 'Código do grupo de equipe. Use 0 ou deixe vazio para aparecer para todos os tipos de equipe.' },
+  { nome: 'tipo_equipe_id',         label: 'Grupo Equipe (opcional)', tipo: 'select', ocultarLista: true,
+    tabela_ref: 'd_tipo_equipe', coluna_valor: 'id', coluna_label: 'descricao', pesquisavel: true,
+    ajuda: 'Grupo de equipe. Deixe vazio para aparecer para todos os tipos de equipe.' },
 ]
 
 // Colunas do modelo Excel na ordem certa
@@ -123,6 +125,20 @@ export default function Atividades() {
       return
     }
 
+    // Contrato é obrigatório pra atividades UPE/Fixo — só Justificativa pode
+    // ficar sem contrato (fica visível em todos, é o comportamento esperado).
+    const semContrato = registros
+      .map((r, i) => ({ ...r, _linha: i + 2 })) // +2: cabeçalho (linha 1) + índice 1-based
+      .filter(r => r.tipo_preco !== 'justificativa' && !r.contrato_id)
+    if (semContrato.length > 0) {
+      setErroImport(
+        `Contrato é obrigatório para atividades do tipo UPE ou Fixo (deixe em branco só para Justificativa). ` +
+        `Linha${semContrato.length > 1 ? 's' : ''} da planilha sem contrato: ${semContrato.map(r => r._linha).join(', ')}.`
+      )
+      setImportando(false)
+      return
+    }
+
     const { data, error } = await supabase.from('d_atividades').insert(registros).select('id, tipo_preco, upe')
 
     if (error) {
@@ -184,6 +200,9 @@ export default function Atividades() {
                 <strong>tipo_preco:</strong> upe, fixo ou justificativa &nbsp;|&nbsp;
                 <strong>tipo_lm_lv:</strong> LM ou LV &nbsp;|&nbsp;
                 <strong>comprimento_lagura:</strong> true ou false
+              </div>
+              <div style={{ marginTop: 6, fontSize: 12, color: '#b45309' }}>
+                ⚠ contrato_id é obrigatório para tipo_preco = upe ou fixo. Só pode ficar em branco quando tipo_preco = justificativa.
               </div>
               <button className="btn btn-secundario" style={{ marginTop: 10, fontSize: 12 }} onClick={baixarModelo}>
                 ⬇ Baixar modelo .xlsx

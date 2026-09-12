@@ -4,6 +4,13 @@ import { supabase } from '../supabaseClient'
 
 const POR_PAGINA = 30
 
+// campo.obrigatorio pode ser um booleano fixo ou uma função (form) => boolean,
+// pra campos cuja obrigatoriedade depende do valor de outro campo (ex: Contrato
+// só é obrigatório quando Tipo não é "justificativa").
+function ehObrigatorio(campo, form) {
+  return typeof campo.obrigatorio === 'function' ? campo.obrigatorio(form) : !!campo.obrigatorio
+}
+
 function formatarDataBR(v) {
   if (!v) return '-'
   const [a, m, dia] = v.split('-')
@@ -223,7 +230,7 @@ export default function TabelaCRUD({
 
   function validar() {
     const e = {}
-    colunas.filter(c => c.obrigatorio).forEach(c => {
+    colunas.filter(c => ehObrigatorio(c, form)).forEach(c => {
       const v = form[c.nome]
       if (v === '' || v === null || v === undefined) e[c.nome] = 'Campo obrigatório'
     })
@@ -478,7 +485,7 @@ export default function TabelaCRUD({
             return (
               <CampoForm
                 key={c.nome}
-                campo={c}
+                campo={{ ...c, obrigatorio: ehObrigatorio(c, form) }}
                 valor={form[c.nome]}
                 erro={erros[c.nome]}
                 opcoes={opcoesSelect[c.nome] || []}
