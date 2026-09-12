@@ -489,8 +489,21 @@ body {
     display: none !important;
   }
 
+  /* .layout e .layout-conteudo são flex containers — itens flex não quebram entre
+     páginas de impressão (viram um bloco atômico), o que empurrava todo o conteúdo
+     da página para a folha seguinte, deixando a primeira só com o título. */
+  .layout,
+  .layout-conteudo {
+    display: block !important;
+    min-height: 0 !important;
+  }
+
   .layout-conteudo {
     margin-left: 0 !important;
+  }
+
+  .pagina {
+    flex: none !important;
   }
 
   .card {

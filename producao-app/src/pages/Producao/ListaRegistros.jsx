@@ -618,7 +618,8 @@ export default function ListaRegistros() {
                         <MenuAcoes
                           onVisualizar={() => navegar(`/producao/${r.id}/editar?modo=visualizar`)}
                           onEditar={() => navegar(`/producao/${r.id}/editar`)}
-                          onImprimir={() => navegar(`/producao/${r.id}/editar?modo=visualizar&print=1`)}
+                          onPdf={() => navegar(`/producao/${r.id}/editar?modo=visualizar&pdf=1`)}
+                          onImagem={() => navegar(`/producao/${r.id}/editar?modo=visualizar&imagem=1`)}
                           onExcluir={() => setConfirmarExcluir(r.id)}
                         />
                       </td>
@@ -667,7 +668,7 @@ export default function ListaRegistros() {
   )
 }
 
-function MenuAcoes({ onVisualizar, onEditar, onExcluir, onImprimir }) {
+function MenuAcoes({ onVisualizar, onEditar, onExcluir, onPdf, onImagem }) {
   const [aberto, setAberto] = useState(false)
   const [pos, setPos] = useState({ top: 0, right: 0 })
   const btnRef = useRef(null)
@@ -705,10 +706,11 @@ function MenuAcoes({ onVisualizar, onEditar, onExcluir, onImprimir }) {
           boxShadow: '0 4px 12px rgba(0,0,0,0.1)', minWidth: 140, overflow: 'hidden',
         }}>
           {[
-            { label: 'Visualizar', onClick: onVisualizar, cor: '#374151' },
-            { label: 'Editar',     onClick: onEditar,     cor: '#374151' },
-            { label: 'Imprimir',   onClick: onImprimir,   cor: '#374151' },
-            { label: 'Excluir',    onClick: onExcluir,    cor: '#dc2626' },
+            { label: 'Visualizar',      onClick: onVisualizar, cor: '#374151' },
+            { label: 'Editar',          onClick: onEditar,     cor: '#374151' },
+            { label: 'Resumo (PDF)',    onClick: onPdf,        cor: '#374151' },
+            { label: 'Resumo (imagem)', onClick: onImagem,     cor: '#374151' },
+            { label: 'Excluir',         onClick: onExcluir,    cor: '#dc2626' },
           ].map(({ label, onClick, cor }) => (
             <button key={label} onClick={() => { setAberto(false); onClick() }} style={{
               display: 'block', width: '100%', textAlign: 'left',
