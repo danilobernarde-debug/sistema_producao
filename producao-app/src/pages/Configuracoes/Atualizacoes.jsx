@@ -4,6 +4,16 @@ import { useNavigate } from 'react-router-dom'
 // Ao fazer uma mudança relevante no sistema, adicionar uma entrada nova aqui.
 const VERSOES = [
   {
+    versao: '24d0c57',
+    data: '2026-09-12',
+    resumo: 'Libera campo UPE da atividade, só pra Tipo = UPE',
+    itens: [
+      'd_atividades.upe estava marcado como somente leitura, o que o excluía do formulário e do que era salvo — não dava pra cadastrar esse valor pra nenhuma atividade, nem as do Tipo UPE, que dependem dele pra calcular o valor do lançamento',
+      'Campo "UPE da atividade" agora aparece no formulário só quando Tipo = UPE, e é obrigatório nesse caso',
+      'Tooltip de ajuda dos campos passa a respeitar quebras de linha no texto',
+    ],
+  },
+  {
     versao: '10599aa',
     data: '2026-09-12',
     resumo: 'Corrige erro de permissão em Bonificações',
