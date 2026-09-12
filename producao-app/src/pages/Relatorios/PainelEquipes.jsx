@@ -34,6 +34,95 @@ function pareceParalisada(texto) {
   return /paralisad/i.test(String(texto || ''))
 }
 
+function PainelInfo({ aberto, onFechar }) {
+  if (!aberto) return null
+  return (
+    <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.45)', zIndex: 2000, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+      onClick={onFechar}>
+      <div style={{ background: 'white', borderRadius: 12, padding: 28, width: 560, maxWidth: '94vw', maxHeight: '85vh', overflowY: 'auto', boxShadow: '0 8px 32px rgba(0,0,0,0.2)' }}
+        onClick={e => e.stopPropagation()}>
+
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
+          <div style={{ fontSize: 16, fontWeight: 700, color: '#1e2a3b' }}>Como funciona o Painel de Equipes</div>
+          <button onClick={onFechar} style={{ background: 'none', border: 'none', fontSize: 20, cursor: 'pointer', color: '#9ca3af', lineHeight: 1 }}>×</button>
+        </div>
+
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+
+          <div>
+            <div style={{ fontSize: 13, fontWeight: 700, color: '#1e2a3b', marginBottom: 6, display: 'flex', alignItems: 'center', gap: 6 }}>
+              <span style={{ fontSize: 10, fontWeight: 700, color: '#fff', background: '#dc2626', borderRadius: 4, padding: '2px 7px', letterSpacing: '.05em' }}>PARADO</span> Equipe sem produção
+            </div>
+            <div style={{ fontSize: 13, color: '#374151', lineHeight: 1.7, background: '#f9fafb', borderRadius: 8, padding: '10px 14px' }}>
+              Aparece quando o <strong>valor total de produção da equipe no período selecionado é zero</strong> — ou seja, não houve nenhum lançamento com valor no intervalo de datas do filtro. Se a equipe simplesmente não tem lançamento no período (nem parada nem trabalhando), também cai aqui.
+            </div>
+          </div>
+
+          <div>
+            <div style={{ fontSize: 13, fontWeight: 700, color: '#1e2a3b', marginBottom: 6, display: 'flex', alignItems: 'center', gap: 6 }}>
+              <span style={{ fontSize: 10, fontWeight: 700, color: '#fff', background: '#dc2626', borderRadius: 4, padding: '2px 7px', letterSpacing: '.05em' }}>PARALISADA</span> Detectado pela justificativa
+            </div>
+            <div style={{ fontSize: 13, color: '#374151', lineHeight: 1.7, background: '#f9fafb', borderRadius: 8, padding: '10px 14px' }}>
+              É uma detecção automática: o sistema olha a <strong>justificativa ou observação do lançamento mais recente</strong> da equipe e procura a palavra "paralisad" (paralisada/paralisado) no texto. Por ser um reconhecimento de texto simples, uma observação com outra palavra pra descrever o mesmo problema (ex: "parado por chuva") não vai disparar esse selo — vale conferir o ícone 💬 quando a produção estiver baixa mas sem o selo.
+            </div>
+          </div>
+
+          <div>
+            <div style={{ fontSize: 13, fontWeight: 700, color: '#1e2a3b', marginBottom: 6, display: 'flex', alignItems: 'center', gap: 6 }}>
+              <span style={{ fontSize: 16 }}>🎯</span> Cores por % da meta
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+              <div style={{ fontSize: 13, color: '#374151', lineHeight: 1.6, background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: 8, padding: '8px 14px' }}>
+                <strong style={{ color: '#16a34a' }}>Verde</strong> — produção ≥ 100% da meta do período
+              </div>
+              <div style={{ fontSize: 13, color: '#374151', lineHeight: 1.6, background: '#fffbeb', border: '1px solid #fde68a', borderRadius: 8, padding: '8px 14px' }}>
+                <strong style={{ color: '#d97706' }}>Laranja</strong> — entre 50% e 99% da meta
+              </div>
+              <div style={{ fontSize: 13, color: '#374151', lineHeight: 1.6, background: '#fef2f2', border: '1px solid #fca5a5', borderRadius: 8, padding: '8px 14px' }}>
+                <strong style={{ color: '#dc2626' }}>Vermelho</strong> — abaixo de 50% da meta (ou parada/paralisada)
+              </div>
+              <div style={{ fontSize: 13, color: '#374151', lineHeight: 1.6, background: '#f9fafb', borderRadius: 8, padding: '8px 14px' }}>
+                <strong style={{ color: '#6b7280' }}>Cinza</strong> — sem meta cadastrada pro tipo de equipe (não dá pra calcular %)
+              </div>
+            </div>
+            <div style={{ fontSize: 12, color: '#9ca3af', marginTop: 6 }}>
+              A meta soma <code>d_metas_diarias</code> de todos os dias do período selecionado, pro tipo de equipe.
+            </div>
+          </div>
+
+          <div>
+            <div style={{ fontSize: 13, fontWeight: 700, color: '#1e2a3b', marginBottom: 6, display: 'flex', alignItems: 'center', gap: 6 }}>
+              <span style={{ fontSize: 16 }}>📅</span> Período
+            </div>
+            <div style={{ fontSize: 13, color: '#374151', lineHeight: 1.7, background: '#f9fafb', borderRadius: 8, padding: '10px 14px' }}>
+              Por padrão mostra os <strong>últimos 7 dias</strong>. Mudar as datas não recarrega sozinho — depois de ajustar, clique em <strong>Atualizar</strong>.
+            </div>
+          </div>
+
+          <div>
+            <div style={{ fontSize: 13, fontWeight: 700, color: '#1e2a3b', marginBottom: 6, display: 'flex', alignItems: 'center', gap: 6 }}>
+              <span style={{ fontSize: 16 }}>👥 💬</span> Ícones do card
+            </div>
+            <div style={{ fontSize: 13, color: '#374151', lineHeight: 1.7, background: '#f9fafb', borderRadius: 8, padding: '10px 14px' }}>
+              <strong>👥</strong> lista os colaboradores da equipe no período, com quantos dias cada um trabalhou.<br />
+              <strong>💬</strong> lista justificativas e observações dos lançamentos, agrupadas por data (mais recente primeiro).
+            </div>
+          </div>
+
+          <div style={{ fontSize: 12, color: '#9ca3af' }}>
+            Equipes dos contratos 17, 18 e 19 aparecem agrupadas em <strong>Faixa Tocantins</strong>, já que compartilham o mesmo cadastro de equipes.
+          </div>
+
+        </div>
+
+        <div style={{ marginTop: 22, display: 'flex', justifyContent: 'flex-end' }}>
+          <button className="btn btn-primario" onClick={onFechar}>Entendi</button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 async function lerMetas(dataInicio, dataFim) {
   const { data } = await supabase
     .from('d_metas_diarias')
@@ -58,6 +147,7 @@ export default function PainelEquipes() {
   const [carregando, setCarregando]   = useState(false)
   const [erro, setErro]               = useState('')
   const [expandido, setExpandido]     = useState(null)
+  const [painelInfo, setPainelInfo]   = useState(false)
 
   useEffect(() => {
     if (!expandido) return
@@ -196,11 +286,18 @@ export default function PainelEquipes() {
 
   return (
     <div className="pagina">
+      <PainelInfo aberto={painelInfo} onFechar={() => setPainelInfo(false)} />
+
       <div className="pagina-header">
         <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
           <button className="btn btn-secundario" onClick={() => navegar(-1)}
             style={{ padding: '6px 12px', fontSize: 13 }}>← Voltar</button>
           <h1 className="pagina-titulo" style={{ margin: 0 }}>Painel de Equipes</h1>
+          <button
+            onClick={() => setPainelInfo(true)}
+            title="Como funciona"
+            style={{ background: 'none', border: '1.5px solid #60a5fa', borderRadius: '50%', width: 24, height: 24, cursor: 'pointer', fontSize: 13, color: '#60a5fa', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, fontWeight: 700, lineHeight: 1 }}
+          >ℹ</button>
         </div>
       </div>
 
