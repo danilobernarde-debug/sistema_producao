@@ -12,6 +12,7 @@ import Relatorios from './pages/Relatorios/index'
 import Exportacao from './pages/Relatorios/Exportacao'
 import Bonificacoes from './pages/Relatorios/Bonificacoes'
 import RelatorioEquipes from './pages/Relatorios/RelatorioEquipes'
+import PainelEquipes from './pages/Relatorios/PainelEquipes'
 import AnaliseDashboard from './pages/Relatorios/AnaliseDashboard'
 import Configuracoes from './pages/Configuracoes/index'
 import Contratos from './pages/Configuracoes/Contratos'
@@ -112,6 +113,7 @@ export default function App() {
           <Route path="/relatorios/exportacao" element={<Exportacao />} />
           <Route path="/relatorios/bonificacoes" element={<Bonificacoes />} />
           <Route path="/relatorios/equipes" element={<RelatorioEquipes />} />
+          <Route path="/relatorios/painel" element={<PainelEquipes />} />
           <Route path="/relatorios/dashboard" element={<AnaliseDashboard />} />
 
           <Route path="/configuracoes" element={<Configuracoes />} />
