@@ -4,6 +4,16 @@ import { useNavigate } from 'react-router-dom'
 // Ao fazer uma mudança relevante no sistema, adicionar uma entrada nova aqui.
 const VERSOES = [
   {
+    versao: '939043e',
+    data: '2026-09-16',
+    resumo: 'Corrige Dashboard sem dados (Painel Principal / Análise Mensal)',
+    itens: [
+      'A view materializada por trás da função fn_prod_dados_anuais parou de ser atualizada em 18/06/2026 — as abas Painel Principal e Análise Mensal do Dashboard vinham mostrando zero produção pra qualquer período, não só setembro',
+      'Fonte de dados trocada pra fn_prod_relatorio_equipes (mesma função em tempo real já usada na aba Produção Detalhada)',
+      'Cache do navegador (sessionStorage) invalidado pra quem já tinha o resultado vazio salvo como se fosse válido',
+    ],
+  },
+  {
     versao: '24d0c57',
     data: '2026-09-12',
     resumo: 'Libera campo UPE da atividade, só pra Tipo = UPE',
