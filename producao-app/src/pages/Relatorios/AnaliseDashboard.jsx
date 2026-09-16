@@ -233,17 +233,12 @@ export default function AnaliseDashboard() {
     const ini = `${anoAlvo}-01-01`
     const fim = `${anoAlvo}-12-31`
     try {
-      const [resRows, resColab] = await Promise.all([
-        supabase.rpc('fn_prod_relatorio_equipes', { p_inicio: ini, p_fim: fim, p_limit: 200000, p_offset: 0 })
-          .order('registro_id', { ascending: true })
-          .order('f_prod_atividade_id', { ascending: true })
-          .order('equipe_id', { ascending: true }),
-        supabase.rpc('fn_prod_relatorio_colaboradores', { p_inicio: ini, p_fim: fim, p_limit: 200000, p_offset: 0 }),
+      const [rows, colabRows] = await Promise.all([
+        buscarTodasPaginasRpc('fn_prod_relatorio_equipes', { p_inicio: ini, p_fim: fim }),
+        buscarTodasPaginasRpc('fn_prod_relatorio_colaboradores', { p_inicio: ini, p_fim: fim }),
       ])
-      if (resRows.error) throw new Error(resRows.error.message)
-      if (resColab.error) throw new Error(resColab.error.message)
-      setAba2Rows(resRows.data || [])
-      setAba2ColabRows(resColab.data || [])
+      setAba2Rows(rows)
+      setAba2ColabRows(colabRows)
       setAba2AnoCarregado(anoAlvo)
     } catch (e) {
       setAba2Erro(`Erro ao carregar Produção Detalhada: ${e?.message || e}`)
