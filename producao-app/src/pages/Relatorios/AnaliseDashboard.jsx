@@ -81,8 +81,26 @@ function valorReg(r) {
   )
 }
 
+async function buscarTodasPaginasRpc(nome, parametros = {}, pageSize = 1000) {
+  const todas = []
+  let offset = 0
+  while (true) {
+    const { data, error } = await supabase.rpc(nome, {
+      ...parametros,
+      p_limit: pageSize,
+      p_offset: offset,
+    })
+    if (error) throw new Error(error.message)
+    const pagina = data || []
+    todas.push(...pagina)
+    if (pagina.length < pageSize) break
+    offset += pageSize
+  }
+  return todas
+}
+
 const CACHE_TTL_MS = 3 * 60 * 60 * 1000 // 3 horas
-const CACHE_VER = 'v6' // incrementar quando mudar estrutura do cache
+const CACHE_VER = 'v7' // incrementar quando mudar estrutura do cache
 const _cacheAnos = {} // fallback em memória se sessionStorage estourar
 
 function cacheGet(ano) {
@@ -195,15 +213,10 @@ export default function AnaliseDashboard() {
     const ini = `${ano}-01-01`
     const fim = `${ano}-12-31`
     try {
-      const [resView, resMetas] = await Promise.all([
-        supabase.rpc('fn_prod_relatorio_equipes', { p_inicio: ini, p_fim: fim, p_limit: 200000, p_offset: 0 })
-          .order('registro_id', { ascending: true })
-          .order('f_prod_atividade_id', { ascending: true })
-          .order('equipe_id', { ascending: true }),
+      const [viewData, resMetas] = await Promise.all([
+        buscarTodasPaginasRpc('fn_prod_relatorio_equipes', { p_inicio: ini, p_fim: fim }),
         lerMetasAnuais(ano),
       ])
-      if (resView.error) throw new Error(resView.error.message)
-      const viewData = resView.data || []
       cacheSet(ano, { viewRows: viewData, metas: resMetas, carregadoEm: new Date() })
       setViewRows(viewData)
       setMetas(resMetas)
