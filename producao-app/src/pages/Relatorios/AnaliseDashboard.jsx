@@ -81,22 +81,8 @@ function valorReg(r) {
   )
 }
 
-async function fetchAllPages(buildQuery, pageSize = 1000) {
-  const all = []
-  let from = 0
-  while (true) {
-    const { data, error } = await buildQuery().range(from, from + pageSize - 1)
-    if (error) throw new Error(error.message || JSON.stringify(error))
-    if (!data?.length) break
-    all.push(...data)
-    if (data.length < pageSize) break
-    from += pageSize
-  }
-  return all
-}
-
 const CACHE_TTL_MS = 3 * 60 * 60 * 1000 // 3 horas
-const CACHE_VER = 'v5' // incrementar quando mudar estrutura do cache
+const CACHE_VER = 'v6' // incrementar quando mudar estrutura do cache
 const _cacheAnos = {} // fallback em memória se sessionStorage estourar
 
 function cacheGet(ano) {
@@ -209,15 +195,15 @@ export default function AnaliseDashboard() {
     const ini = `${ano}-01-01`
     const fim = `${ano}-12-31`
     try {
-      const [viewData, resMetas] = await Promise.all([
-        fetchAllPages(() =>
-          supabase.rpc('fn_prod_dados_anuais', { p_ini: ini, p_fim: fim })
-            .order('registro_id', { ascending: true })
-            .order('f_prod_atividade_id', { ascending: true })
-            .order('equipe_id', { ascending: true })
-        ),
+      const [resView, resMetas] = await Promise.all([
+        supabase.rpc('fn_prod_relatorio_equipes', { p_inicio: ini, p_fim: fim, p_limit: 200000, p_offset: 0 })
+          .order('registro_id', { ascending: true })
+          .order('f_prod_atividade_id', { ascending: true })
+          .order('equipe_id', { ascending: true }),
         lerMetasAnuais(ano),
       ])
+      if (resView.error) throw new Error(resView.error.message)
+      const viewData = resView.data || []
       cacheSet(ano, { viewRows: viewData, metas: resMetas, carregadoEm: new Date() })
       setViewRows(viewData)
       setMetas(resMetas)
