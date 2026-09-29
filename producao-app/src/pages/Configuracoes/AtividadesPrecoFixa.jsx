@@ -5,7 +5,7 @@ import { Modal } from '../../components/TabelaCRUD'
 import AbasAtividades from '../../components/AbasAtividades'
 
 function fmt(n) {
-  return Number(n || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+  return Number(n || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 6 })
 }
 
 function fmtData(v) {
@@ -104,7 +104,7 @@ export default function AtividadesPrecoFixa() {
     setSalvando(true)
     const payload = {
       atividade_id: modalPreco.atividadeId,
-      valor: Math.round(valorNum * 100) / 100,
+      valor: Math.round(valorNum * 1e6) / 1e6,
       vigencia_inicio: modalPreco.vigencia_inicio,
     }
     const { error } = modalPreco.id
