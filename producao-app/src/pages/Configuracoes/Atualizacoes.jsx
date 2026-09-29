@@ -4,6 +4,17 @@ import { useNavigate } from 'react-router-dom'
 // Ao fazer uma mudança relevante no sistema, adicionar uma entrada nova aqui.
 const VERSOES = [
   {
+    versao: 'd665d6c',
+    data: '2026-09-29',
+    resumo: 'Corrige R$ 1,00 indevido nas justificativas e remove o trigger de UPE',
+    itens: [
+      'Justificativas apareciam com R$ 1,00 no Dashboard e nos registros: o UPE delas estava NULL no cadastro e a fórmula de valor_total trata UPE NULL como 1',
+      'As 32 atividades de justificativa passaram a ter UPE = 0 em d_atividades, e nenhum lançamento de justificativa ficou com valor diferente de 0',
+      'Removido o trigger trigger_atualizar_upe de f_prod_atividades: Novo Registro e Editar Registro já gravam upe e preco_upe calculados (preço fixo por vigência, justificativa 0, tipo UPE pelo cadastro)',
+      'Após a correção, clicar em Atualizar no Dashboard para renovar o cache',
+    ],
+  },
+  {
     versao: '71a6cc6',
     data: '2026-09-29',
     resumo: 'UPE exibido com até 6 casas decimais nos registros de produção',
