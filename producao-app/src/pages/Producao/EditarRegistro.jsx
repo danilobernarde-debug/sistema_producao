@@ -958,7 +958,7 @@ export default function EditarRegistro() {
                             ? `${Number(item.comprimento || 0).toLocaleString('pt-BR')} × ${Number(item.largura || 0).toLocaleString('pt-BR')} = ${qtd.toLocaleString('pt-BR')} m²`
                             : qtd.toLocaleString('pt-BR')}
                         </td>
-                        <td style={{ textAlign: 'right' }}>{vals ? vals.upe.toLocaleString('pt-BR', { minimumFractionDigits: 4, maximumFractionDigits: 4 }) : '-'}</td>
+                        <td style={{ textAlign: 'right' }}>{vals ? vals.upe.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 6 }) : '-'}</td>
                         <td style={{ textAlign: 'right' }}>{vals ? `R$ ${vals.precoUpe.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : '-'}</td>
                         <td style={{ textAlign: 'right', fontWeight: 500 }}>{vals ? `R$ ${vals.total.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : '-'}</td>
                       </tr>
@@ -1092,7 +1092,7 @@ export default function EditarRegistro() {
                       const vals = calcularValores(item)
                       return vals !== null ? (
                         <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 20, fontSize: 13, color: '#374151', marginTop: 6, paddingTop: 6, borderTop: '1px solid #e5e7eb' }}>
-                          <span>UPE: <strong>{vals.upe.toLocaleString('pt-BR', { minimumFractionDigits: 4, maximumFractionDigits: 4 })}</strong></span>
+                          <span>UPE: <strong>{vals.upe.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 6 })}</strong></span>
                           <span>Preço UPE: <strong>R$ {vals.precoUpe.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</strong></span>
                           <span>Valor estimado: <strong>R$ {vals.total.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</strong></span>
                         </div>
