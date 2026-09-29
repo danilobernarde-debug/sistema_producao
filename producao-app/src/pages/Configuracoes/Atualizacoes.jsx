@@ -4,6 +4,14 @@ import { useNavigate } from 'react-router-dom'
 // Ao fazer uma mudança relevante no sistema, adicionar uma entrada nova aqui.
 const VERSOES = [
   {
+    versao: '71a6cc6',
+    data: '2026-09-29',
+    resumo: 'UPE exibido com até 6 casas decimais nos registros de produção',
+    itens: [
+      'Novo Registro e Editar Registro passam a mostrar o UPE com até 6 casas (mínimo de 2), em vez de 4, refletindo o valor real gravado em f_prod_atividades.upe',
+    ],
+  },
+  {
     versao: '82a1e33',
     data: '2026-09-29',
     resumo: 'Preço fixo por atividade aceita até 6 casas decimais',
