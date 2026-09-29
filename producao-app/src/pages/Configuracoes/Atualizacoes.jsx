@@ -4,6 +4,15 @@ import { useNavigate } from 'react-router-dom'
 // Ao fazer uma mudança relevante no sistema, adicionar uma entrada nova aqui.
 const VERSOES = [
   {
+    versao: '82a1e33',
+    data: '2026-09-29',
+    resumo: 'Preço fixo por atividade aceita até 6 casas decimais',
+    itens: [
+      'Tela Configurações → Atividades → Preço Fixa deixa de arredondar o valor em 2 casas: grava e exibe até 6 casas (mínimo de 2 na exibição)',
+      'Coluna valor de d_atividades_preco_fixo alargada de numeric(12,2) para numeric(12,6), igual à coluna upe de f_prod_atividades',
+    ],
+  },
+  {
     versao: 'dashboard-v9',
     data: '2026-09-16',
     resumo: 'Corrige valores e cache do Dashboard de Produção',
