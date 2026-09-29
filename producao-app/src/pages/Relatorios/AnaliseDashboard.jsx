@@ -75,9 +75,16 @@ async function lerMetasAnuais(ano) {
   } catch { return {} }
 }
 
+function valorAtividade(a) {
+  if (a.valor_producao !== null && a.valor_producao !== undefined) {
+    return Number(a.valor_producao || 0)
+  }
+  return Number(a.upe || 0) * Number(a.preco_upe || 0) * Number(a.quantidade || 0)
+}
+
 function valorReg(r) {
   return (r.f_prod_atividades || []).reduce(
-    (s, a) => s + Number(a.upe || 0) * Number(a.preco_upe || 0) * Number(a.quantidade || 0), 0
+    (s, a) => s + valorAtividade(a), 0
   )
 }
 
@@ -99,35 +106,70 @@ async function buscarTodasPaginasRpc(nome, parametros = {}, pageSize = 1000) {
   return todas
 }
 
-const CACHE_TTL_MS = 3 * 60 * 60 * 1000 // 3 horas
-const CACHE_VER = 'v7' // incrementar quando mudar estrutura do cache
-const _cacheAnos = {} // fallback em memória se sessionStorage estourar
+const CACHE_VER = 'v9' // incrementar quando mudar estrutura do cache
+const CACHE_DB = 'producao_dashboard_cache'
+const CACHE_STORE = 'anos'
+const _cacheAnos = {} // fallback em memória se o armazenamento persistente falhar
 
-function cacheGet(ano) {
+function abrirCacheDb() {
+  return new Promise((resolve, reject) => {
+    const req = indexedDB.open(CACHE_DB, 1)
+    req.onupgradeneeded = () => {
+      if (!req.result.objectStoreNames.contains(CACHE_STORE)) {
+        req.result.createObjectStore(CACHE_STORE)
+      }
+    }
+    req.onsuccess = () => resolve(req.result)
+    req.onerror = () => reject(req.error)
+  })
+}
+
+async function cacheGet(ano) {
+  const chave = `${CACHE_VER}_${ano}`
   try {
-    const raw = sessionStorage.getItem(`dash_cache_${CACHE_VER}_${ano}`)
-    if (raw) {
-      const parsed = JSON.parse(raw)
-      parsed.carregadoEm = new Date(parsed.carregadoEm)
-      return parsed
+    const db = await abrirCacheDb()
+    const valor = await new Promise((resolve, reject) => {
+      const req = db.transaction(CACHE_STORE, 'readonly').objectStore(CACHE_STORE).get(chave)
+      req.onsuccess = () => resolve(req.result || null)
+      req.onerror = () => reject(req.error)
+    })
+    db.close()
+    if (valor) {
+      valor.carregadoEm = new Date(valor.carregadoEm)
+      return valor
     }
   } catch {}
   return _cacheAnos[ano] || null
 }
 
-function cacheSet(ano, valor) {
+async function cacheSet(ano, valor) {
   _cacheAnos[ano] = valor
   try {
-    sessionStorage.setItem(`dash_cache_${CACHE_VER}_${ano}`, JSON.stringify({
-      ...valor,
-      carregadoEm: valor.carregadoEm.toISOString(),
-    }))
+    const db = await abrirCacheDb()
+    await new Promise((resolve, reject) => {
+      const req = db.transaction(CACHE_STORE, 'readwrite').objectStore(CACHE_STORE)
+        .put({ ...valor, carregadoEm: valor.carregadoEm.toISOString() }, `${CACHE_VER}_${ano}`)
+      req.onsuccess = () => resolve()
+      req.onerror = () => reject(req.error)
+    })
+    db.close()
   } catch {}
 }
 
-function cacheDel(ano) {
+async function cacheDel(ano) {
   delete _cacheAnos[ano]
-  try { sessionStorage.removeItem(`dash_cache_${CACHE_VER}_${ano}`) } catch {}
+  try {
+    const db = await abrirCacheDb()
+    await new Promise((resolve, reject) => {
+      const req = db.transaction(CACHE_STORE, 'readwrite').objectStore(CACHE_STORE)
+        .delete(`${CACHE_VER}_${ano}`)
+      req.onsuccess = () => resolve()
+      req.onerror = () => reject(req.error)
+    })
+    db.close()
+  } catch {}
+  // Remove tentativas de cache das versões anteriores no armazenamento pequeno.
+  try { localStorage.removeItem(`dash_cache_v8_${ano}`) } catch {}
 }
 
 // ── Componente principal ──────────────────────────────────────────────────────
@@ -195,10 +237,10 @@ export default function AnaliseDashboard() {
   useEffect(() => { carregarDados() }, [ano])
 
   async function carregarDados(forcar = false) {
-    const cached = cacheGet(ano)
-    const cacheValido = cached && (Date.now() - cached.carregadoEm.getTime() < CACHE_TTL_MS)
+    const cached = await cacheGet(ano)
 
-    if (!forcar && cacheValido) {
+    // O cache permanece válido até o usuário solicitar uma atualização manual.
+    if (!forcar && cached) {
       setViewRows(cached.viewRows)
       setMetas(cached.metas)
       setCacheInfo({ de: cached.carregadoEm })
@@ -208,7 +250,7 @@ export default function AnaliseDashboard() {
     setCarregando(true)
     setCacheInfo(null)
     setErroCarregar('')
-    if (forcar) cacheDel(ano)
+    if (forcar) await cacheDel(ano)
 
     const ini = `${ano}-01-01`
     const fim = `${ano}-12-31`
@@ -217,7 +259,7 @@ export default function AnaliseDashboard() {
         buscarTodasPaginasRpc('fn_prod_relatorio_equipes', { p_inicio: ini, p_fim: fim }),
         lerMetasAnuais(ano),
       ])
-      cacheSet(ano, { viewRows: viewData, metas: resMetas, carregadoEm: new Date() })
+      await cacheSet(ano, { viewRows: viewData, metas: resMetas, carregadoEm: new Date() })
       setViewRows(viewData)
       setMetas(resMetas)
     } catch (e) {
@@ -282,6 +324,7 @@ export default function AnaliseDashboard() {
           upe: v.upe,
           preco_upe: v.preco_upe,
           quantidade: v.quantidade,
+          valor_producao: v.valor_producao,
           d_atividades: { descricao: v.desc_atividade },
         })
       }
@@ -323,6 +366,7 @@ export default function AnaliseDashboard() {
           upe: v.upe,
           preco_upe: v.preco_upe,
           quantidade: v.quantidade,
+          valor_producao: v.valor_producao,
           d_atividades: { descricao: v.desc_atividade },
         })
       }
@@ -561,7 +605,7 @@ export default function AnaliseDashboard() {
         if (!atividadeMap[nome][desc]) atividadeMap[nome][desc] = { qtd: 0, upe: 0, valor: 0 }
         atividadeMap[nome][desc].qtd   += Number(a.quantidade || 0)
         atividadeMap[nome][desc].upe   += Number(a.upe || 0)
-        atividadeMap[nome][desc].valor += Number(a.upe || 0) * Number(a.preco_upe || 0) * Number(a.quantidade || 0)
+        atividadeMap[nome][desc].valor += valorAtividade(a)
       })
     })
 
@@ -660,7 +704,7 @@ export default function AnaliseDashboard() {
         const desc = a.d_atividades?.descricao || 'Sem descrição'
         const qtd = Number(a.quantidade || 0)
         const upe = Number(a.upe || 0)
-        const valor = upe * Number(a.preco_upe || 0) * qtd
+        const valor = valorAtividade(a)
         if (!atividadeMap[desc]) atividadeMap[desc] = { qtd: 0, upe: 0, valor: 0 }
         atividadeMap[desc].qtd += qtd; atividadeMap[desc].upe += upe; atividadeMap[desc].valor += valor
         if (!atividadesPorDia[r.data_producao]) atividadesPorDia[r.data_producao] = {}

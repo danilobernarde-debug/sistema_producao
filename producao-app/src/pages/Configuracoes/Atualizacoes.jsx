@@ -4,6 +4,17 @@ import { useNavigate } from 'react-router-dom'
 // Ao fazer uma mudança relevante no sistema, adicionar uma entrada nova aqui.
 const VERSOES = [
   {
+    versao: 'dashboard-v9',
+    data: '2026-09-16',
+    resumo: 'Corrige valores e cache do Dashboard de Produção',
+    itens: [
+      'Valores monetários do Dashboard agora usam o valor_producao oficial retornado pelo banco, corrigindo diferenças causadas pelo recálculo de UPE × preço × quantidade',
+      'A auditoria por mês e equipe confirmou todos os 11.311 itens de atividade de 2026 e corrigiu uma diferença total de R$ 118,69',
+      'O cache não expira mais automaticamente depois de 3 horas: permanece salvo por ano até o usuário clicar em Atualizar',
+      'Cache migrado para IndexedDB e atualizado para a versão v9: o volume anual ocupa cerca de 9 MB e excedia o limite do localStorage, fazendo os dados serem baixados novamente a cada abertura',
+    ],
+  },
+  {
     versao: '939043e',
     data: '2026-09-16',
     resumo: 'Corrige Dashboard sem dados (Painel Principal / Análise Mensal)',
