@@ -4,6 +4,17 @@ import { useNavigate } from 'react-router-dom'
 // Ao fazer uma mudança relevante no sistema, adicionar uma entrada nova aqui.
 const VERSOES = [
   {
+    versao: 'd972b29',
+    data: '2026-10-02',
+    resumo: 'Novo relatório "Colaboradores por Equipe" na Exportação de Dados',
+    itens: [
+      'Relatórios → Exportação ganhou o card "Colaboradores por Equipe": colunas Data, Equipe, Matrícula, Nome e Valor Produção, 1 linha por colaborador por dia por equipe',
+      'Valor Produção vem do valor_por_colaborador da view_prod_relatorio_colaborador (via fn_prod_relatorio_colaboradores): só atividades com bonificação, dividido pelos colaboradores do registro; soma quando há mais de um registro no dia/equipe',
+      'Filtros de período e contrato, mais filtros dinâmicos iguais ao Relatório Geral (Equipe, Matrícula, Nome, Valor Produção), aplicados sem recarregar',
+      'Exportação em XLSX com a data em formato de data e o valor como número',
+    ],
+  },
+  {
     versao: 'd665d6c',
     data: '2026-09-29',
     resumo: 'Corrige R$ 1,00 indevido nas justificativas e remove o trigger de UPE',
