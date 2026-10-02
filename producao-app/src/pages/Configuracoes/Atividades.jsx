@@ -37,7 +37,9 @@ const COLUNAS = [
     ajuda: 'Quando marcado, a quantidade é calculada como Comprimento × Largura' },
   { nome: 'tipo_equipe_id',         label: 'Grupo Equipe (opcional)', tipo: 'select', ocultarLista: true,
     tabela_ref: 'd_tipo_equipe', coluna_valor: 'id', coluna_label: 'descricao', pesquisavel: true,
-    ajuda: 'Grupo de equipe. Deixe vazio para aparecer para todos os tipos de equipe.' },
+    // 0 = aparece para todos os tipos de equipe (Novo/Editar Registro filtram por tipo_equipe_id 0 ou o grupo)
+    opcaoFixa: { valor: 0, label: 'Todas' }, padrao: 0,
+    ajuda: 'Grupo de equipe. Escolha "Todas" para a atividade aparecer para todos os tipos de equipe.' },
 ]
 
 // Colunas do modelo Excel na ordem certa
@@ -113,7 +115,7 @@ export default function Atividades() {
       upe:                    row['upe'] !== '' && row['upe'] != null ? Number(row['upe']) : null,
       tipo_lm_lv:             row['tipo_lm_lv']            || null,
       comprimento_lagura:     ['true','1','sim','yes'].includes(String(row['comprimento_lagura']).toLowerCase()),
-      tipo_equipe_id:         row['tipo_equipe_id'] !== '' && row['tipo_equipe_id'] != null ? Number(row['tipo_equipe_id']) : null,
+      tipo_equipe_id:         row['tipo_equipe_id'] !== '' && row['tipo_equipe_id'] != null ? Number(row['tipo_equipe_id']) : 0, // vazio = Todas
     }
   }
 

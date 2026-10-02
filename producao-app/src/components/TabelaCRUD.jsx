@@ -578,11 +578,16 @@ function LabelCampo({ campo }) {
   )
 }
 
-function SelectPesquisavel({ opcoes, valor, onChange, erro, placeholderVazio = 'Selecione...' }) {
+// opcaoFixa: { valor, label } — opção especial (ex: "Todas" = 0) fixa na primeira linha
+// da lista, mesmo ao rolar ou pesquisar. Substitui a opção da tabela com o mesmo valor
+// e a linha "Selecione..." (o campo deixa de aceitar vazio).
+function SelectPesquisavel({ opcoes, valor, onChange, erro, placeholderVazio = 'Selecione...', opcaoFixa }) {
   const [busca, setBusca]   = useState('')
   const [aberto, setAberto] = useState(false)
-  const labelAtual = opcoes.find(o => String(o.valor) === String(valor))?.label ?? ''
-  const filtradas  = opcoes.filter(o => o.label.toLowerCase().includes(busca.toLowerCase()))
+  const lista      = opcaoFixa ? opcoes.filter(o => String(o.valor) !== String(opcaoFixa.valor)) : opcoes
+  const fixaAtiva  = opcaoFixa && valor !== '' && valor != null && String(valor) === String(opcaoFixa.valor)
+  const labelAtual = fixaAtiva ? opcaoFixa.label : (lista.find(o => String(o.valor) === String(valor))?.label ?? '')
+  const filtradas  = lista.filter(o => o.label.toLowerCase().includes(busca.toLowerCase()))
 
   return (
     <div style={{ position: 'relative' }}>
@@ -601,10 +606,24 @@ function SelectPesquisavel({ opcoes, valor, onChange, erro, placeholderVazio = '
           boxShadow: '0 4px 12px rgba(0,0,0,0.12)', zIndex: 500,
           maxHeight: 220, overflowY: 'auto',
         }}>
-          <div
-            style={{ padding: '7px 12px', cursor: 'pointer', color: '#9ca3af', fontSize: 13 }}
-            onMouseDown={() => { onChange(''); setAberto(false) }}
-          >{placeholderVazio}</div>
+          {opcaoFixa ? (
+            <div
+              style={{
+                padding: '7px 12px', cursor: 'pointer', fontSize: 13, fontWeight: 600,
+                position: 'sticky', top: 0, zIndex: 1, borderBottom: '1px solid #e5e7eb',
+                background: fixaAtiva ? '#eff6ff' : 'white',
+                color:      fixaAtiva ? '#2563eb' : '#374151',
+              }}
+              onMouseEnter={e => { if (!fixaAtiva) e.currentTarget.style.background = '#f9fafb' }}
+              onMouseLeave={e => { e.currentTarget.style.background = fixaAtiva ? '#eff6ff' : 'white' }}
+              onMouseDown={() => { onChange(opcaoFixa.valor); setAberto(false) }}
+            >{opcaoFixa.label}</div>
+          ) : (
+            <div
+              style={{ padding: '7px 12px', cursor: 'pointer', color: '#9ca3af', fontSize: 13 }}
+              onMouseDown={() => { onChange(''); setAberto(false) }}
+            >{placeholderVazio}</div>
+          )}
           {filtradas.length === 0 && (
             <div style={{ padding: '7px 12px', color: '#9ca3af', fontSize: 13 }}>Nenhum resultado</div>
           )}
@@ -636,7 +655,7 @@ function CampoForm({ campo, valor, erro, opcoes, onChange }) {
       <div className="campo-grupo">
         <LabelCampo campo={campo} />
         {campo.pesquisavel
-          ? <SelectPesquisavel opcoes={opcoes} valor={valor ?? ''} onChange={onChange} erro={erro} />
+          ? <SelectPesquisavel opcoes={opcoes} valor={valor ?? ''} onChange={onChange} erro={erro} opcaoFixa={campo.opcaoFixa} />
           : (
             <select className={classeSelect} value={valor ?? ''} onChange={e => onChange(e.target.value)}>
               <option value="">Selecione...</option>
