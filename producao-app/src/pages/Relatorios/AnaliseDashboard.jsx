@@ -768,10 +768,14 @@ export default function AnaliseDashboard() {
   // ── Render abas (tab 3 oculta, acessada só via drill-down) ───────────────────
   const ABAS_VISIVEIS = ['Painel Principal', 'Análise Mensal', 'Produção Detalhada']
 
+  // Tela cheia: a página ocupa exatamente a tela — cabeçalho, filtros e abas
+  // ficam fixos e só o conteúdo da aba rola (na Análise Mensal, só a tabela)
+  const espaco = telaCheia ? 12 : null
+
   return (
     <div ref={containerRef} className="pagina"
-      style={telaCheia ? { background: '#f8fafc', overflowY: 'auto', padding: 24 } : {}}>
-      <div className="pagina-header">
+      style={telaCheia ? { background: '#f8fafc', padding: 16, height: '100vh', boxSizing: 'border-box', display: 'flex', flexDirection: 'column', overflow: 'hidden' } : {}}>
+      <div className="pagina-header" style={telaCheia ? { marginBottom: espaco, flexShrink: 0 } : undefined}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
           <button className="btn btn-secundario" onClick={() => {
             if (aba === 3) setAba(1)
@@ -826,7 +830,7 @@ export default function AnaliseDashboard() {
 
       {/* Filtros por aba — independentes entre abas (some no detalhe de equipe) */}
       {aba !== 3 && (
-        <div className="card" style={{ marginBottom: 16, padding: '12px 16px' }}>
+        <div className="card" style={{ marginBottom: espaco ?? 16, padding: '12px 16px', flexShrink: 0 }}>
           <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', alignItems: 'flex-end' }}>
             <div className="campo-grupo" style={{ marginBottom: 0 }}>
               <label className="campo-label">Ano</label>
@@ -863,7 +867,7 @@ export default function AnaliseDashboard() {
       )}
 
       {/* Abas visíveis (tab 3 só aparece após drill-down) */}
-      <div style={{ display: 'flex', gap: 0, marginBottom: 20, borderBottom: '2px solid #e5e7eb' }}>
+      <div style={{ display: 'flex', gap: 0, marginBottom: espaco ?? 20, borderBottom: '2px solid #e5e7eb', flexShrink: 0 }}>
         {ABAS_VISIVEIS.map((label, i) => (
           <button key={i} onClick={() => setAba(i)} style={{
             padding: '10px 18px', fontSize: 13, fontWeight: aba === i ? 700 : 500,
@@ -876,7 +880,9 @@ export default function AnaliseDashboard() {
 
       <style>{`@keyframes dashSpin { to { transform: rotate(360deg); } }`}</style>
 
-      <div style={{ position: 'relative' }}>
+      <div style={telaCheia
+        ? { position: 'relative', flex: 1, minHeight: 0, overflowY: 'auto', display: 'flex', flexDirection: 'column' }
+        : { position: 'relative' }}>
         {carregando && (
           <div style={{ position: 'absolute', inset: 0, zIndex: 20, minHeight: 200,
             background: 'rgba(248,250,252,0.82)', backdropFilter: 'blur(2px)',
@@ -909,7 +915,7 @@ export default function AnaliseDashboard() {
         />}
         {aba === 1 && <AnaliseMensal
           dados={dadosAnaliseMensal} filtroMes={f1Mes}
-          onClickCelula={clicarCelulaAnaliseMensal}
+          onClickCelula={clicarCelulaAnaliseMensal} telaCheia={telaCheia}
         />}
         {aba === 2 && <ProducaoDetalhada
           dados={dadosDetalhada} dadosBarMes={dadosBarMesAba2}
@@ -1054,7 +1060,7 @@ function PainelPrincipal({ dadosPizza, dadosBarMes, dadosTabelaMes, dadosBarEqui
 }
 
 // ── Aba 1: Análise Mensal ─────────────────────────────────────────────────────
-function AnaliseMensal({ dados, filtroMes, onClickCelula }) {
+function AnaliseMensal({ dados, filtroMes, onClickCelula, telaCheia }) {
   const [expandidos, setExpandidos] = useState({})
   const mesesCols = filtroMes ? [filtroMes] : Array.from({ length: 12 }, (_, i) => i + 1)
 
@@ -1063,7 +1069,9 @@ function AnaliseMensal({ dados, filtroMes, onClickCelula }) {
   }
 
   return (
-    <div className="card" style={{ padding: 0 }}>
+    <div className="card" style={telaCheia
+      ? { padding: 0, flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', marginBottom: 0 }
+      : { padding: 0 }}>
       <div style={{ background: '#1e2a3b', color: 'white', padding: '10px 16px', fontSize: 13, fontWeight: 700, borderRadius: '8px 8px 0 0' }}>
         Análise de Produção Mensal
         <span style={{ fontSize: 11, opacity: .7, marginLeft: 8 }}>· Clique em uma célula para ver o detalhe</span>
@@ -1076,13 +1084,18 @@ function AnaliseMensal({ dados, filtroMes, onClickCelula }) {
           </span>
         ))}
       </div>
-      <div style={{ overflowX: 'auto' }}>
+      {/* Altura limitada à tela: o cabeçalho dos meses (sticky top) e a barra de
+          rolagem horizontal ficam sempre visíveis, mesmo com muitas equipes.
+          Em tela cheia a tabela ocupa todo o espaço que sobra até a base da tela. */}
+      <div style={telaCheia
+        ? { overflow: 'auto', flex: 1, minHeight: 0 }
+        : { overflow: 'auto', maxHeight: 'calc(100vh - 140px)' }}>
         <table style={{ borderCollapse: 'collapse', fontSize: 11, width: 'max-content', minWidth: '100%' }}>
           <thead>
             <tr style={{ background: '#f1f5f9' }}>
-              <th style={{ padding: '8px 12px', textAlign: 'left', fontWeight: 600, color: '#374151', borderBottom: '2px solid #e2e8f0', position: 'sticky', left: 0, background: '#f1f5f9', whiteSpace: 'nowrap', width: 160, minWidth: 160, maxWidth: 160 }}>Equipe</th>
+              <th style={{ padding: '8px 12px', textAlign: 'left', fontWeight: 600, color: '#374151', borderBottom: '2px solid #e2e8f0', boxShadow: 'inset 0 -2px 0 #e2e8f0', position: 'sticky', top: 0, left: 0, zIndex: 3, background: '#f1f5f9', whiteSpace: 'nowrap', width: 160, minWidth: 160, maxWidth: 160 }}>Equipe</th>
               {mesesCols.map(m => (
-                <th key={m} style={{ padding: '8px 10px', textAlign: 'right', fontWeight: 600, color: '#374151', borderBottom: '2px solid #e2e8f0', whiteSpace: 'nowrap', width: 120, minWidth: 120 }}>
+                <th key={m} style={{ padding: '8px 10px', textAlign: 'right', fontWeight: 600, color: '#374151', borderBottom: '2px solid #e2e8f0', boxShadow: 'inset 0 -2px 0 #e2e8f0', position: 'sticky', top: 0, zIndex: 2, background: '#f1f5f9', whiteSpace: 'nowrap', width: 120, minWidth: 120 }}>
                   {MESES[m - 1]}
                 </th>
               ))}
@@ -1095,7 +1108,7 @@ function AnaliseMensal({ dados, filtroMes, onClickCelula }) {
               eqs.forEach(e => mesesCols.forEach(m => { totalContrato[m] = (totalContrato[m] || 0) + (e.mesesValores[m] || 0) }))
               return [
                 <tr key={contrato} style={{ background: '#1e2a3b', cursor: 'pointer' }} onClick={() => toggle(contrato)}>
-                  <td style={{ padding: '8px 12px', color: 'white', fontWeight: 700, fontSize: 12, position: 'sticky', left: 0, background: '#1e2a3b', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', width: 160, minWidth: 160, maxWidth: 160 }}
+                  <td style={{ padding: '8px 12px', color: 'white', fontWeight: 700, fontSize: 12, position: 'sticky', left: 0, zIndex: 1, background: '#1e2a3b', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', width: 160, minWidth: 160, maxWidth: 160 }}
                     title={contrato}>
                     {aberto ? '⊟' : '⊞'} {contrato}
                   </td>
@@ -1107,7 +1120,7 @@ function AnaliseMensal({ dados, filtroMes, onClickCelula }) {
                 </tr>,
                 ...(aberto ? eqs.map(eq => (
                   <tr key={eq.nome} style={{ borderBottom: '1px solid #f3f4f6' }}>
-                    <td style={{ padding: '7px 12px 7px 24px', color: '#374151', fontWeight: 600, position: 'sticky', left: 0, background: 'white', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', width: 160, minWidth: 160, maxWidth: 160 }}
+                    <td style={{ padding: '7px 12px 7px 24px', color: '#374151', fontWeight: 600, position: 'sticky', left: 0, zIndex: 1, background: 'white', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', width: 160, minWidth: 160, maxWidth: 160 }}
                       title={eq.nome}>
                       {eq.nome}
                     </td>
