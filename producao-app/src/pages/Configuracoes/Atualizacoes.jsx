@@ -4,6 +4,15 @@ import { useNavigate } from 'react-router-dom'
 // Ao fazer uma mudança relevante no sistema, adicionar uma entrada nova aqui.
 const VERSOES = [
   {
+    versao: '2827a11',
+    data: '2026-10-02',
+    resumo: 'Dashboard: Análise Mensal com cabeçalho dos meses fixo e tela cheia sem rolar a página',
+    itens: [
+      'Na aba Análise Mensal, a linha dos meses fica fixa no topo e a barra de rolagem horizontal fica sempre visível: a tabela tem a altura da tela e rola por dentro',
+      'Em tela cheia, a página ocupa exatamente a tela: cabeçalho, filtros e abas ficam fixos e só o conteúdo da aba rola (na Análise Mensal, só a tabela)',
+    ],
+  },
+  {
     versao: 'd972b29',
     data: '2026-10-02',
     resumo: 'Novo relatório "Colaboradores por Equipe" na Exportação de Dados',
