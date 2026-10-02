@@ -4,6 +4,7 @@ import { supabase } from '../../supabaseClient'
 import { CHUNK, expandirMetadata, exportarXLSX } from './exportUtils'
 import FaixaTO from './FaixaTO'
 import LimpezaSubestacao from './LimpezaSubestacao'
+import ColaboradoresEquipe from './ColaboradoresEquipe'
 import SelectPesquisavel from '../../components/SelectPesquisavel'
 
 const CAMPOS_DIN = [
@@ -45,6 +46,8 @@ const RELATORIOS = [
     desc: 'Colunas fixas para os contratos TO Norte, Sul e Centro. Atividades de justificativa excluídas automaticamente.' },
   { id: 'limpeza-subestacao', icone: '🧹', titulo: 'Limpeza de Subestação',
     desc: 'Mesmo formato da planilha original de controle — 1 linha por visita concluída.' },
+  { id: 'colaboradores-equipe', icone: '👷', titulo: 'Colaboradores por Equipe',
+    desc: 'Colaboradores que trabalharam em cada equipe por dia: Data, Equipe, Matrícula e Nome.' },
 ]
 
 export default function Exportacao() {
@@ -530,6 +533,14 @@ export default function Exportacao() {
       {/* Conteúdo: Limpeza de Subestação */}
       {relatorioAtivo === 'limpeza-subestacao' && (
         <LimpezaSubestacao
+          dataInicio={dataInicio} dataFim={dataFim}
+          setDataInicio={setDataInicio} setDataFim={setDataFim}
+        />
+      )}
+
+      {/* Conteúdo: Colaboradores por Equipe */}
+      {relatorioAtivo === 'colaboradores-equipe' && (
+        <ColaboradoresEquipe
           dataInicio={dataInicio} dataFim={dataFim}
           setDataInicio={setDataInicio} setDataFim={setDataFim}
         />
