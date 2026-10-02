@@ -4,6 +4,17 @@ import { useNavigate } from 'react-router-dom'
 // Ao fazer uma mudança relevante no sistema, adicionar uma entrada nova aqui.
 const VERSOES = [
   {
+    versao: '9201c1e',
+    data: '2026-10-02',
+    resumo: 'Atividades: opção "Todas" fixa no Grupo Equipe e correção do erro ao salvar sem grupo',
+    itens: [
+      'Campo "Grupo Equipe (opcional)" ganhou a opção "Todas", fixa na primeira linha da lista mesmo ao rolar ou pesquisar',
+      '"Todas" grava 0, valor que Novo Registro e Editar Registro já tratam como "aparece para todos os tipos de equipe"; o item "Desativada" (id 0) saiu da lista para não duplicar',
+      'Corrige erro 400 ao salvar atividade com o grupo vazio (a coluna tipo_equipe_id não aceita vazio); atividade nova já começa com "Todas"',
+      'Importação XLSX: tipo_equipe_id em branco passa a gravar 0 (Todas) em vez de falhar',
+    ],
+  },
+  {
     versao: '2827a11',
     data: '2026-10-02',
     resumo: 'Dashboard: Análise Mensal com cabeçalho dos meses fixo e tela cheia sem rolar a página',
