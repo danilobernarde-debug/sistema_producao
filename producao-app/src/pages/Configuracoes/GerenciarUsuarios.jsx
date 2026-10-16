@@ -2,9 +2,16 @@ import { useState, useEffect, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../../supabaseClient'
 import { Modal } from '../../components/TabelaCRUD'
+import { useAuth } from '../../hooks/useAuth'
+
+const ESTILO_INATIVO = {
+  display: 'inline-block', marginLeft: 6, padding: '1px 6px', borderRadius: 4,
+  background: '#fef2f2', color: '#dc2626', border: '1px solid #fecaca', fontSize: 10, fontWeight: 600,
+}
 
 export default function GerenciarUsuarios() {
   const navegar = useNavigate()
+  const { usuario: eu } = useAuth()
   const [usuarios, setUsuarios]               = useState([])
   const [selecionado, setSelecionado]         = useState(null)
   const [form, setForm]                       = useState({ nome: '', role_id: '' })
@@ -117,6 +124,24 @@ export default function GerenciarUsuarios() {
     await carregarDados()
   }
 
+  async function alternarStatus() {
+    const desativando = selecionado.ativo !== false
+    if (desativando && !confirm(`Desativar o usuário "${selecionado.nome || selecionado.email}"? Ele não conseguirá mais entrar no sistema.`)) return
+    setSalvando(true)
+    setErro('')
+    setSucesso('')
+    const { error } = await supabase.rpc('definir_status_usuario', {
+      p_uuid: selecionado.uuid,
+      p_ativo: !desativando,
+    })
+    setSalvando(false)
+    if (error) { setErro(error.message); return }
+    const ativo = !desativando
+    setSelecionado(prev => ({ ...prev, ativo }))
+    setUsuarios(prev => prev.map(u => u.uuid === selecionado.uuid ? { ...u, ativo } : u))
+    setSucesso(ativo ? 'Usuário ativado.' : 'Usuário desativado.')
+  }
+
   async function alterarSenha() {
     setErro('')
     if (!formSenha.senha) { setErro('Digite a nova senha.'); return }
@@ -199,11 +224,15 @@ export default function GerenciarUsuarios() {
                 onClick={() => selecionarUsuario(u)}
                 style={{
                   padding: '12px 16px', cursor: 'pointer', borderBottom: '1px solid #f3f4f6',
+                  opacity: u.ativo === false ? 0.6 : 1,
                   background: selecionado?.uuid === u.uuid ? '#eff6ff' : 'white',
                   borderLeft: selecionado?.uuid === u.uuid ? '3px solid #2563eb' : '3px solid transparent',
                 }}
               >
-                <div style={{ fontWeight: 600, fontSize: 14, color: '#1e2a3b' }}>{u.nome || '(sem nome)'}</div>
+                <div style={{ fontWeight: 600, fontSize: 14, color: '#1e2a3b' }}>
+                  {u.nome || '(sem nome)'}
+                  {u.ativo === false && <span style={ESTILO_INATIVO}>Inativo</span>}
+                </div>
                 <div style={{ fontSize: 12, color: '#6b7280', marginTop: 2 }}>{u.email}</div>
                 <div style={{ fontSize: 11, color: '#9ca3af', marginTop: 2 }}>{u.d_auth_roles?.name || 'Sem perfil'}</div>
               </div>
@@ -242,7 +271,10 @@ export default function GerenciarUsuarios() {
                     </div>
                   </div>
                   <div>
-                    <div style={{ fontSize: 15, fontWeight: 600, color: '#1e2a3b' }}>{selecionado.nome || '(sem nome)'}</div>
+                    <div style={{ fontSize: 15, fontWeight: 600, color: '#1e2a3b' }}>
+                      {selecionado.nome || '(sem nome)'}
+                      {selecionado.ativo === false && <span style={ESTILO_INATIVO}>Inativo</span>}
+                    </div>
                     <div style={{ fontSize: 12, color: '#6b7280', marginTop: 2 }}>{selecionado.email}</div>
                     <div style={{ fontSize: 12, color: '#9ca3af', marginTop: 2 }}>Clique na foto para alterar</div>
                   </div>
@@ -276,6 +308,14 @@ export default function GerenciarUsuarios() {
                   </button>
                   <button className="btn btn-secundario" onClick={() => { setErro(''); setFormSenha({ senha: '', confirmar: '' }); setModalSenha(true) }}>
                     🔑 Alterar Senha
+                  </button>
+                  <button
+                    className="btn btn-secundario"
+                    onClick={alternarStatus}
+                    disabled={salvando || selecionado.uuid === eu?.id}
+                    title={selecionado.uuid === eu?.id ? 'Você não pode desativar o seu próprio usuário' : undefined}
+                  >
+                    {selecionado.ativo === false ? '✅ Ativar Usuário' : '⛔ Desativar Usuário'}
                   </button>
                   <button
                     className="btn"

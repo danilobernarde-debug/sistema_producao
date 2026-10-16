@@ -1,9 +1,9 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { useAuth } from '../hooks/useAuth'
+import { useAuth, MSG_DESATIVADO } from '../hooks/useAuth'
 
 export default function Login() {
-  const { entrar } = useAuth()
+  const { entrar, aviso } = useAuth()
   const navegar = useNavigate()
   const [email, setEmail] = useState('')
   const [senha, setSenha] = useState('')
@@ -17,7 +17,8 @@ export default function Login() {
     const error = await entrar(email, senha)
     setCarregando(false)
     if (error) {
-      setErro('E-mail ou senha incorretos.')
+      const banido = error.code === 'user_banned' || /banned/i.test(error.message || '')
+      setErro(banido ? MSG_DESATIVADO : 'E-mail ou senha incorretos.')
     } else {
       navegar('/')
     }
@@ -35,7 +36,7 @@ export default function Login() {
         </div>
 
         <form onSubmit={handleSubmit}>
-          {erro && <div className="alerta alerta-erro">{erro}</div>}
+          {(erro || aviso) && <div className="alerta alerta-erro">{erro || aviso}</div>}
 
           <div className="campo-grupo">
             <label className="campo-label">E-mail</label>

@@ -3,10 +3,13 @@ import { supabase } from '../supabaseClient'
 
 const AuthContext = createContext(null)
 
+export const MSG_DESATIVADO = 'Usuário desativado. Procure o administrador do sistema.'
+
 export function AuthProvider({ children }) {
   const [usuario, setUsuario] = useState(null)
   const [perfil, setPerfil] = useState(null)
   const [carregando, setCarregando] = useState(true)
+  const [aviso, setAviso] = useState('')
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
@@ -33,11 +36,20 @@ export function AuthProvider({ children }) {
       .select('*, d_auth_roles(name)')
       .eq('uuid', uuid)
       .single()
+    if (data?.ativo === false) {
+      setAviso(MSG_DESATIVADO)
+      setPerfil(null)
+      setUsuario(null)
+      setCarregando(false)
+      await supabase.auth.signOut()
+      return
+    }
     setPerfil(data)
     setCarregando(false)
   }
 
   async function entrar(email, senha) {
+    setAviso('')
     const { error } = await supabase.auth.signInWithPassword({ email, password: senha })
     return error
   }
@@ -51,7 +63,7 @@ export function AuthProvider({ children }) {
   }
 
   return (
-    <AuthContext.Provider value={{ usuario, perfil, carregando, entrar, sair, atualizarPerfil }}>
+    <AuthContext.Provider value={{ usuario, perfil, carregando, aviso, entrar, sair, atualizarPerfil }}>
       {children}
     </AuthContext.Provider>
   )
