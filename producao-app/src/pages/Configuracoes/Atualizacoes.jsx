@@ -4,6 +4,29 @@ import { useNavigate } from 'react-router-dom'
 // Ao fazer uma mudança relevante no sistema, adicionar uma entrada nova aqui.
 const VERSOES = [
   {
+    versao: '9ee98bf',
+    data: '2026-10-16',
+    resumo: 'Usuários: botão Ativar/Desativar e bloqueio de login para usuário inativo',
+    itens: [
+      'Configurações → Usuários ganhou o botão "Desativar Usuário" / "Ativar Usuário" (pede confirmação ao desativar); a lista mostra a etiqueta "Inativo" e esmaece a linha. O botão fica bloqueado no próprio usuário logado',
+      'Usa a função definir_status_usuario do banco, que marca d_auth_user.ativo e também bane a conta no Supabase Auth, bloqueando o login até por chamada direta à API',
+      'Tela de Login: conta bloqueada mostra "Usuário desativado. Procure o administrador do sistema." em vez de "E-mail ou senha incorretos"',
+      'Quem já estava logado e tem ativo = false é desconectado ao carregar o perfil',
+      'Usuários que já estavam marcados como inativos sem bloqueio no Auth passam a ser barrados pelo app via ativo = false; para banir também no Auth, usar Ativar e depois Desativar neles em Configurações → Usuários',
+    ],
+  },
+  {
+    versao: '18e027b',
+    data: '2026-10-16',
+    resumo: 'Permissões: Super Admin passa a ser decidido só pelo perfil, não pela coluna is_super_admin',
+    itens: [
+      'Corrige o erro de política de segurança em nível de linha ao cadastrar subestação: parte dos Super Admins tinha a coluna is_super_admin nula e era bloqueada',
+      'Policies e funções do banco passaram a reconhecer Super Admin só pelo perfil (d_auth_roles.name); a coluna is_super_admin é ignorada em todo o banco',
+      'Vale para as tabelas de cadastro e configuração (subestações, campos, preço fixo) e para os módulos de obra e judicial: o acesso de Super Admin passa a seguir o perfil',
+      'Scripts aplicados: supabase/remover_is_super_admin_producao_16_10_2026.sql e supabase/remover_is_super_admin_campo_judicial_16_10_2026.sql',
+    ],
+  },
+  {
     versao: '9201c1e',
     data: '2026-10-02',
     resumo: 'Atividades: opção "Todas" fixa no Grupo Equipe e correção do erro ao salvar sem grupo',
