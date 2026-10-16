@@ -94,7 +94,7 @@ Campos: `qtd_minima_colaboradores`, `grupo`, `grupo_atividades` (usado para filt
 
 #### `d_auth_user`
 - Espelho do Supabase Auth com perfil
-- `uuid (FK auth.users), role_id, nome, email, is_super_admin`
+- `uuid (FK auth.users), role_id, nome, email, is_super_admin` (`is_super_admin` é legada: não usar em policies, funções nem no app — Super Admin = perfil em `d_auth_roles.name`)
 
 #### `d_auth_roles`
 - `id, name`
@@ -103,7 +103,7 @@ Campos: `qtd_minima_colaboradores`, `grupo`, `grupo_atividades` (usado para filt
 - Permissões por usuário por contrato (RLS ativo)
 - `user_uuid, contrato_id, insert, read, update, delete`
 - Quando tem acesso: CRUD completo
-- `is_super_admin = true` tem acesso a tudo
+- Perfil `Super Admin` (`d_auth_roles.name`, via `d_auth_user.role_id`) tem acesso a tudo
 
 ---
 
@@ -288,7 +288,7 @@ logica_contrato = true
 ### Permissões
 - RLS ativo em todas as tabelas
 - `d_auth_contratos` define acesso por usuário por contrato
-- `is_super_admin = true` tem acesso irrestrito
+- Perfil `Super Admin` (`d_auth_roles.name`) tem acesso irrestrito; a coluna `is_super_admin` é ignorada
 - `config_campos` e `config_campos_contrato`: leitura para todos autenticados, escrita só para super admin
 
 ---

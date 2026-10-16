@@ -10,7 +10,7 @@
 --   usuário) — só ajuste se esse número mudar.
 --
 -- As policies de RLS abaixo foram modeladas no padrão documentado
--- em CONTEXTO_PROJETO.md (d_auth_user.is_super_admin +
+-- em CONTEXTO_PROJETO.md (perfil d_auth_roles.name = 'Super Admin' +
 -- d_auth_contratos por contrato, igual d_obras). Não temos acesso
 -- direto ao banco para comparar byte a byte com as policies reais
 -- de d_obras — vale conferir/ajustar se algo não bater.
@@ -47,7 +47,7 @@ ALTER TABLE d_subestacoes ENABLE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS "subestacoes_select" ON d_subestacoes;
 CREATE POLICY "subestacoes_select" ON d_subestacoes FOR SELECT
   USING (
-    EXISTS (SELECT 1 FROM d_auth_user u WHERE u.uuid = auth.uid() AND u.is_super_admin)
+    EXISTS (SELECT 1 FROM d_auth_user u JOIN d_auth_roles r ON r.id = u.role_id WHERE u.uuid = auth.uid() AND r.name = 'Super Admin')
     OR EXISTS (
       SELECT 1 FROM d_auth_contratos ac
       WHERE ac.user_uuid = auth.uid() AND ac.contrato_id = d_subestacoes.contrato_id AND ac.read
@@ -57,7 +57,7 @@ CREATE POLICY "subestacoes_select" ON d_subestacoes FOR SELECT
 DROP POLICY IF EXISTS "subestacoes_insert" ON d_subestacoes;
 CREATE POLICY "subestacoes_insert" ON d_subestacoes FOR INSERT
   WITH CHECK (
-    EXISTS (SELECT 1 FROM d_auth_user u WHERE u.uuid = auth.uid() AND u.is_super_admin)
+    EXISTS (SELECT 1 FROM d_auth_user u JOIN d_auth_roles r ON r.id = u.role_id WHERE u.uuid = auth.uid() AND r.name = 'Super Admin')
     OR EXISTS (
       SELECT 1 FROM d_auth_contratos ac
       WHERE ac.user_uuid = auth.uid() AND ac.contrato_id = d_subestacoes.contrato_id AND ac.insert
@@ -67,7 +67,7 @@ CREATE POLICY "subestacoes_insert" ON d_subestacoes FOR INSERT
 DROP POLICY IF EXISTS "subestacoes_update" ON d_subestacoes;
 CREATE POLICY "subestacoes_update" ON d_subestacoes FOR UPDATE
   USING (
-    EXISTS (SELECT 1 FROM d_auth_user u WHERE u.uuid = auth.uid() AND u.is_super_admin)
+    EXISTS (SELECT 1 FROM d_auth_user u JOIN d_auth_roles r ON r.id = u.role_id WHERE u.uuid = auth.uid() AND r.name = 'Super Admin')
     OR EXISTS (
       SELECT 1 FROM d_auth_contratos ac
       WHERE ac.user_uuid = auth.uid() AND ac.contrato_id = d_subestacoes.contrato_id AND ac.update
@@ -77,7 +77,7 @@ CREATE POLICY "subestacoes_update" ON d_subestacoes FOR UPDATE
 DROP POLICY IF EXISTS "subestacoes_delete" ON d_subestacoes;
 CREATE POLICY "subestacoes_delete" ON d_subestacoes FOR DELETE
   USING (
-    EXISTS (SELECT 1 FROM d_auth_user u WHERE u.uuid = auth.uid() AND u.is_super_admin)
+    EXISTS (SELECT 1 FROM d_auth_user u JOIN d_auth_roles r ON r.id = u.role_id WHERE u.uuid = auth.uid() AND r.name = 'Super Admin')
     OR EXISTS (
       SELECT 1 FROM d_auth_contratos ac
       WHERE ac.user_uuid = auth.uid() AND ac.contrato_id = d_subestacoes.contrato_id AND ac.delete

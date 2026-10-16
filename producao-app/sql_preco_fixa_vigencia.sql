@@ -60,8 +60,8 @@ CREATE POLICY "atividades_preco_fixa_select" ON d_atividades_preco_fixa FOR SELE
 -- Escrita só para super admin (mesmo padrão de config_campos_contrato)
 DROP POLICY IF EXISTS "atividades_preco_fixa_write" ON d_atividades_preco_fixa;
 CREATE POLICY "atividades_preco_fixa_write" ON d_atividades_preco_fixa FOR ALL
-  USING (EXISTS (SELECT 1 FROM d_auth_user u WHERE u.uuid = auth.uid() AND u.is_super_admin))
-  WITH CHECK (EXISTS (SELECT 1 FROM d_auth_user u WHERE u.uuid = auth.uid() AND u.is_super_admin));
+  USING (EXISTS (SELECT 1 FROM d_auth_user u JOIN d_auth_roles r ON r.id = u.role_id WHERE u.uuid = auth.uid() AND r.name = 'Super Admin'))
+  WITH CHECK (EXISTS (SELECT 1 FROM d_auth_user u JOIN d_auth_roles r ON r.id = u.role_id WHERE u.uuid = auth.uid() AND r.name = 'Super Admin'));
 
 
 -- ============================================================
