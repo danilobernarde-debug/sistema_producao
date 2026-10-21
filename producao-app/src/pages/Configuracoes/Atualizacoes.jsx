@@ -4,6 +4,19 @@ import { useNavigate } from 'react-router-dom'
 // Ao fazer uma mudança relevante no sistema, adicionar uma entrada nova aqui.
 const VERSOES = [
   {
+    versao: 'eb7dff9',
+    data: '2026-10-21',
+    resumo: 'Pagamento por disponibilidade: cadastro mensal por equipe e calendário de dias trabalhados',
+    itens: [
+      'Configurações → Atividades ganhou a aba "Disponibilidade": por equipe e mês, o Super Admin cadastra os dias de disponibilidade e o valor mensal (ex.: Recolha Poda e Faixa MT, R$ 75.000,00). A tabela mostra valor do dia, dias lançados e faturamento de cada mês, com aviso de mês sem cadastro e de dias a mais que o previsto',
+      'Nova tela Produção → Disponibilidade (botão na lista de Registros): o operador escolhe a equipe e o mês, marca os dias trabalhados no calendário e salva. Cada dia vira um registro normal com a atividade de disponibilidade; desmarcar apaga o dia. Dia futuro não pode ser marcado',
+      'Valor do dia = valor mensal ÷ dias de disponibilidade, calculado no banco com os centavos distribuídos: o mês completo fecha exatamente no valor mensal e dias faltantes descontam só o próprio dia. Editar o cadastro do mês recalcula os dias já lançados',
+      'Mais dias que o previsto: o sistema avisa mas permite. Mês sem cadastro: permite marcar, o valor fica R$ 0,00 até o cadastro existir',
+      'Atividades: novo campo "Pago por disponibilidade" marca a atividade que usa esse cálculo (atividade 4842 Disponibilidade, contrato Poda e Faixa MT)',
+      'Banco: tabela d_equipes_disponibilidade, view view_prod_disponibilidade_mes, funções fn_prod_*disponibilidade* e triggers trg_prod_disp_*. Script aplicado: supabase/disponibilidade_equipe_21_10_2026.sql',
+    ],
+  },
+  {
     versao: '9ee98bf',
     data: '2026-10-16',
     resumo: 'Usuários: botão Ativar/Desativar e bloqueio de login para usuário inativo',
