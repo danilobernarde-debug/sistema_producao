@@ -32,6 +32,8 @@ import Metas from './pages/Configuracoes/Metas'
 import Feriados from './pages/Configuracoes/Feriados'
 import Atualizacoes from './pages/Configuracoes/Atualizacoes'
 import ReajustePrecoFixa from './pages/Configuracoes/ReajustePrecoFixa'
+import DisponibilidadeEquipe from './pages/Configuracoes/DisponibilidadeEquipe'
+import Disponibilidade from './pages/Producao/Disponibilidade'
 import Planejamento from './pages/Planejamento'
 
 function RotaProtegida() {
@@ -108,6 +110,7 @@ export default function App() {
           <Route path="/producao" element={<ListaRegistros />} />
           <Route path="/producao/novo" element={<NovoRegistro />} />
           <Route path="/producao/:id/editar" element={<EditarRegistro />} />
+          <Route path="/producao/disponibilidade" element={<Disponibilidade />} />
 
           <Route path="/relatorios" element={<Relatorios />} />
           <Route path="/relatorios/exportacao" element={<Exportacao />} />
@@ -129,6 +132,7 @@ export default function App() {
           <Route path="/configuracoes/atividades" element={<RotaSuperAdmin><Atividades /></RotaSuperAdmin>} />
           <Route path="/configuracoes/subestacoes" element={<RotaSuperAdmin><Subestacoes /></RotaSuperAdmin>} />
           <Route path="/configuracoes/atividades-preco-fixa" element={<RotaSuperAdmin><AtividadesPrecoFixa /></RotaSuperAdmin>} />
+          <Route path="/configuracoes/atividades-disponibilidade" element={<RotaSuperAdmin><DisponibilidadeEquipe /></RotaSuperAdmin>} />
           <Route path="/configuracoes/form-builder" element={<RotaSuperAdmin><FormBuilder /></RotaSuperAdmin>} />
           <Route path="/configuracoes/metas" element={<RotaSuperAdmin><Metas /></RotaSuperAdmin>} />
           <Route path="/configuracoes/feriados" element={<RotaSuperAdmin><Feriados /></RotaSuperAdmin>} />

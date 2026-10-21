@@ -4,6 +4,7 @@ const ABAS = [
   { caminho: '/configuracoes/atividades',            label: 'Cadastro' },
   { caminho: '/configuracoes/atividades-preco-fixa',  label: 'Preço Fixo' },
   { caminho: '/configuracoes/contratos-preco-upe',    label: 'Preço UPE' },
+  { caminho: '/configuracoes/atividades-disponibilidade', label: 'Disponibilidade' },
 ]
 
 export default function AbasAtividades() {

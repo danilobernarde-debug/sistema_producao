@@ -35,7 +35,9 @@ const COLUNAS = [
     ajuda: 'Define qual preço UPE usar (LM ou LV). Relevante quando Tipo UPE = UPE.' },
   { nome: 'comprimento_lagura',     label: 'Usa C × L',        tipo: 'checkbox', ocultarLista: true,
     ajuda: 'Quando marcado, a quantidade é calculada como Comprimento × Largura' },
-  { nome: 'tipo_equipe_id',         label: 'Grupo Equipe (opcional)', tipo: 'select', ocultarLista: true,
+  { nome: 'is_disponibilidade',     label: 'Pago por disponibilidade', tipo: 'checkbox', ocultarLista: true,
+    ajuda: 'Atividade lançada pelo calendário de Disponibilidade (Produção). O valor de cada dia trabalhado é o valor mensal da equipe dividido pelos dias de disponibilidade do mês, cadastrados na aba Disponibilidade. Use com tipo Fixo.' },
+  { nome: 'tipo_equipe_id',        label: 'Grupo Equipe (opcional)', tipo: 'select', ocultarLista: true,
     tabela_ref: 'd_tipo_equipe', coluna_valor: 'id', coluna_label: 'descricao', pesquisavel: true,
     // 0 = aparece para todos os tipos de equipe (Novo/Editar Registro filtram por tipo_equipe_id 0 ou o grupo)
     opcaoFixa: { valor: 0, label: 'Todas' }, padrao: 0,
