@@ -4,6 +4,15 @@ import { useNavigate } from 'react-router-dom'
 // Ao fazer uma mudança relevante no sistema, adicionar uma entrada nova aqui.
 const VERSOES = [
   {
+    versao: 'a7ba821',
+    data: '2026-10-24',
+    resumo: 'Planejamento: o mapa mostra só os veículos da regional Goiás',
+    itens: [
+      'A camada "Veículos" dos mapas RMB, RIP e MEC passou a listar apenas os rastreadores da regional Goiás do Frotas (hoje 3 veículos). O filtro é feito na função api/frota-veiculos.js, então veículos de outras regionais nem chegam ao navegador; o trajeto de um veículo de outra regional é recusado',
+      'Para incluir outras regionais (ex.: Goianésia, id 6), definir FROTA_REGIONAIS=1,6 nas variáveis da Vercel e publicar de novo',
+    ],
+  },
+  {
     versao: 'ca59208',
     data: '2026-10-24',
     resumo: 'Planejamento: veículos rastreados (Frotas) no mapa, com posição ao vivo e trajeto do dia',
