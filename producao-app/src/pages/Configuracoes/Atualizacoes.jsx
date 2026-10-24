@@ -4,6 +4,16 @@ import { useNavigate } from 'react-router-dom'
 // Ao fazer uma mudança relevante no sistema, adicionar uma entrada nova aqui.
 const VERSOES = [
   {
+    versao: 'cbb01d6',
+    data: '2026-10-24',
+    resumo: 'Planejamento: indicador fixo dos veículos no mapa, com enquadramento e mensagem de erro',
+    itens: [
+      'Os mapas RMB, RIP e MEC ganharam um indicador no canto superior esquerdo ("🚚 3 veículos · hora"): clicar nele enquadra o mapa nos veículos rastreados, sem precisar procurá-los entre os pontos de serviço',
+      'Quando algo falha (sem login, sessão expirada, integração com o Frotas fora do ar) o indicador fica vermelho e mostra o motivo, em vez de só um aviso de 3 segundos',
+      'Para desenvolvimento: o npm run dev passa a servir a função api/frota-veiculos.js (vite.config.js), então a camada de veículos funciona também em localhost',
+    ],
+  },
+  {
     versao: 'a7ba821',
     data: '2026-10-24',
     resumo: 'Planejamento: o mapa mostra só os veículos da regional Goiás',
