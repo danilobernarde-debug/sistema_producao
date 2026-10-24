@@ -74,11 +74,10 @@
 
   function icone(v) {
     const s = situacao(v)
-    const rotulo = esc(v.placa || v.nome)
     return L.divIcon({
       className: '',
       iconSize: [0, 0],
-      html: `<div class="fv-pino" style="--fv:${s.cor}"><span class="fv-bolha">${EMOJI[v.icone] || '🚚'}</span><span class="fv-placa">${rotulo}</span></div>`,
+      html: `<div class="fv-pino" style="--fv:${s.cor}"><span class="fv-bolha">${EMOJI[v.icone] || '🚚'}</span></div>`,
     })
   }
 
@@ -221,7 +220,6 @@
     el.textContent = `
       .fv-pino{display:flex;flex-direction:column;align-items:center;transform:translate(-50%,-50%);pointer-events:auto;cursor:pointer}
       .fv-bolha{width:30px;height:30px;border-radius:50%;background:#07090f;border:3px solid var(--fv);display:flex;align-items:center;justify-content:center;font-size:15px;box-shadow:0 0 12px var(--fv),0 2px 6px rgba(0,0,0,.7)}
-      .fv-placa{margin-top:3px;padding:1px 6px;border-radius:4px;background:rgba(7,9,15,.9);border:1px solid var(--fv);color:#fff;font:700 10px "Syne",sans-serif;letter-spacing:.5px;white-space:nowrap}
       .fv-pop{min-width:210px;font-family:"DM Sans",sans-serif;font-size:12px;color:#dde3f0}
       .fv-pop-t{font:700 14px "Syne",sans-serif;margin-bottom:8px}
       .fv-l{display:flex;justify-content:space-between;gap:12px;padding:3px 0;border-bottom:1px solid #232b3e}
