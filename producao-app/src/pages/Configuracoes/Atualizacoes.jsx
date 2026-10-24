@@ -4,6 +4,17 @@ import { useNavigate } from 'react-router-dom'
 // Ao fazer uma mudança relevante no sistema, adicionar uma entrada nova aqui.
 const VERSOES = [
   {
+    versao: 'ca59208',
+    data: '2026-10-24',
+    resumo: 'Planejamento: veículos rastreados (Frotas) no mapa, com posição ao vivo e trajeto do dia',
+    itens: [
+      'Os mapas RMB, RIP e MEC ganharam a camada "🚚 Veículos" (menu de camadas, canto superior direito, ligada por padrão): mostra a última posição de cada veículo rastreado do sistema Frotas, com a placa e a cor da situação (verde em movimento, amarelo parado, cinza sem sinal há mais de 30 min). A posição atualiza sozinha a cada 30 segundos',
+      'Clicar no veículo abre situação, velocidade, último sinal, modelo, motorista, equipe e operação. Escolhendo um dia e clicando em "Ver trajeto", o mapa desenha o percurso do dia, com início, último ponto e as paradas (com o tempo parado); o botão "Limpar" remove o trajeto',
+      'Os dados vêm do Supabase do Frotas (outro banco). O navegador não fala direto com ele: a função api/frota-veiculos.js confere o login da Produção (usuário ativo) e consulta o Frotas com um usuário dedicado, somente leitura (mapa-planejamento@dbmachado.com, papel MOTORISTA, sem acesso a colaboradores/RH). IMEI e telefone dos rastreadores não são enviados à tela',
+      'Vercel: variáveis FROTA_SUPABASE_URL, FROTA_SUPABASE_ANON_KEY, FROTA_USER_EMAIL e FROTA_USER_PASSWORD. Código da camada em public/frota-veiculos.js, compartilhado pelos três mapas',
+    ],
+  },
+  {
     versao: 'eb7dff9',
     data: '2026-10-21',
     resumo: 'Pagamento por disponibilidade: cadastro mensal por equipe e calendário de dias trabalhados',
