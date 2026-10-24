@@ -4,6 +4,14 @@ import { useNavigate } from 'react-router-dom'
 // Ao fazer uma mudança relevante no sistema, adicionar uma entrada nova aqui.
 const VERSOES = [
   {
+    versao: '4959861',
+    data: '2026-10-24',
+    resumo: 'Planejamento: clicar no indicador de veículos liga/desliga a camada',
+    itens: [
+      'Nos mapas RMB, RIP e MEC, clicar no indicador "🚚 N veículos" (canto superior esquerdo) desliga os veículos do mapa; desligado, ele fica apagado ("Veículos desligados") e um novo clique religa e enquadra os veículos. Continua sincronizado com o botão "🚚 Veículos" do menu de camadas',
+    ],
+  },
+  {
     versao: 'c58d477',
     data: '2026-10-24',
     resumo: 'Planejamento: veículos no mapa sem a placa embaixo do ícone',
