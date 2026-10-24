@@ -4,6 +4,14 @@ import { useNavigate } from 'react-router-dom'
 // Ao fazer uma mudança relevante no sistema, adicionar uma entrada nova aqui.
 const VERSOES = [
   {
+    versao: 'b1719a2',
+    data: '2026-10-24',
+    resumo: 'Planejamento: botão dos veículos virou só um ícone, abaixo do botão de camadas',
+    itens: [
+      'Nos mapas RMB, RIP e MEC o indicador de veículos passou para o canto superior direito, logo abaixo do botão de camadas, e mostra só o ícone 🚚 (verde = ligado, cinza = desligado, vermelho = erro). Um clique liga/desliga; a quantidade, a hora da atualização e a mensagem de erro aparecem ao passar o mouse',
+    ],
+  },
+  {
     versao: '4959861',
     data: '2026-10-24',
     resumo: 'Planejamento: clicar no indicador de veículos liga/desliga a camada',
