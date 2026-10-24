@@ -30,6 +30,19 @@
     return null
   }
 
+  // lembra se o usuário deixou os veículos ligados ou desligados (por usuário, neste navegador)
+  function chavePreferencia() {
+    let uid = 'anon'
+    try { uid = JSON.parse(atob(token().split('.')[1].replace(/-/g, '+').replace(/_/g, '/'))).sub || uid } catch (_) { /* sem token */ }
+    return 'frota-veiculos-ligado:' + uid
+  }
+  function lerPreferencia() {
+    try { return localStorage.getItem(chavePreferencia()) !== '0' } catch (_) { return true }
+  }
+  function salvarPreferencia(valor) {
+    try { localStorage.setItem(chavePreferencia(), valor ? '1' : '0') } catch (_) { /* storage indisponível */ }
+  }
+
   async function chamar(consulta) {
     const t = token()
     if (!t) throw new Error('Sem login ativo')
@@ -205,12 +218,18 @@
   }
 
   function alternar() {
-    ligado = !ligado
+    definirLigado(!ligado, { salvar: true, enquadrar: true })
+  }
+
+  // liga/desliga a camada; o clique do usuário salva e enquadra, a abertura do mapa e a sincronia entre abas não
+  function definirLigado(valor, { salvar, enquadrar }) {
+    ligado = valor
+    if (salvar) salvarPreferencia(ligado)
     if (botao) botao.classList.toggle('active', ligado)
     if (ligado) {
       indicador('🚚 Carregando veículos…')
       camadaVeiculos.addTo(map)
-      atualizar(false).then(ajustarParaVeiculos)
+      atualizar(false).then(() => { if (enquadrar) ajustarParaVeiculos() })
     } else {
       map.removeLayer(camadaVeiculos)
       limparTrajeto()
@@ -256,7 +275,7 @@
       const sep = document.createElement('div')
       sep.style.cssText = 'height:1px;background:var(--border2);margin:2px 0'
       botao = document.createElement('button')
-      botao.className = 'layer-btn active'
+      botao.className = 'layer-btn'
       botao.id = 'lb-veiculos'
       botao.textContent = '🚚 Veículos'
       botao.onclick = alternar
@@ -271,8 +290,12 @@
     chip.onclick = alternar
     document.getElementById('map').parentElement.appendChild(chip)
 
-    // não mexe no enquadramento inicial do mapa de planejamento
-    atualizar(false)
+    // abre como o usuário deixou da última vez (padrão: ligado); não mexe no enquadramento do mapa
+    definirLigado(lerPreferencia(), { salvar: false, enquadrar: false })
+    // as 3 abas (RMB/RIP/MEC) carregam juntas: mudar numa muda nas outras
+    window.addEventListener('storage', (e) => {
+      if (e.key === chavePreferencia() && (e.newValue !== '0') !== ligado) definirLigado(e.newValue !== '0', { salvar: false, enquadrar: false })
+    })
     temporizador = setInterval(() => atualizar(true), INTERVALO_MS)
     document.addEventListener('visibilitychange', () => { if (!document.hidden) atualizar(true) })
   }
