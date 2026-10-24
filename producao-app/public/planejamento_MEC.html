@@ -9,6 +9,7 @@
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
+<script src="/frota-veiculos.js"></script>
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
 :root{
@@ -1045,6 +1046,7 @@ function initMap(){
   routeLayerGroup=L.layerGroup().addTo(map);
   map.on('zoomend moveend',()=>renderMarkers());
   placeTeamMarkers();applyF();
+  if(window.FrotaVeiculos) FrotaVeiculos.iniciar(map);
 }
 
 function setLayer(name){
