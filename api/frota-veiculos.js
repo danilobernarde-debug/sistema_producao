@@ -17,6 +17,11 @@ const PRODUCAO_ANON = process.env.SUPABASE_ANON_KEY
 
 const { FROTA_SUPABASE_URL, FROTA_SUPABASE_ANON_KEY, FROTA_USER_EMAIL, FROTA_USER_PASSWORD } = process.env
 
+// só os veículos dessas regionais do Frotas (frota_regionais.id; 1 = Goiás). Outras, por ex. 6 = Goianésia,
+// podem ser liberadas com FROTA_REGIONAIS=1,6 na Vercel
+const REGIONAIS = (process.env.FROTA_REGIONAIS || '1').split(',').map(s => s.trim()).filter(s => /^\d+$/.test(s))
+const FILTRO_REGIONAL = `regional_id=in.(${REGIONAIS.join(',')})`
+
 const TTL_POSICOES_MS = 10_000
 let sessaoFrota = null // { token, expira }
 let cachePosicoes = null // { em, dados }
@@ -72,7 +77,7 @@ async function posicoes() {
   const [rastreadores, gps] = await Promise.all([
     frota(
       'frota_rastreadores?select=id,nome,icone_mapa,online,ultima_lat,ultima_lon,ultima_velocidade,ultimo_sinal_em,ultima_ignicao,'
-      + 'veiculo:frota_veiculos(placa,modelo,equipe,operacao,motorista_atual:frota_motoristas!frota_veiculos_motorista_atual_id_fkey(nome))&order=nome',
+      + `veiculo:frota_veiculos(placa,modelo,equipe,operacao,motorista_atual:frota_motoristas!frota_veiculos_motorista_atual_id_fkey(nome))&${FILTRO_REGIONAL}&order=nome`,
     ),
     frota('frota_vw_gps_atual?select=id,gps_lat,gps_lon,gps_velocidade,gps_posicao_em,gps_estado,gps_parado_desde'),
   ])
@@ -109,6 +114,8 @@ async function posicoes() {
 }
 
 async function trajeto(rastreador, dia) {
+  const permitido = await frota(`frota_rastreadores?select=id&id=eq.${rastreador}&${FILTRO_REGIONAL}`)
+  if (!permitido.length) return null
   // dia civil em Brasília (UTC-3, sem horário de verão desde 2019)
   const de = new Date(`${dia}T00:00:00-03:00`)
   const ate = new Date(de.getTime() + 24 * 3600 * 1000)
@@ -125,7 +132,7 @@ async function trajeto(rastreador, dia) {
   }
 }
 
-export default async function handler(req, res) {
+module.exports = async function handler(req, res) {
   res.setHeader('Cache-Control', 'no-store')
   if (req.method !== 'GET') return res.status(405).json({ erro: 'Método não permitido' })
   if (!FROTA_SUPABASE_URL || !FROTA_SUPABASE_ANON_KEY || !FROTA_USER_EMAIL || !FROTA_USER_PASSWORD) {
@@ -139,7 +146,8 @@ export default async function handler(req, res) {
       if (!/^\d+$/.test(rastreador || '') || !/^\d{4}-\d{2}-\d{2}$/.test(dia || '')) {
         return res.status(400).json({ erro: 'Informe rastreador (número) e dia (AAAA-MM-DD)' })
       }
-      return res.status(200).json(await trajeto(Number(rastreador), dia))
+      const j = await trajeto(Number(rastreador), dia)
+      return j ? res.status(200).json(j) : res.status(404).json({ erro: 'Veículo não encontrado' })
     }
     return res.status(200).json({ atualizado_em: new Date().toISOString(), veiculos: await posicoes() })
   } catch (e) {
