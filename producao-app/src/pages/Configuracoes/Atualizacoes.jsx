@@ -4,6 +4,14 @@ import { useNavigate } from 'react-router-dom'
 // Ao fazer uma mudança relevante no sistema, adicionar uma entrada nova aqui.
 const VERSOES = [
   {
+    versao: 'c58d477',
+    data: '2026-10-24',
+    resumo: 'Planejamento: veículos no mapa sem a placa embaixo do ícone',
+    itens: [
+      'Na camada "Veículos" dos mapas RMB, RIP e MEC o ícone aparece sozinho, sem o rótulo da placa embaixo; a placa continua no popup ao clicar no veículo',
+    ],
+  },
+  {
     versao: 'cbb01d6',
     data: '2026-10-24',
     resumo: 'Planejamento: indicador fixo dos veículos no mapa, com enquadramento e mensagem de erro',
