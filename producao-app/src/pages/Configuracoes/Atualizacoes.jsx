@@ -4,6 +4,15 @@ import { useNavigate } from 'react-router-dom'
 // Ao fazer uma mudança relevante no sistema, adicionar uma entrada nova aqui.
 const VERSOES = [
   {
+    versao: 'b58cea5',
+    data: '2026-10-24',
+    resumo: 'Planejamento: o mapa lembra se os veículos estavam ligados ou desligados',
+    itens: [
+      'A escolha de ligar/desligar a camada de veículos (ícone 🚚 no mapa) é guardada por usuário e vale para as abas RMB, RIP e MEC: ao entrar de novo o mapa abre como foi deixado. Desligar numa aba já desliga nas outras. Aberto desligado, o mapa nem consulta o Frotas',
+      'A preferência fica no navegador (localStorage): em outro computador ou navegador a camada começa ligada',
+    ],
+  },
+  {
     versao: 'b1719a2',
     data: '2026-10-24',
     resumo: 'Planejamento: botão dos veículos virou só um ícone, abaixo do botão de camadas',
