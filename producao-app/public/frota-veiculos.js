@@ -12,7 +12,7 @@
   const EMOJI = { CARRO: '🚗', PICAPE_LEVE: '🛻', CAMIONETE: '🛻', CAMINHAO: '🚚', MUNCK: '🏗', PRANCHA: '🚛', TRITURADOR: '⚙️' }
   const COR = { movimento: '#00ff87', parado: '#ffe23d', semSinal: '#8896b3' }
 
-  let map, camadaVeiculos, camadaTrajeto, botao
+  let map, camadaVeiculos, camadaTrajeto, botao, chip
   let ligado = true
   let temporizador = null
   const marcadores = new Map() // id -> L.marker
@@ -123,12 +123,23 @@
     }
   }
 
+  // indicador fixo no mapa: quantos veículos, clique enquadra; em erro mostra o motivo
+  function indicador(texto, erro) {
+    if (!chip) return
+    chip.textContent = texto
+    chip.classList.toggle('fv-erro', !!erro)
+    chip.style.display = ligado ? '' : 'none'
+  }
+
   async function atualizar(silencioso) {
     if (!ligado || document.hidden) return
     try {
       const j = await chamar()
       desenhar(j.veiculos)
+      const hora = new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })
+      indicador(j.veiculos.length ? `🚚 ${j.veiculos.length} veículo${j.veiculos.length > 1 ? 's' : ''} · ${hora}` : '🚚 Nenhum veículo para mostrar', !j.veiculos.length)
     } catch (e) {
+      indicador('🚚 ' + e.message, true)
       if (!silencioso) aviso('🚚 ' + e.message)
     }
   }
@@ -195,6 +206,7 @@
   function alternar() {
     ligado = !ligado
     botao.classList.toggle('active', ligado)
+    if (chip) chip.style.display = ligado ? '' : 'none'
     if (ligado) {
       camadaVeiculos.addTo(map)
       atualizar(false).then(ajustarParaVeiculos)
@@ -218,6 +230,9 @@
       .fv-acoes{display:flex;gap:6px;margin-top:10px}
       .fv-acoes input{flex:1;min-width:0;background:#141824;border:1px solid #2d3852;color:#dde3f0;border-radius:6px;padding:5px 6px;font-size:12px;color-scheme:dark}
       .fv-acoes button,#fv-barra button{background:#ff5722;border:none;color:#fff;font:700 11px "Syne",sans-serif;border-radius:6px;padding:6px 10px;cursor:pointer}
+      #fv-chip{top:52px;left:10px;background:rgba(7,9,15,.92);border:1px solid #2d3852;border-radius:8px;padding:7px 11px;color:#dde3f0;font:700 11px "Syne",sans-serif;cursor:pointer;box-shadow:0 2px 8px rgba(0,0,0,.5);max-width:260px}
+      #fv-chip:hover{border-color:#00ff87;color:#00ff87}
+      #fv-chip.fv-erro{border-color:#e53935;color:#ff8a80}
       #fv-barra{position:absolute;left:50%;bottom:18px;transform:translateX(-50%);z-index:900;display:none;align-items:center;gap:12px;background:rgba(7,9,15,.94);border:1px solid #ff2fd0;border-radius:10px;padding:8px 12px;color:#dde3f0;font-size:12px;max-width:calc(100% - 24px)}
     `
     document.head.appendChild(el)
@@ -242,6 +257,14 @@
       botao.onclick = alternar
       menu.append(sep, botao)
     }
+
+    chip = document.createElement('div')
+    chip.id = 'fv-chip'
+    chip.className = 'map-ov click'
+    chip.title = 'Clique para enquadrar os veículos no mapa'
+    chip.textContent = '🚚 Carregando veículos…'
+    chip.onclick = () => (ultimaLista.length ? ajustarParaVeiculos() : atualizar(false))
+    document.getElementById('map').parentElement.appendChild(chip)
 
     // não mexe no enquadramento inicial do mapa de planejamento
     atualizar(false)
