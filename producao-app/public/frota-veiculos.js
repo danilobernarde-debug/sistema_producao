@@ -12,7 +12,7 @@
   const EMOJI = { CARRO: '🚗', PICAPE_LEVE: '🛻', CAMIONETE: '🛻', CAMINHAO: '🚚', MUNCK: '🏗', PRANCHA: '🚛', TRITURADOR: '⚙️' }
   const COR = { movimento: '#00ff87', parado: '#ffe23d', semSinal: '#8896b3' }
 
-  let map, camadaVeiculos, camadaTrajeto, botao, chip
+  let map, camadaVeiculos, camadaTrajeto, camadaBandeiras, botao, chip
   let ligado = true
   let temporizador = null
   const marcadores = new Map() // id -> L.marker
@@ -163,6 +163,114 @@
     if (pts.length) map.fitBounds(pts, { padding: [60, 60], maxZoom: 13 })
   }
 
+  // ---- Bandeiras de parada: igual ao Frotas (lib/paradas-mapa.ts e lib/rastreamento-icones.ts) ----
+  const RAIO_AGRUPAR_PX = 30 // paradas a menos disso na tela viram um ícone só
+  const RAIO_AGRUPAR_M = 200 // ... ou a menos disso no chão, em qualquer zoom
+  const EM_ANDAMENTO_MS = 10 * 60 * 1000 // terminou há menos disso: ainda pode estar parado
+  let paradasAtuais = []
+  const bandeiras = new Map() // chave do grupo -> { marcador, balao }
+
+  function distanciaM(lat1, lon1, lat2, lon2) {
+    const rad = Math.PI / 180, dLat = (lat2 - lat1) * rad, dLon = (lon2 - lon1) * rad
+    const a = Math.sin(dLat / 2) ** 2 + Math.cos(lat1 * rad) * Math.cos(lat2 * rad) * Math.sin(dLon / 2) ** 2
+    return 6371000 * 2 * Math.asin(Math.min(1, Math.sqrt(a)))
+  }
+
+  // 45 s -> "menos de 1 min", 47 min -> "47 min", 80 min -> "1 h 20 min", 30 h -> "1 d 6 h"
+  function duracaoDetalhada(ms) {
+    const minutos = Math.floor(ms / 60000)
+    if (minutos < 1) return 'menos de 1 min'
+    if (minutos < 60) return `${minutos} min`
+    const horas = Math.floor(minutos / 60)
+    if (horas < 24) return minutos % 60 ? `${horas} h ${minutos % 60} min` : `${horas} h`
+    const dias = Math.floor(horas / 24)
+    return horas % 24 ? `${dias} d ${horas % 24} h` : `${dias} d`
+  }
+
+  function iconeBandeira(texto, varias) {
+    const cor = varias ? '#9a3412' : '#ea580c'
+    return L.divIcon({
+      className: '',
+      iconSize: [30, 34],
+      iconAnchor: [6, 33],
+      popupAnchor: [10, -30],
+      html: `<svg width="30" height="34" viewBox="0 0 30 34" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+        <line x1="6" y1="3" x2="6" y2="33" stroke="#334155" stroke-width="2.4" stroke-linecap="round"/>
+        <path d="M6 3 H28 L24 9.5 L28 16 H6 Z" fill="${cor}" stroke="#fff" stroke-width="1.2" stroke-linejoin="round"/>
+        <text x="15.5" y="12.6" text-anchor="middle" font-size="9.5" font-weight="700" fill="#fff" font-family="system-ui,sans-serif">${esc(texto)}</text>
+      </svg>`,
+    })
+  }
+
+  // junta paradas próximas (guloso, em ordem de horário); a numeração é a posição na lista
+  function agruparParadas(paradas) {
+    const zoom = map.getZoom()
+    const grupos = []
+    paradas.forEach((parada, i) => {
+      if (!Number.isFinite(parada.lat) || !Number.isFinite(parada.lon)) return
+      const q = map.project([parada.lat, parada.lon], zoom)
+      const grupo = grupos.find((g) => Math.hypot(g.ancora.x - q.x, g.ancora.y - q.y) < RAIO_AGRUPAR_PX
+        || distanciaM(g.lat, g.lon, parada.lat, parada.lon) < RAIO_AGRUPAR_M)
+      if (grupo) grupo.itens.push({ numero: i + 1, parada })
+      else grupos.push({ ancora: q, lat: parada.lat, lon: parada.lon, itens: [{ numero: i + 1, parada }] })
+    })
+    return grupos.map((g) => ({
+      itens: g.itens,
+      lat: g.itens.reduce((s, i) => s + i.parada.lat, 0) / g.itens.length,
+      lon: g.itens.reduce((s, i) => s + i.parada.lon, 0) / g.itens.length,
+    }))
+  }
+
+  function coordenadasHtml(lat, lon) {
+    const texto = `${lat.toFixed(6)},${lon.toFixed(6)}`
+    return `<a href="https://www.google.com/maps/search/?api=1&query=${texto}" target="_blank" rel="noopener noreferrer">${texto.replace(',', ', ')}</a>`
+  }
+
+  function textosParada(grupo) {
+    const tempo = (p) => Date.parse(p.fim) - Date.parse(p.inicio)
+    const emAndamento = (p) => Date.now() - Date.parse(p.fim) < EM_ANDAMENTO_MS
+    const coordenadas = coordenadasHtml(grupo.lat, grupo.lon)
+    if (grupo.itens.length === 1) {
+      const { numero, parada } = grupo.itens[0]
+      return {
+        icone: String(numero),
+        balao: `<div class="fv-pop"><strong>Parada ${numero}</strong><br/>Parado por <strong>${duracaoDetalhada(tempo(parada))}</strong>${emAndamento(parada) ? ' (até agora)' : ''}<br/>${fmtHora(parada.inicio)} → ${fmtHora(parada.fim)}<br/>${coordenadas}</div>`,
+      }
+    }
+    const total = grupo.itens.reduce((soma, i) => soma + tempo(i.parada), 0)
+    const linhas = grupo.itens
+      .map(({ numero, parada }) => `<div><strong>#${numero}</strong> · ${fmtHora(parada.inicio)} → ${fmtHora(parada.fim)} · ${duracaoDetalhada(tempo(parada))}${emAndamento(parada) ? ' (até agora)' : ''}</div>`)
+      .join('')
+    return {
+      icone: `×${grupo.itens.length}`,
+      balao: `<div class="fv-pop"><strong>${grupo.itens.length} paradas neste local</strong><br/>Total parado: <strong>${duracaoDetalhada(total)}</strong><div style="margin:6px 0;font-size:12px;line-height:1.55">${linhas}</div>${coordenadas}</div>`,
+    }
+  }
+
+  // só acrescenta/tira o que mudou, para o zoom não fechar o balão que a pessoa está lendo
+  function redesenharBandeiras() {
+    if (!camadaBandeiras) return
+    const querem = new Map()
+    for (const g of agruparParadas(paradasAtuais)) querem.set(g.itens.map((i) => i.numero).join(','), g)
+    for (const [chave, b] of bandeiras) {
+      if (!querem.has(chave)) { camadaBandeiras.removeLayer(b.marcador); bandeiras.delete(chave) }
+    }
+    for (const [chave, g] of querem) {
+      if (bandeiras.has(chave)) continue
+      const textos = textosParada(g)
+      const marcador = L.marker([g.lat, g.lon], { icon: iconeBandeira(textos.icone, g.itens.length > 1), zIndexOffset: 500 })
+        .bindPopup(textos.balao, { maxHeight: 220, minWidth: 190 })
+      camadaBandeiras.addLayer(marcador)
+      bandeiras.set(chave, { marcador, balao: textos.balao })
+    }
+  }
+
+  function limparBandeiras() {
+    paradasAtuais = []
+    bandeiras.clear()
+    if (camadaBandeiras) camadaBandeiras.clearLayers()
+  }
+
   async function verTrajeto(id) {
     const campo = document.getElementById('fv-dia-' + id)
     const dia = campo?.value || hojeBrasilia()
@@ -170,6 +278,7 @@
     try {
       const j = await chamar(`rastreador=${id}&dia=${dia}`)
       camadaTrajeto.clearLayers()
+      limparBandeiras()
       if (!j.pontos.length) { aviso(`🚚 ${v?.placa || 'Veículo'} sem trajeto em ${dia.split('-').reverse().join('/')}`); return }
       // um traçado por trecho: lacunas de sinal não viram linha reta
       const trechos = new Map()
@@ -187,11 +296,8 @@
         .bindTooltip(`Início · ${fmtHora(ini.t)}`).addTo(camadaTrajeto)
       L.circleMarker([fim.lat, fim.lon], { radius: 7, color: '#fff', weight: 2, fillColor: '#e53935', fillOpacity: 1 })
         .bindTooltip(`Último ponto · ${fmtHora(fim.t)}`).addTo(camadaTrajeto)
-      for (const p of j.paradas) {
-        const min = Math.round((new Date(p.fim) - new Date(p.inicio)) / 60000)
-        L.circleMarker([p.lat, p.lon], { radius: 5, color: '#07090f', weight: 1.5, fillColor: '#ffe23d', fillOpacity: 1 })
-          .bindTooltip(`Parada ${fmtHora(p.inicio)}–${fmtHora(p.fim)} (${min} min)`).addTo(camadaTrajeto)
-      }
+      paradasAtuais = j.paradas
+      redesenharBandeiras()
       map.closePopup()
       map.fitBounds(todos, { padding: [60, 60] })
       mostrarBarraTrajeto(v, dia, j)
@@ -207,12 +313,13 @@
       barra.id = 'fv-barra'
       document.getElementById('map').parentElement.appendChild(barra)
     }
-    barra.innerHTML = `<span>🚚 <b>${esc(v?.placa || v?.nome || '')}</b> · ${dia.split('-').reverse().join('/')} · ${j.pontos.length} pontos · ${j.paradas.length} paradas</span><button onclick="FrotaVeiculos.limparTrajeto()">Limpar</button>`
+    barra.innerHTML = `<span>🚚 <b>${esc(v?.placa || v?.nome || '')}</b> · ${dia.split('-').reverse().join('/')} · ${j.pontos.length} pontos · ${j.paradas.length} paradas${j.paradas.length ? ' · ' + duracaoDetalhada(j.paradas.reduce((s, p) => s + Date.parse(p.fim) - Date.parse(p.inicio), 0)) + ' parado' : ''}</span><button onclick="FrotaVeiculos.limparTrajeto()">Limpar</button>`
     barra.style.display = 'flex'
   }
 
   function limparTrajeto() {
     camadaTrajeto.clearLayers()
+    limparBandeiras()
     const barra = document.getElementById('fv-barra')
     if (barra) barra.style.display = 'none'
   }
@@ -245,6 +352,8 @@
       .fv-pino{display:flex;flex-direction:column;align-items:center;transform:translate(-50%,-50%);pointer-events:auto;cursor:pointer}
       .fv-bolha{width:30px;height:30px;border-radius:50%;background:#07090f;border:3px solid var(--fv);display:flex;align-items:center;justify-content:center;font-size:15px;box-shadow:0 0 12px var(--fv),0 2px 6px rgba(0,0,0,.7)}
       .fv-pop{min-width:210px;font-family:"DM Sans",sans-serif;font-size:12px;color:#dde3f0}
+      .fv-pop a{color:#60a5fa}
+      .fv-pop strong{color:#fff}
       .fv-pop-t{font:700 14px "Syne",sans-serif;margin-bottom:8px}
       .fv-l{display:flex;justify-content:space-between;gap:12px;padding:3px 0;border-bottom:1px solid #232b3e}
       .fv-l span:first-child{color:#8896b3}
@@ -267,6 +376,8 @@
     map = mapa
     css()
     camadaTrajeto = L.layerGroup().addTo(map)
+    camadaBandeiras = L.layerGroup().addTo(map)
+    map.on('zoomend', redesenharBandeiras)
     camadaVeiculos = L.layerGroup().addTo(map)
 
     // botão no menu de camadas, depois de "+ Divisas"

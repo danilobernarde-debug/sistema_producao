@@ -113,6 +113,99 @@ async function posicoes() {
   return dados
 }
 
+// ---- Paradas: mesma regra do Frotas (frotas-web/src/lib/gps-trajeto.ts) ----------------------------
+// O banco (frota_trajeto) já entrega as paradas pela regra de GPS de cada rastreador (raio de parada,
+// lacuna, deriva). O Frotas ainda reconstrói paradas a partir dos pontos (a limpeza noturna deixa 1 ponto
+// a cada 1 h 30) e funde paradas vizinhas; sem isso o tempo parado não bate com o do Frotas.
+const PARADA_DOS_PONTOS = { raioM: 150, folgaMaxMs: 2 * 3600e3, duracaoMinMs: 2 * 60e3 }
+const FUSAO_PARADAS = { raioM: 150, folgaMaxMs: 2 * 3600e3, velocidadeMax: 10, excursaoM: 200 }
+
+function distanciaM(lat1, lon1, lat2, lon2) {
+  const rad = Math.PI / 180, dLat = (lat2 - lat1) * rad, dLon = (lon2 - lon1) * rad
+  const a = Math.sin(dLat / 2) ** 2 + Math.cos(lat1 * rad) * Math.cos(lat2 * rad) * Math.sin(dLon / 2) ** 2
+  return 6371000 * 2 * Math.asin(Math.min(1, Math.sqrt(a)))
+}
+
+// pontos parados seguidos, no mesmo lugar, sem ponto de movimento no meio (pontos em ordem de horário)
+function derivarParadasDosPontos(pontos, o = PARADA_DOS_PONTOS) {
+  const saida = []
+  let corrida = []
+  const fechar = () => {
+    if (corrida.length >= 2) {
+      const inicio = Date.parse(corrida[0].tempo), fim = Date.parse(corrida[corrida.length - 1].tempo)
+      if (fim - inicio >= o.duracaoMinMs) {
+        saida.push({
+          inicio: corrida[0].tempo,
+          fim: corrida[corrida.length - 1].tempo,
+          lat: corrida.reduce((s, p) => s + p.lat, 0) / corrida.length,
+          lon: corrida.reduce((s, p) => s + p.lon, 0) / corrida.length,
+        })
+      }
+    }
+    corrida = []
+  }
+  for (const p of pontos) {
+    if (p.qualidade !== 'valida' || !Number.isFinite(p.lat) || !Number.isFinite(p.lon)) continue
+    // o ponto de chegada vem com velocidade 0 mas já marcado como "movimento": conta como parado pela velocidade
+    const parado = p.estado === 'parado' || p.estado === 'confirmando_parada' || (p.velocidade_bruta ?? Infinity) <= 3
+    if (!parado) { fechar(); continue }
+    const ultimo = corrida[corrida.length - 1]
+    if (ultimo && (Date.parse(p.tempo) - Date.parse(ultimo.tempo) > o.folgaMaxMs
+        || distanciaM(corrida[0].lat, corrida[0].lon, p.lat, p.lon) > o.raioM)) fechar()
+    corrida.push(p)
+  }
+  fechar()
+  return saida
+}
+
+// paradas seguidas, no mesmo local e sem movimento de verdade entre elas, voltam a ser uma só
+function fundirParadasProximas(paradas, pontos, o = FUSAO_PARADAS) {
+  const saida = []
+  for (const proxima of [...paradas].sort((a, b) => Date.parse(a.inicio) - Date.parse(b.inicio))) {
+    const atual = saida[saida.length - 1]
+    if (atual) {
+      const fimAtual = Date.parse(atual.fim), inicioProxima = Date.parse(proxima.inicio)
+      const mesmoLocal = distanciaM(atual.lat, atual.lon, proxima.lat, proxima.lon) <= o.raioM
+      if (mesmoLocal && inicioProxima - fimAtual <= o.folgaMaxMs) {
+        const houveMovimento = pontos.some(p => {
+          const t = Date.parse(p.tempo)
+          if (t <= fimAtual || t >= inicioProxima) return false
+          if (p.qualidade === 'duplicada' || p.qualidade === 'invalida') return false
+          return (p.velocidade_bruta ?? 0) > o.velocidadeMax || distanciaM(atual.lat, atual.lon, p.lat_bruta, p.lon_bruta) > o.excursaoM
+        })
+        if (!houveMovimento) {
+          // o local da parada junta é a média dos locais, pesada pelo tempo parado
+          const pesoA = Math.max(1000, fimAtual - Date.parse(atual.inicio)), pesoB = Math.max(1000, Date.parse(proxima.fim) - inicioProxima)
+          saida[saida.length - 1] = {
+            ...atual,
+            fim: Date.parse(proxima.fim) > fimAtual ? proxima.fim : atual.fim,
+            lat: (atual.lat * pesoA + proxima.lat * pesoB) / (pesoA + pesoB),
+            lon: (atual.lon * pesoA + proxima.lon * pesoB) / (pesoA + pesoB),
+          }
+          continue
+        }
+      }
+    }
+    saida.push({ ...proxima })
+  }
+  return saida
+}
+
+function paradasDoDia(j) {
+  const pontos = (j.pontos || []).slice().sort((a, b) => Date.parse(a.tempo) - Date.parse(b.tempo) || a.id - b.id)
+  // paradas do banco + as reconstruídas dos pontos; as que se tocam viram uma (a arquivada é a mais completa)
+  const todas = [...(j.paradas || []), ...derivarParadasDosPontos(pontos)].sort((a, b) => Date.parse(a.inicio) - Date.parse(b.inicio))
+  const unicas = []
+  for (const p of todas) {
+    const outra = unicas.find(x => Date.parse(x.inicio) <= Date.parse(p.fim) && Date.parse(x.fim) >= Date.parse(p.inicio))
+    if (outra) {
+      if (Date.parse(p.inicio) < Date.parse(outra.inicio)) outra.inicio = p.inicio
+      if (Date.parse(p.fim) > Date.parse(outra.fim)) outra.fim = p.fim
+    } else unicas.push({ ...p })
+  }
+  return fundirParadasProximas(unicas, pontos)
+}
+
 async function trajeto(rastreador, dia) {
   const permitido = await frota(`frota_rastreadores?select=id&id=eq.${rastreador}&${FILTRO_REGIONAL}`)
   if (!permitido.length) return null
@@ -128,7 +221,7 @@ async function trajeto(rastreador, dia) {
     pontos: (j.pontos || [])
       .filter(p => p.qualidade === 'valida')
       .map(p => ({ t: p.tempo, lat: p.lat, lon: p.lon, v: p.velocidade, trecho: p.trecho })),
-    paradas: (j.paradas || []).map(p => ({ inicio: p.inicio, fim: p.fim, lat: p.lat, lon: p.lon })),
+    paradas: paradasDoDia(j).map(p => ({ inicio: p.inicio, fim: p.fim, lat: p.lat, lon: p.lon })),
   }
 }
 
