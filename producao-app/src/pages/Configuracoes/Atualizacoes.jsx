@@ -4,6 +4,16 @@ import { useNavigate } from 'react-router-dom'
 // Ao fazer uma mudança relevante no sistema, adicionar uma entrada nova aqui.
 const VERSOES = [
   {
+    versao: '777c565',
+    data: '2026-10-24',
+    resumo: 'Planejamento: bandeiras de parada com o tempo parado nos trajetos dos veículos',
+    itens: [
+      'No trajeto do dia de um veículo (popup → Ver trajeto) as paradas aparecem como bandeiras numeradas por ordem de horário, como no Frotas. Clicar mostra quanto tempo ficou parado, o horário de início e fim e as coordenadas (link para o Google Maps); paradas muito próximas (200 m ou coladas na tela) viram uma bandeira escura "×N" com o total parado e a lista. Parada que terminou há menos de 10 min aparece como "até agora"',
+      'A barra do trajeto passou a mostrar também o total parado no dia',
+      'Regra de contagem igual à do Frotas: o banco (frota_trajeto) decide a parada pelo raio de 20 m, velocidade até 10 km/h, deriva de GPS e lacunas de 10 min; por cima, a API reconstrói paradas a partir dos pontos (raio 150 m, até 2 h entre pontos, mínimo 2 min) e funde paradas vizinhas (150 m, 2 h, sem movimento acima de 10 km/h nem afastamento de 200 m). Conferido com o código do Frotas em 3 veículos x 7 dias: resultados idênticos',
+    ],
+  },
+  {
     versao: 'b58cea5',
     data: '2026-10-24',
     resumo: 'Planejamento: o mapa lembra se os veículos estavam ligados ou desligados',
