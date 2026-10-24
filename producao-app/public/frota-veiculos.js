@@ -125,7 +125,7 @@
   // indicador fixo no mapa: quantos veículos, clique enquadra; em erro mostra o motivo
   function indicador(texto, erro) {
     if (!chip) return
-    chip.textContent = texto
+    chip.title = texto + ' — clique para desligar'
     chip.classList.toggle('fv-erro', !!erro)
     chip.classList.remove('fv-off')
   }
@@ -214,7 +214,7 @@
     } else {
       map.removeLayer(camadaVeiculos)
       limparTrajeto()
-      chip.textContent = '🚚 Veículos desligados'
+      chip.title = 'Veículos desligados — clique para ligar'
       chip.classList.remove('fv-erro')
       chip.classList.add('fv-off')
     }
@@ -233,10 +233,11 @@
       .fv-acoes{display:flex;gap:6px;margin-top:10px}
       .fv-acoes input{flex:1;min-width:0;background:#141824;border:1px solid #2d3852;color:#dde3f0;border-radius:6px;padding:5px 6px;font-size:12px;color-scheme:dark}
       .fv-acoes button,#fv-barra button{background:#ff5722;border:none;color:#fff;font:700 11px "Syne",sans-serif;border-radius:6px;padding:6px 10px;cursor:pointer}
-      #fv-chip{top:52px;left:10px;background:rgba(7,9,15,.92);border:1px solid #2d3852;border-radius:8px;padding:7px 11px;color:#dde3f0;font:700 11px "Syne",sans-serif;cursor:pointer;box-shadow:0 2px 8px rgba(0,0,0,.5);max-width:260px}
-      #fv-chip:hover{border-color:#00ff87;color:#00ff87}
-      #fv-chip.fv-off{opacity:.65;color:#8896b3;text-decoration:line-through}
-      #fv-chip.fv-erro{border-color:#e53935;color:#ff8a80}
+      #fv-chip{top:52px;right:10px;z-index:800;width:36px;height:36px;border-radius:8px;background:rgba(7,9,15,.92);border:1px solid #00ff87;display:flex;align-items:center;justify-content:center;font-size:16px;cursor:pointer;box-shadow:0 2px 8px rgba(0,0,0,.5);position:absolute}
+      #fv-chip:hover{background:rgba(0,255,135,.12)}
+      #fv-chip.fv-off{border-color:#2d3852;opacity:.7;filter:grayscale(1)}
+      #fv-chip.fv-off::after{content:"";position:absolute;left:6px;right:6px;top:50%;border-top:2px solid #e53935;transform:rotate(-45deg)}
+      #fv-chip.fv-erro{border-color:#e53935;background:rgba(229,57,53,.15)}
       #fv-barra{position:absolute;left:50%;bottom:18px;transform:translateX(-50%);z-index:900;display:none;align-items:center;gap:12px;background:rgba(7,9,15,.94);border:1px solid #ff2fd0;border-radius:10px;padding:8px 12px;color:#dde3f0;font-size:12px;max-width:calc(100% - 24px)}
     `
     document.head.appendChild(el)
@@ -265,8 +266,8 @@
     chip = document.createElement('div')
     chip.id = 'fv-chip'
     chip.className = 'map-ov click'
-    chip.title = 'Clique para ligar/desligar os veículos no mapa'
-    chip.textContent = '🚚 Carregando veículos…'
+    chip.title = 'Carregando veículos…'
+    chip.textContent = '🚚'
     chip.onclick = alternar
     document.getElementById('map').parentElement.appendChild(chip)
 
