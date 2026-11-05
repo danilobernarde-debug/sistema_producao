@@ -4,6 +4,14 @@ import { useNavigate } from 'react-router-dom'
 // Ao fazer uma mudança relevante no sistema, adicionar uma entrada nova aqui.
 const VERSOES = [
   {
+    versao: '53de7db',
+    data: '2026-11-04',
+    resumo: 'Dashboard: o aviso de cache mostra o dia e a hora',
+    itens: [
+      'Em Relatórios → Dashboard, o texto "Cache de ..." mostrava só a hora em que os dados foram salvos; agora mostra também a data (dd/mm/aaaa hh:mm)',
+    ],
+  },
+  {
     versao: '777c565',
     data: '2026-10-24',
     resumo: 'Planejamento: bandeiras de parada com o tempo parado nos trajetos dos veículos',
