@@ -4,6 +4,16 @@ import { useNavigate } from 'react-router-dom'
 // Ao fazer uma mudança relevante no sistema, adicionar uma entrada nova aqui.
 const VERSOES = [
   {
+    versao: '51c9a88',
+    data: '2026-11-05',
+    resumo: 'Aprovação da produção lançada pelo app de campo',
+    itens: [
+      'Nova tela Aprovação Campo no menu (Super Admin, Admin e User Local): lista os registros de produção enviados pelo app de campo para aprovar. O menu mostra a quantidade de pendentes; o User Local só enxerga os contratos dele',
+      'Novo perfil Encarregado: usa apenas o aplicativo de campo e não entra no sistema web (aparece o aviso "Este usuário acessa apenas pelo aplicativo de campo")',
+      'Em Configurações → Gerenciar Usuários, o perfil Encarregado ganhou os campos Encarregado vinculado e Equipe vinculada, para o app já abrir os registros com equipe, contrato e encarregado preenchidos',
+    ],
+  },
+  {
     versao: '53de7db',
     data: '2026-11-04',
     resumo: 'Dashboard: o aviso de cache mostra o dia e a hora',
