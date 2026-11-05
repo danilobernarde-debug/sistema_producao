@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { supabase } from '../../supabaseClient'
 import { Modal } from '../../components/TabelaCRUD'
 import { useAuth } from '../../hooks/useAuth'
+import SelectPesquisavel from '../../components/SelectPesquisavel'
 
 const ESTILO_INATIVO = {
   display: 'inline-block', marginLeft: 6, padding: '1px 6px', borderRadius: 4,
@@ -14,8 +15,10 @@ export default function GerenciarUsuarios() {
   const { usuario: eu } = useAuth()
   const [usuarios, setUsuarios]               = useState([])
   const [selecionado, setSelecionado]         = useState(null)
-  const [form, setForm]                       = useState({ nome: '', role_id: '' })
+  const [form, setForm]                       = useState({ nome: '', role_id: '', colaborador_id: '', equipe_id: '' })
   const [roles, setRoles]                     = useState([])
+  const [colaboradores, setColaboradores]     = useState([])
+  const [equipes, setEquipes]                 = useState([])
   const [todosContratos, setTodosContratos]   = useState([])
   const [contratosUsuario, setContratosUsuario] = useState([])
   const [carregando, setCarregando]           = useState(true)
@@ -30,21 +33,36 @@ export default function GerenciarUsuarios() {
 
   useEffect(() => { carregarDados() }, [])
 
+  const ehEncarregado = roles.find(r => String(r.id) === String(form.role_id))?.name === 'Encarregado'
+  const opcoesColaboradores = colaboradores.map(c => ({ valor: c.id, label: c.matricula_nome }))
+  const opcoesEquipes = equipes.map(e => ({
+    valor: e.id,
+    label: e.sistema_producao || e.equipe,
+    sublabel: todosContratos.find(c => c.id === e.contrato_id)?.descricao,
+  }))
+
   async function carregarDados() {
-    const [{ data: uData }, { data: rData }, { data: cData }] = await Promise.all([
+    const [{ data: uData }, { data: rData }, { data: cData }, { data: colData }, { data: eqData }] = await Promise.all([
       supabase.from('d_auth_user').select('*, d_auth_roles(name)').order('nome'),
       supabase.from('d_auth_roles').select('*').order('name'),
       supabase.from('d_contratos').select('id, descricao').order('descricao'),
+      supabase.from('d_colaboradores').select('id, matricula_nome').eq('is_ativo', true).order('matricula_nome'),
+      supabase.from('d_equipes').select('id, equipe, sistema_producao, contrato_id').eq('is_ativo', true).order('sistema_producao'),
     ])
     setUsuarios(uData || [])
     setRoles(rData || [])
     setTodosContratos(cData || [])
+    setColaboradores(colData || [])
+    setEquipes(eqData || [])
     setCarregando(false)
   }
 
   async function selecionarUsuario(u) {
     setSelecionado(u)
-    setForm({ nome: u.nome || '', role_id: u.role_id || '' })
+    setForm({
+      nome: u.nome || '', role_id: u.role_id || '',
+      colaborador_id: u.colaborador_id || '', equipe_id: u.equipe_id || '',
+    })
     setErro('')
     setSucesso('')
     const { data } = await supabase.from('d_auth_contratos').select('contrato_id').eq('user_uuid', u.uuid)
@@ -55,14 +73,26 @@ export default function GerenciarUsuarios() {
     setSalvando(true)
     setErro('')
     setSucesso('')
+    // Encarregado e equipe só valem para o perfil Encarregado: para os outros perfis o vínculo é mantido como está.
+    const vinculo = ehEncarregado
+      ? {
+          colaborador_id: form.colaborador_id ? Number(form.colaborador_id) : null,
+          equipe_id: form.equipe_id ? Number(form.equipe_id) : null,
+        }
+      : {}
     const { error } = await supabase.from('d_auth_user')
-      .update({ nome: form.nome, role_id: form.role_id || null })
+      .update({ nome: form.nome, role_id: form.role_id || null, ...vinculo })
       .eq('uuid', selecionado.uuid)
     setSalvando(false)
-    if (error) { setErro(error.message); return }
+    if (error) {
+      setErro(error.code === '23505'
+        ? 'Este encarregado já está vinculado a outro usuário.'
+        : error.message)
+      return
+    }
     setSucesso('Perfil salvo.')
     await carregarDados()
-    setSelecionado(prev => ({ ...prev, nome: form.nome, role_id: form.role_id }))
+    setSelecionado(prev => ({ ...prev, nome: form.nome, role_id: form.role_id, ...vinculo }))
   }
 
   async function toggleContrato(contratoId) {
@@ -297,7 +327,35 @@ export default function GerenciarUsuarios() {
                       {roles.map(r => <option key={r.id} value={r.id}>{r.name}</option>)}
                     </select>
                   </div>
+                  {ehEncarregado && (
+                    <>
+                      <div className="campo-grupo">
+                        <label className="campo-label">Encarregado vinculado</label>
+                        <SelectPesquisavel
+                          opcoes={opcoesColaboradores}
+                          valor={form.colaborador_id}
+                          onChange={v => setForm(p => ({ ...p, colaborador_id: v }))}
+                          placeholder="Pesquisar colaborador..."
+                        />
+                      </div>
+                      <div className="campo-grupo">
+                        <label className="campo-label">Equipe vinculada</label>
+                        <SelectPesquisavel
+                          opcoes={opcoesEquipes}
+                          valor={form.equipe_id}
+                          onChange={v => setForm(p => ({ ...p, equipe_id: v }))}
+                          placeholder="Pesquisar equipe..."
+                        />
+                      </div>
+                    </>
+                  )}
                 </div>
+                {ehEncarregado && (
+                  <div style={{ fontSize: 12, color: '#6b7280', marginTop: -4 }}>
+                    No app de campo, os registros deste usuário já abrem com a equipe, o contrato dela e o encarregado preenchidos.
+                    Lembre de marcar abaixo o contrato da equipe, para o app conseguir ler os cadastros.
+                  </div>
+                )}
 
                 {erro && <div className="erro-mensagem" style={{ marginTop: 12 }}>{erro}</div>}
                 {sucesso && <div style={{ marginTop: 12, color: '#16a34a', fontSize: 13 }}>{sucesso}</div>}

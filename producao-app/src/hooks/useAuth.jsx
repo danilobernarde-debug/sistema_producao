@@ -4,6 +4,7 @@ import { supabase } from '../supabaseClient'
 const AuthContext = createContext(null)
 
 export const MSG_DESATIVADO = 'Usuário desativado. Procure o administrador do sistema.'
+export const MSG_SO_APP = 'Este usuário acessa apenas pelo aplicativo de campo.'
 
 export function AuthProvider({ children }) {
   const [usuario, setUsuario] = useState(null)
@@ -38,6 +39,15 @@ export function AuthProvider({ children }) {
       .single()
     if (data?.ativo === false) {
       setAviso(MSG_DESATIVADO)
+      setPerfil(null)
+      setUsuario(null)
+      setCarregando(false)
+      await supabase.auth.signOut()
+      return
+    }
+    // Perfil Encarregado: só usa o aplicativo de campo, não entra no sistema web.
+    if (data?.d_auth_roles?.name === 'Encarregado') {
+      setAviso(MSG_SO_APP)
       setPerfil(null)
       setUsuario(null)
       setCarregando(false)

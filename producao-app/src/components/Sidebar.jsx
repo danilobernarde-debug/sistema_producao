@@ -1,4 +1,4 @@
-import { NavLink, useNavigate } from 'react-router-dom'
+import { NavLink, useNavigate, useLocation } from 'react-router-dom'
 import { useState, useRef, useEffect } from 'react'
 import { useAuth } from '../hooks/useAuth'
 import { supabase } from '../supabaseClient'
@@ -7,7 +7,8 @@ const itensMenu = [
   { secao: 'MENU' },
   { caminho: '/',             icone: '📊', label: 'Dashboard' },
   { caminho: '/producao',     icone: '📋', label: 'Produção' },
-  { caminho: '/relatorios',   icone: '📈', label: 'Relatórios' },
+  { caminho: '/aprovacao-campo', icone: '✅', label: 'Aprovação Campo', aprovador: true, contador: true },
+  { caminho: '/relatorios',  icone: '📈', label: 'Relatórios' },
   { secao: 'PLANEJAMENTO' },
   { caminho: '/planejamento', icone: '🗺️', label: 'Planejamento' },
   { secao: 'CONFIGURAÇÕES' },
@@ -27,6 +28,21 @@ export default function Sidebar({ aberta, onFechar }) {
   const [erroSenha, setErroSenha]   = useState('')
   const [senhaOk, setSenhaOk]       = useState(false)
   const [salvandoSenha, setSalvandoSenha] = useState(false)
+  const [pendentesCampo, setPendentesCampo] = useState(0)
+  const { pathname } = useLocation()
+  const isAprovador = ['Super Admin', 'Admin', 'User Local'].includes(perfil?.d_auth_roles?.name)
+
+  // Contador de registros do app de campo aguardando aprovação (atualiza a cada navegação).
+  // Se a fila ainda não existir no banco, a consulta falha e o contador simplesmente some.
+  useEffect(() => {
+    if (!isAprovador) return
+    let vivo = true
+    supabase.from('campo_registros_producao')
+      .select('id', { count: 'exact', head: true })
+      .eq('status', 'pendente')
+      .then(({ count, error }) => { if (vivo) setPendentesCampo(error ? 0 : (count || 0)) })
+    return () => { vivo = false }
+  }, [isAprovador, pathname])
 
   useEffect(() => {
     function handleClickFora(e) {
@@ -95,7 +111,7 @@ export default function Sidebar({ aberta, onFechar }) {
       <nav style={estilos.nav}>
         {(perfil?.d_auth_roles?.name === 'Planejamento'
           ? itensMenu.filter(item => item.secao === 'PLANEJAMENTO' || item.caminho === '/planejamento')
-          : itensMenu
+          : itensMenu.filter(item => !item.aprovador || isAprovador)
         ).map((item, i) =>
           item.secao ? (
             <div key={i} style={{ ...estilos.secao, marginTop: i === 0 ? 0 : 12 }}>{item.secao}</div>
@@ -112,6 +128,9 @@ export default function Sidebar({ aberta, onFechar }) {
             >
               <span style={estilos.icone}>{item.icone}</span>
               {item.label}
+              {item.contador && pendentesCampo > 0 && (
+                <span style={estilos.contador}>{pendentesCampo}</span>
+              )}
             </NavLink>
           )
         )}
@@ -276,6 +295,16 @@ const estilos = {
     color: '#60a5fa',
   },
   icone: { fontSize: 16 },
+  contador: {
+    marginLeft: 'auto',
+    background: '#f59e0b',
+    color: '#1e2a3b',
+    borderRadius: 10,
+    padding: '0 7px',
+    fontSize: 11,
+    fontWeight: 700,
+    lineHeight: '18px',
+  },
   rodape: {
     padding: '12px 12px',
     borderTop: '1px solid rgba(255,255,255,0.08)',

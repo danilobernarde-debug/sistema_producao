@@ -8,6 +8,7 @@ import Dashboard from './pages/Dashboard'
 import ListaRegistros from './pages/Producao/ListaRegistros'
 import NovoRegistro from './pages/Producao/NovoRegistro'
 import EditarRegistro from './pages/Producao/EditarRegistro'
+import AprovacaoCampo from './pages/Producao/AprovacaoCampo'
 import Relatorios from './pages/Relatorios/index'
 import Exportacao from './pages/Relatorios/Exportacao'
 import Bonificacoes from './pages/Relatorios/Bonificacoes'
@@ -91,6 +92,15 @@ function RotaSuperAdmin({ children }) {
   return children
 }
 
+// Aprovação da produção do app de campo: quem lança produção no sistema (perfis abaixo).
+// O banco restringe User Local aos contratos dele (fn_prod_pode_aprovar_campo).
+function RotaAprovador({ children }) {
+  const { perfil, carregando } = useAuth()
+  if (carregando) return null
+  if (!['Super Admin', 'Admin', 'User Local'].includes(perfil?.d_auth_roles?.name)) return <Navigate to="/" replace />
+  return children
+}
+
 function RotaDanilo({ children }) {
   const { usuario, carregando } = useAuth()
   if (carregando) return null
@@ -111,6 +121,8 @@ export default function App() {
           <Route path="/producao/novo" element={<NovoRegistro />} />
           <Route path="/producao/:id/editar" element={<EditarRegistro />} />
           <Route path="/producao/disponibilidade" element={<Disponibilidade />} />
+
+          <Route path="/aprovacao-campo" element={<RotaAprovador><AprovacaoCampo /></RotaAprovador>} />
 
           <Route path="/relatorios" element={<Relatorios />} />
           <Route path="/relatorios/exportacao" element={<Exportacao />} />
