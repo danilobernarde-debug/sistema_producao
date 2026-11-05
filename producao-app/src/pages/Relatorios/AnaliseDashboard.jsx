@@ -795,7 +795,7 @@ export default function AnaliseDashboard() {
             <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
               {cacheInfo && (
                 <span style={{ fontSize: 11, color: '#9ca3af' }}>
-                  Cache de {cacheInfo.de.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
+                  Cache de {new Date(cacheInfo.de).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
                 </span>
               )}
               <button onClick={() => carregarDados(true)} title="Forçar atualização dos dados"
