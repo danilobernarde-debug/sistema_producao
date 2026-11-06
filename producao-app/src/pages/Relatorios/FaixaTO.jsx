@@ -11,15 +11,7 @@ const COLUNAS = [
   { campo: 'tipo_rede',              header: 'TIPO DE REDE',
     transform: v => v === 'MONOFASICA' ? 'M' : v === 'TRIFASICA' ? 'T' : (v ?? '') },
   { campo: 'largura',                header: 'ABERTURA' },
-  { campo: 'desc_atividade',         header: 'SERVICO',
-    transform: (v, row) => {
-      const cod = row.cod_atividade
-      if (cod === '102')   return 'TRECHO LIVRE'
-      if (cod === '11508') return 'ÁRVORE ISOLADA'
-      if (cod === '1593')  return 'LIMPEZA DE FAIXA'
-      if (cod === '1594')  return 'REABERTURA DE FAIXA'
-      return v ?? ''
-    } },
+  { campo: 'desc_atividade',         header: 'SERVICO' },
   { campo: 'latitude_inicial',       header: 'LATITUDE INICIAL' },
   { campo: 'longitude_inicial',      header: 'LONGITUDE INICIAL' },
   { campo: 'latitude_final',         header: 'LATITUDE FINAL' },
