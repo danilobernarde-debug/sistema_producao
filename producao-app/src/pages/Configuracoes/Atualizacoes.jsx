@@ -4,6 +4,14 @@ import { useNavigate } from 'react-router-dom'
 // Ao fazer uma mudança relevante no sistema, adicionar uma entrada nova aqui.
 const VERSOES = [
   {
+    versao: 'c56db6b',
+    data: '2026-11-06',
+    resumo: 'Relatório Faixa Tocantins: coluna SERVICO mostra a descrição real',
+    itens: [
+      'Em Relatórios → Exportação → Faixa Tocantins, a coluna SERVICO não troca mais a descrição por nomes fixos (Trecho Livre, Árvore Isolada, Limpeza de Faixa, Reabertura de Faixa); agora mostra a descrição real da atividade, na prévia e no XLSX',
+    ],
+  },
+  {
     versao: '51c9a88',
     data: '2026-11-05',
     resumo: 'Aprovação da produção lançada pelo app de campo',
