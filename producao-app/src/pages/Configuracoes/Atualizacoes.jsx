@@ -4,7 +4,7 @@ import { useNavigate } from 'react-router-dom'
 // Ao fazer uma mudança relevante no sistema, adicionar uma entrada nova aqui.
 const VERSOES = [
   {
-    versao: 'fix-colab-equipe',
+    versao: '0d59fd1',
     data: '2026-11-09',
     resumo: 'Relatório Colaboradores por Equipe: corrigido o erro de statement timeout',
     itens: [
