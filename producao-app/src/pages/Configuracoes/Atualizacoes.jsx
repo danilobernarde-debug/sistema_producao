@@ -4,6 +4,14 @@ import { useNavigate } from 'react-router-dom'
 // Ao fazer uma mudança relevante no sistema, adicionar uma entrada nova aqui.
 const VERSOES = [
   {
+    versao: 'fix-colab-equipe',
+    data: '2026-11-09',
+    resumo: 'Relatório Colaboradores por Equipe: corrigido o erro de statement timeout',
+    itens: [
+      'Em Relatórios → Exportação → Colaboradores por Equipe, a consulta passou a usar a função fn_prod_colaboradores_equipe, que checa o acesso uma vez só em vez de linha a linha; o erro "canceling statement due to statement timeout" (ex.: Faixa Goiás 2025 no ano todo) deixa de ocorrer',
+    ],
+  },
+  {
     versao: 'c56db6b',
     data: '2026-11-06',
     resumo: 'Relatório Faixa Tocantins: coluna SERVICO mostra a descrição real',

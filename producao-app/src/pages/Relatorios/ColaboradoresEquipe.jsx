@@ -173,17 +173,21 @@ export default function ColaboradoresEquipe({ dataInicio, dataFim, setDataInicio
       const contratosPorId = new Map(contratos.map(c => [c.id, c]))
 
       while (true) {
-        let q = supabase.from('f_prod_colaboradores')
-          .select('id, registro_id, colaborador_id, equipe_id, f_prod_registro!inner(data_producao, contrato_id, equipe_id), d_colaboradores(matricula, nome)')
-          .gte('f_prod_registro.data_producao', dataInicio)
-          .lte('f_prod_registro.data_producao', dataFim)
-        if (contratoId) q = q.eq('f_prod_registro.contrato_id', Number(contratoId))
-        const { data, error } = await q.order('id').range(from, from + CHUNK - 1)
+        // RPC (checa acesso uma vez só); a consulta direta com RLS estourava o statement_timeout
+        const { data, error } = await supabase.rpc('fn_prod_colaboradores_equipe', {
+          p_inicio: dataInicio, p_fim: dataFim,
+          p_contrato_id: contratoId ? Number(contratoId) : null,
+          p_limit: CHUNK, p_offset: from,
+        })
 
         if (cancelarRef.current) { setCarregando(false); return }
         if (error) { setErro(`Erro: ${error.message}`); setCarregando(false); return }
 
-        const linhas = data || []
+        const linhas = (data || []).map(r => ({
+          id: r.id, registro_id: r.registro_id, colaborador_id: r.colaborador_id, equipe_id: r.equipe_id,
+          f_prod_registro: { data_producao: r.data_producao, contrato_id: r.contrato_id, equipe_id: r.registro_equipe_id },
+          d_colaboradores: { matricula: r.matricula, nome: r.nome },
+        }))
         todos.push(...linhas)
         from += CHUNK
         setProgresso(todos.length)
