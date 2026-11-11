@@ -468,6 +468,105 @@ body {
   }
 }
 
+/* Configurações → Usuários (lista + detalhe; no celular vira uma tela de cada vez) */
+.usuarios-layout {
+  display: grid;
+  grid-template-columns: 300px 1fr;
+  gap: 16px;
+  align-items: start;
+}
+
+.usuarios-lista {
+  padding: 0;
+  overflow: hidden;
+  position: sticky;
+  top: 16px;
+}
+
+.usuarios-lista-scroll {
+  overflow-y: auto;
+  max-height: calc(100vh - 220px);
+}
+
+.usuarios-voltar {
+  display: none;
+}
+
+.usuarios-acoes {
+  display: flex;
+  gap: 8px;
+  margin-top: 16px;
+  flex-wrap: wrap;
+}
+
+.usuarios-acoes .btn-excluir {
+  margin-left: auto;
+}
+
+@media (max-width: 768px) {
+  .usuarios-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .usuarios-layout.usuarios-com-selecao .usuarios-lista,
+  .usuarios-layout:not(.usuarios-com-selecao) .usuarios-detalhe {
+    display: none;
+  }
+
+  .usuarios-lista {
+    position: static;
+  }
+
+  .usuarios-lista-scroll {
+    max-height: none;
+  }
+
+  .usuarios-voltar {
+    display: inline-flex;
+    align-self: flex-start;
+  }
+
+  .usuarios-item {
+    padding: 14px 16px !important;
+  }
+
+  .usuarios-header .btn-novo {
+    flex: 1 1 100%;
+    justify-content: center;
+  }
+
+  .usuarios-acoes {
+    flex-direction: column;
+  }
+
+  .usuarios-acoes .btn {
+    width: 100%;
+    justify-content: center;
+    padding: 11px 16px;
+  }
+
+  .usuarios-acoes .btn-excluir {
+    margin-left: 0;
+  }
+
+  /* 16px evita o zoom automático do iOS ao focar nos campos */
+  .usuarios-detalhe .campo-input,
+  .usuarios-detalhe .campo-select,
+  .usuarios-lista .campo-input {
+    font-size: 16px;
+  }
+
+  .usuarios-contrato {
+    padding: 6px 0;
+  }
+
+  .usuarios-contrato input[type="checkbox"] {
+    width: 20px !important;
+    height: 20px !important;
+    flex-shrink: 0;
+  }
+}
+
 /* Vazio */
 .vazio {
   text-align: center;

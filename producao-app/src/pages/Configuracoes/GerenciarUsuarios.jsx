@@ -59,6 +59,7 @@ export default function GerenciarUsuarios() {
 
   async function selecionarUsuario(u) {
     setSelecionado(u)
+    window.scrollTo({ top: 0 })
     setForm({
       nome: u.nome || '', role_id: u.role_id || '',
       colaborador_id: u.colaborador_id || '', equipe_id: u.equipe_id || '',
@@ -220,22 +221,22 @@ export default function GerenciarUsuarios() {
 
   return (
     <div className="pagina">
-      <div className="pagina-header">
+      <div className="pagina-header usuarios-header">
         <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
           <button className="btn btn-secundario" onClick={() => navegar('/configuracoes')}
             style={{ padding: '6px 12px', fontSize: 13 }}>← Voltar</button>
           <h1 className="pagina-titulo" style={{ margin: 0 }}>Usuários</h1>
         </div>
-        <button className="btn btn-primario" onClick={() => { setErro(''); setModalNovo(true) }}>+ Novo Usuário</button>
+        <button className="btn btn-primario btn-novo" onClick={() => { setErro(''); setModalNovo(true) }}>+ Novo Usuário</button>
       </div>
 
       {carregando ? (
         <div className="loading"><div className="spinner" /> Carregando...</div>
       ) : (
-        <div style={{ display: 'grid', gridTemplateColumns: '300px 1fr', gap: 16, alignItems: 'start' }}>
+        <div className={`usuarios-layout${selecionado ? ' usuarios-com-selecao' : ''}`}>
 
           {/* Lista de usuários */}
-          <div className="card" style={{ padding: 0, overflow: 'hidden', position: 'sticky', top: 16 }}>
+          <div className="card usuarios-lista">
             <div style={{ padding: '12px 12px 8px', borderBottom: '1px solid #f3f4f6' }}>
               <input
                 className="campo-input"
@@ -245,12 +246,13 @@ export default function GerenciarUsuarios() {
                 onChange={e => setBusca(e.target.value)}
               />
             </div>
-            <div style={{ overflowY: 'auto', maxHeight: 'calc(100vh - 220px)' }}>
+            <div className="usuarios-lista-scroll">
               {usuariosFiltrados.length === 0 ? (
                 <div className="vazio" style={{ padding: 24 }}>Nenhum usuário encontrado.</div>
               ) : usuariosFiltrados.map(u => (
               <div
                 key={u.uuid}
+                className="usuarios-item"
                 onClick={() => selecionarUsuario(u)}
                 style={{
                   padding: '12px 16px', cursor: 'pointer', borderBottom: '1px solid #f3f4f6',
@@ -272,7 +274,10 @@ export default function GerenciarUsuarios() {
 
           {/* Painel de detalhes */}
           {selecionado ? (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+            <div className="usuarios-detalhe" style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+
+              <button className="btn btn-secundario usuarios-voltar" onClick={() => setSelecionado(null)}
+                style={{ padding: '6px 12px', fontSize: 13 }}>← Usuários</button>
 
               {/* Perfil */}
               <div className="card">
@@ -360,7 +365,7 @@ export default function GerenciarUsuarios() {
                 {erro && <div className="erro-mensagem" style={{ marginTop: 12 }}>{erro}</div>}
                 {sucesso && <div style={{ marginTop: 12, color: '#16a34a', fontSize: 13 }}>{sucesso}</div>}
 
-                <div style={{ display: 'flex', gap: 8, marginTop: 16, flexWrap: 'wrap' }}>
+                <div className="usuarios-acoes">
                   <button className="btn btn-primario" onClick={salvarPerfil} disabled={salvando}>
                     {salvando ? 'Salvando...' : 'Salvar Perfil'}
                   </button>
@@ -376,10 +381,10 @@ export default function GerenciarUsuarios() {
                     {selecionado.ativo === false ? '✅ Ativar Usuário' : '⛔ Desativar Usuário'}
                   </button>
                   <button
-                    className="btn"
+                    className="btn btn-excluir"
                     onClick={excluirUsuario}
                     disabled={salvando}
-                    style={{ background: '#fef2f2', color: '#dc2626', border: '1px solid #fecaca', marginLeft: 'auto' }}
+                    style={{ background: '#fef2f2', color: '#dc2626', border: '1px solid #fecaca' }}
                   >
                     🗑 Excluir Usuário
                   </button>
@@ -394,7 +399,7 @@ export default function GerenciarUsuarios() {
                 </div>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                   {todosContratos.map(c => (
-                    <label key={c.id} style={{ display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer', fontSize: 14 }}>
+                    <label key={c.id} className="usuarios-contrato" style={{ display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer', fontSize: 14 }}>
                       <input
                         type="checkbox"
                         checked={contratosUsuario.includes(c.id)}
