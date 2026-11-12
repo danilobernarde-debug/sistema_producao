@@ -72,6 +72,15 @@ export default function EditarRegistro() {
   const [salvando, setSalvando] = useState(false)
   const [erro, setErro] = useState('')
   const [errosCampos, setErrosCampos] = useState({})
+  // No celular uma aba por vez (Identificação / Atividades / Colaboradores); no computador o CSS mostra tudo
+  const [aba, setAba] = useState('identificacao')
+  function irParaAba(nome) { setAba(nome); window.scrollTo({ top: 0 }) }
+  function abaTemErro(nome) {
+    return Object.keys(errosCampos).some(k =>
+      nome === 'colaboradores' ? k === 'colaboradores'
+      : nome === 'atividades' ? k.startsWith('at_')
+      : k !== 'colaboradores' && !k.startsWith('at_'))
+  }
 
   const [contrato, setContrato] = useState(null)
   const [tiposEquipe, setTiposEquipe] = useState([])
@@ -473,7 +482,7 @@ export default function EditarRegistro() {
     setDialogTroca(null)
   }
 
-  function validar() {
+  function calcularErros() {
     const erros = {}
     if (!dataProducao) erros.data = 'Obrigatório'
     const _intercept = ['equipe', 'equipe_id', 'obra_id', 'encarregado_id', 'regional_id']
@@ -507,6 +516,17 @@ export default function EditarRegistro() {
         if (c.obrigatorio && !it.meta[c.config_campos.nome]) erros[`at_${idx}_${c.config_campos.nome}`] = 'Obrigatório'
       })
     })
+    return erros
+  }
+
+  function validar() {
+    const erros = calcularErros()
+    const chaves = Object.keys(erros)
+    if (chaves.length > 0) {
+      // leva ao primeiro grupo com erro, senão o erro fica escondido numa aba fechada
+      setAba(chaves.some(k => !k.startsWith('at_') && k !== 'colaboradores') ? 'identificacao'
+        : chaves.some(k => k.startsWith('at_')) ? 'atividades' : 'colaboradores')
+    }
     setErrosCampos(erros)
     return Object.keys(erros).length === 0
   }
@@ -590,6 +610,10 @@ export default function EditarRegistro() {
   }
 
   const logicaContrato = contrato?.logica_contrato
+  // Etapas do celular: cada uma só libera "Continuar" quando os obrigatórios dela estão preenchidos
+  const chavesAgora = Object.keys(calcularErros())
+  const identOk = !chavesAgora.some(k => k !== 'colaboradores' && !k.startsWith('at_'))
+  const ativOk = !chavesAgora.some(k => k.startsWith('at_')) && itens.length > 0
 
   function pickPrecoVigente(dataAlvo) {
     if (!precosUpe?.length) return null
@@ -833,10 +857,32 @@ export default function EditarRegistro() {
 
       {erro && <div className="alerta alerta-erro">{erro}</div>}
 
-      <form className="form-lancamento" onSubmit={soLeitura ? e => e.preventDefault() : salvar}
+      {(() => {
+        const colabDisponivel = !!((logicaContrato && tipoEquipeId) || (colaboradores.length > 0 && equipeId))
+        const totalColabs = logicaContrato ? adicionados.length : (presentesList.length + adicionados.length)
+        const abas = [
+          { id: 'identificacao', icone: '📋', rotulo: 'Identificação', ativa: true },
+          { id: 'atividades', icone: '🛠️', rotulo: 'Atividades', ativa: identOk || soLeitura, qtd: itens.length },
+          { id: 'colaboradores', icone: '👷', rotulo: 'Colaboradores', ativa: colabDisponivel && ((identOk && ativOk) || soLeitura), qtd: totalColabs },
+        ]
+        return (
+          <div className="abas-lancamento">
+            {abas.map(a => (
+              <button key={a.id} type="button" disabled={!a.ativa} onClick={() => irParaAba(a.id)}
+                className={`aba-btn${aba === a.id ? ' ativa' : ''}${abaTemErro(a.id) ? ' com-erro' : ''}`}>
+                <span className="aba-icone">{a.icone}</span>
+                <span className="aba-rotulo">{a.rotulo}</span>
+                {a.ativa && a.qtd > 0 && <span className="aba-qtd">{a.qtd}</span>}
+              </button>
+            ))}
+          </div>
+        )
+      })()}
+
+      <form className="form-lancamento" data-aba={aba} onSubmit={soLeitura ? e => e.preventDefault() : salvar}
         style={soLeitura ? { pointerEvents: 'none', opacity: 0.8 } : undefined}>
         {/* Identificação */}
-        <div className="card">
+        <div className="card sec-identificacao">
           <div className="card-titulo" style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
             Identificação
             <button type="button" title="Ver metadados brutos" onClick={() => setModalMeta('registro')}
@@ -915,8 +961,15 @@ export default function EditarRegistro() {
           )}
         </div>
 
+        {!soLeitura && (
+          <div className="continuar-wrap sec-identificacao">
+            {!identOk && <div className="continuar-dica">Preencha os campos obrigatórios (*) para continuar.</div>}
+            <button type="button" className="btn btn-primario" disabled={!identOk} onClick={() => irParaAba('atividades')}>Continuar →</button>
+          </div>
+        )}
+
         {/* Atividades */}
-        <div className="card">
+        <div className="card sec-atividades">
           <div className="card-titulo" style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
             Atividades Executadas
             <button type="button" title="Ver metadados brutos" onClick={() => setModalMeta('atividades')}
@@ -1106,9 +1159,16 @@ export default function EditarRegistro() {
           )}
         </div>
 
+        {!soLeitura && (
+          <div className="continuar-wrap sec-atividades">
+            {!ativOk && <div className="continuar-dica">Preencha a atividade e a quantidade para continuar.</div>}
+            <button type="button" className="btn btn-primario" disabled={!ativOk} onClick={() => irParaAba('colaboradores')}>Continuar →</button>
+          </div>
+        )}
+
         {/* Colaboradores */}
         {((logicaContrato && tipoEquipeId) || (colaboradores.length > 0 && equipeId)) && (
-          <div className="card">
+          <div className="card sec-colaboradores">
             <div className="card-titulo">Colaboradores Presentes</div>
             {errosCampos.colaboradores && <div className="campo-erro-msg" style={{ marginBottom: 10 }}>{errosCampos.colaboradores}</div>}
 

@@ -671,6 +671,115 @@ body {
   }
 }
 
+/* Abas com ícone (Novo/Editar Lançamento): só no celular; no computador ficam todas as seções visíveis */
+.abas-lancamento,
+.continuar-wrap {
+  display: none;
+}
+
+@media (max-width: 768px) {
+  .abas-lancamento {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 12px;
+  }
+
+  .aba-btn {
+    position: relative;
+    flex: 1 1 0;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 2px;
+    padding: 8px 4px;
+    background: white;
+    color: var(--cor-texto-suave);
+    border: 1px solid var(--cor-borda);
+    border-radius: 10px;
+    font-family: inherit;
+    font-size: 11px;
+    font-weight: 600;
+    cursor: pointer;
+  }
+
+  .aba-icone {
+    font-size: 20px;
+    line-height: 1.2;
+  }
+
+  .aba-rotulo {
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .aba-btn.ativa {
+    background: var(--cor-primaria);
+    border-color: var(--cor-primaria);
+    color: white;
+  }
+
+  .aba-btn:disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
+  }
+
+  .aba-btn.com-erro:not(.ativa) {
+    border-color: var(--cor-erro);
+    color: var(--cor-erro);
+  }
+
+  .aba-qtd {
+    position: absolute;
+    top: -6px;
+    right: -4px;
+    min-width: 18px;
+    padding: 0 5px;
+    border-radius: 9px;
+    background: var(--cor-sucesso);
+    color: white;
+    font-size: 11px;
+    line-height: 18px;
+    text-align: center;
+  }
+
+  .aba-btn.com-erro .aba-qtd {
+    background: var(--cor-erro);
+  }
+
+  .continuar-wrap {
+    display: block;
+    margin-bottom: 12px;
+  }
+
+  .continuar-wrap .btn {
+    width: 100%;
+    justify-content: center;
+    padding: 12px 16px;
+  }
+
+  .continuar-wrap .btn:disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
+  }
+
+  .continuar-dica {
+    margin-bottom: 8px;
+    font-size: 12px;
+    color: var(--cor-texto-suave);
+    text-align: center;
+  }
+
+  /* mostra só a seção da aba escolhida */
+  .form-lancamento:not([data-aba="identificacao"]) .sec-identificacao,
+  .form-lancamento:not([data-aba="atividades"]) .sec-atividades,
+  .form-lancamento:not([data-aba="colaboradores"]) .sec-colaboradores {
+    display: none;
+  }
+}
+
 /* Configurações → Últimos Logins: cabe na tela do celular sem rolar para o lado */
 @media (max-width: 768px) {
   .logins-tabela {
