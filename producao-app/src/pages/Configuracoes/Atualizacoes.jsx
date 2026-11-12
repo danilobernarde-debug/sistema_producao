@@ -12,7 +12,6 @@ const VERSOES = [
       'Lançamento de Disponibilidade: ao escolher a atividade Disponibilidade, o formulário mostra o valor mensal, os dias de disponibilidade e o valor do dia da equipe no mês; a quantidade fica travada em 1 (o dia é a data da produção)',
       'A tela Produção → Disponibilidade (calendário) foi retirada por enquanto: o botão saiu da lista de Registros e o endereço direto volta para a lista. O lançamento é feito pelo formulário normal',
       'Configurações → Atividades: nova coluna "UPE da atividade" na lista (atividades de valor fixo mostram "-"; o preço delas fica na aba Preço Fixo)',
-      'Aviso nas abas Preço Fixo e Preço UPE e na tela de Reajuste de Preço Fixo: contratos com UPE são reajustados em dois lugares (valor da UPE e atividades de preço fixo) — conferir os dois para não esquecer',
       'Banco: policies RLS de f_prod_registro, f_prod_atividades, f_prod_colaboradores e d_contratos passaram a avaliar fn_prod_eh_encarregado() e auth.uid() uma vez por consulta; corrige o statement timeout (HTTP 500) na contagem total do Dashboard. Tipo de equipe Recolha com grupo_atividades = 8 para exibir a atividade Disponibilidade',
     ],
   },
