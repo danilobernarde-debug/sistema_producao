@@ -780,21 +780,15 @@ body {
   }
 }
 
-/* Configurações → Últimos Logins: cabe na tela do celular sem rolar para o lado */
+/* Configurações → Últimos Logins: no celular a tabela mantém o tamanho normal e rola para o lado dentro do card */
 @media (max-width: 768px) {
   .logins-tabela {
-    font-size: 12px !important;
+    min-width: 620px;
   }
 
   .logins-tabela th,
   .logins-tabela td {
-    padding: 8px 10px !important;
-    overflow-wrap: anywhere;
-  }
-
-  .logins-tabela th:first-child,
-  .logins-tabela td:first-child {
-    display: none;
+    white-space: nowrap;
   }
 }
 
