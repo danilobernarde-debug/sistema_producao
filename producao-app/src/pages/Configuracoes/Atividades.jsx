@@ -23,7 +23,11 @@ const COLUNAS = [
       { valor: 'justificativa',  label: 'Justificativa' },
     ],
     ajuda: 'UPE: usa tabela de preço do contrato. Fixo: valor fixo unitário. Justificativa: atividade sem produção/preço, só para registrar observação.' },
-  { nome: 'upe',                    label: 'UPE da atividade', tipo: 'decimal', ocultarLista: true,
+  { nome: 'upe',                    label: 'UPE da atividade', tipo: 'decimal',
+    // Na lista só atividades do tipo UPE mostram o índice; as de valor fixo têm o preço na aba "Preço Fixo".
+    exibir: reg => reg.tipo_preco === 'upe' && reg.upe != null
+      ? Number(reg.upe).toLocaleString('pt-BR', { maximumFractionDigits: 6 })
+      : '-',
     obrigatorio: form => form.tipo_preco === 'upe',
     visibleWhen: { campo: 'tipo_preco', valor: 'upe' },
     ajuda: 'Quantidade de UPE (Unidade Padrão de Execução) correspondente à execução de uma unidade desta atividade, conforme definido na tabela contratual.\n\nEsse índice será utilizado para calcular a produção total da atividade:\n\nUPE Total = Quantidade Executada × UPE da Atividade' },

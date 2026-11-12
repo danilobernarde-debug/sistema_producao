@@ -272,6 +272,7 @@ export default function TabelaCRUD({
   const colunasTabela = colunas.filter(c => !c.ocultarLista)
 
   function exibirValor(col, reg) {
+    if (col.exibir) return col.exibir(reg) // coluna com texto calculado a partir do registro inteiro
     const v = reg[col.nome]
     if (col.tipo === 'checkbox') return v ? 'Sim' : 'Não'
     if (col.tipo === 'select') {
