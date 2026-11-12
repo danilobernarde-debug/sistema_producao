@@ -7,6 +7,7 @@ import { useCamposDinamicos } from '../../hooks/useCamposDinamicos'
 import CampoDinamico from '../../components/CampoDinamico'
 import BotaoCoordsMap from '../../components/BotaoCoordsMap'
 import SelectPesquisavel from '../../components/SelectPesquisavel'
+import { verificarDiaDisponibilidade } from '../../utils/disponibilidade'
 
 function fmtDataBR(iso) {
   if (!iso) return '-'
@@ -540,6 +541,20 @@ export default function EditarRegistro() {
 
     setSalvando(true)
     try {
+      // BLOQUEIO DISPONIBILIDADE DIA ÚNICO (só tela; regra e como desfazer em src/utils/disponibilidade.js)
+      // Roda antes de gravar/apagar qualquer coisa (aqui as atividades são apagadas e recriadas).
+      const msgDisp = await verificarDiaDisponibilidade({
+        itens, atividades,
+        equipeId: contrato?.logica_contrato ? null : equipeId,
+        dataProducao,
+        registroIdIgnorar: id,
+      })
+      if (msgDisp) {
+        setErro(msgDisp)
+        window.scrollTo({ top: 0, behavior: 'smooth' })
+        return
+      }
+
       const { error: erReg } = await supabase.from('f_prod_registro').update({
         data_producao: dataProducao,
         equipe_id: contrato?.logica_contrato ? null : (equipeId ? Number(equipeId) : null),

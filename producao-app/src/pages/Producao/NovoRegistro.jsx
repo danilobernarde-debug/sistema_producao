@@ -6,6 +6,7 @@ import { useCamposDinamicos } from '../../hooks/useCamposDinamicos'
 import CampoDinamico from '../../components/CampoDinamico'
 import BotaoCoordsMap from '../../components/BotaoCoordsMap'
 import SelectPesquisavel from '../../components/SelectPesquisavel'
+import { verificarDiaDisponibilidade } from '../../utils/disponibilidade'
 
 const IDS_FAIXA_TO = new Set([17, 18, 19])
 function contratoParaEquipes(cid) { return IDS_FAIXA_TO.has(Number(cid)) ? 17 : Number(cid) }
@@ -376,6 +377,19 @@ export default function NovoRegistro() {
 
     setSalvando(true)
     try {
+      // BLOQUEIO DISPONIBILIDADE DIA ÚNICO (só tela; regra e como desfazer em src/utils/disponibilidade.js)
+      // Roda antes de gravar qualquer coisa, para não deixar registro sem atividades.
+      const msgDisp = await verificarDiaDisponibilidade({
+        itens, atividades,
+        equipeId: contrato?.logica_contrato ? null : equipeId,
+        dataProducao,
+      })
+      if (msgDisp) {
+        setErro(msgDisp)
+        window.scrollTo({ top: 0, behavior: 'smooth' })
+        return
+      }
+
       const { data: reg, error: erReg } = await supabase
         .from('f_prod_registro').insert({
           data_producao: dataProducao,
