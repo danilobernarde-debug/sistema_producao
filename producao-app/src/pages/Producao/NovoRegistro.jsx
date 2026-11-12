@@ -524,7 +524,7 @@ export default function NovoRegistro() {
 
       {erro && <div className="alerta alerta-erro">{erro}</div>}
 
-      <form onSubmit={salvar}>
+      <form className="form-lancamento" onSubmit={salvar}>
         {/* Identificação */}
         <div className="card">
           <div className="card-titulo">Identificação</div>
@@ -711,7 +711,7 @@ export default function NovoRegistro() {
                   {(() => {
                     const vals = calcularValores(item)
                     return vals !== null ? (
-                      <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 20, fontSize: 13, color: '#374151', marginTop: 6, paddingTop: 6, borderTop: '1px solid #e5e7eb' }}>
+                      <div className="atividade-totais" style={{ display: 'flex', justifyContent: 'flex-end', gap: 20, fontSize: 13, color: '#374151', marginTop: 6, paddingTop: 6, borderTop: '1px solid #e5e7eb' }}>
                         <span>UPE: <strong>{vals.upe.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 6 })}</strong></span>
                         <span>Preço UPE: <strong>R$ {vals.precoUpe.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</strong></span>
                         <span>Valor estimado: <strong>R$ {vals.total.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</strong></span>
@@ -735,7 +735,7 @@ export default function NovoRegistro() {
 
             {logicaContrato ? (
               <>
-                <div style={{ display: 'flex', gap: 8, marginBottom: 12, alignItems: 'flex-end' }}>
+                <div className="colab-add" style={{ display: 'flex', gap: 8, marginBottom: 12, alignItems: 'flex-end' }}>
                   <div style={{ flex: 1 }}>
                     <label className="campo-label">Adicionar equipe completa</label>
                     <SelectPesquisavel
@@ -756,7 +756,7 @@ export default function NovoRegistro() {
                 ) : (
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginBottom: 12 }}>
                     {adicionados.map(c => (
-                      <div key={c.id} style={{ padding: '8px 12px', borderRadius: 6, background: '#f0f9ff', display: 'flex', alignItems: 'center', gap: 8 }}>
+                      <div key={c.id} className="colab-linha" style={{ padding: '8px 12px', borderRadius: 6, background: '#f0f9ff', display: 'flex', alignItems: 'center', gap: 8 }}>
                         <span style={{ flex: 1, minWidth: 0, fontSize: 13, fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{c.matricula_nome}</span>
                         <span style={{ fontSize: 12, color: '#6b7280', whiteSpace: 'nowrap', flexShrink: 0 }}>Equipe no dia:</span>
                         <select
@@ -775,7 +775,7 @@ export default function NovoRegistro() {
                   </div>
                 )}
 
-                <div style={{ display: 'flex', gap: 8, alignItems: 'flex-end' }}>
+                <div className="colab-add" style={{ display: 'flex', gap: 8, alignItems: 'flex-end' }}>
                   <div style={{ flex: 1 }}>
                     <label className="campo-label">Adicionar colaborador individual</label>
                     <SelectPesquisavel
@@ -799,7 +799,7 @@ export default function NovoRegistro() {
 
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginBottom: 12 }}>
                   {presentesList.map(c => (
-                    <div key={c.id} style={{ padding: '8px 12px', borderRadius: 6, background: '#f0f9ff', display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <div key={c.id} className="colab-linha" style={{ padding: '8px 12px', borderRadius: 6, background: '#f0f9ff', display: 'flex', alignItems: 'center', gap: 8 }}>
                       <span style={{ flex: 1, minWidth: 0, fontSize: 13, fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{c.matricula_nome}</span>
                       <span style={{ fontSize: 12, color: '#6b7280', whiteSpace: 'nowrap', flexShrink: 0 }}>Equipe no dia:</span>
                       <select
@@ -816,7 +816,7 @@ export default function NovoRegistro() {
                     </div>
                   ))}
                   {adicionados.map(c => (
-                    <div key={c.id} style={{ padding: '8px 12px', borderRadius: 6, background: '#f9fafb', display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <div key={c.id} className="colab-linha" style={{ padding: '8px 12px', borderRadius: 6, background: '#f9fafb', display: 'flex', alignItems: 'center', gap: 8 }}>
                       <span style={{ flex: 1, minWidth: 0, fontSize: 13, fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{c.matricula_nome}</span>
                       <span style={{ fontSize: 12, color: '#6b7280', whiteSpace: 'nowrap', flexShrink: 0 }}>Equipe no dia:</span>
                       <select
@@ -834,7 +834,7 @@ export default function NovoRegistro() {
                   ))}
                 </div>
 
-                <div style={{ display: 'flex', gap: 8, alignItems: 'flex-end' }}>
+                <div className="colab-add" style={{ display: 'flex', gap: 8, alignItems: 'flex-end' }}>
                   <div style={{ flex: 1 }}>
                     <label className="campo-label">Adicionar colaborador</label>
                     <SelectPesquisavel

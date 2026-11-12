@@ -76,8 +76,8 @@ export default function UltimosLogins() {
         ) : paginasDoUsuario.length === 0 ? (
           <div className="vazio">Nenhum acesso encontrado.</div>
         ) : (
-          <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
-            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
+          <div className="card" style={{ padding: 0, overflowX: 'auto' }}>
+            <table className="logins-tabela" style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
               <thead>
                 <tr style={{ background: '#f9fafb', borderBottom: '1px solid #e5e7eb' }}>
                   <th style={{ padding: '10px 16px', textAlign: 'left', fontWeight: 600, color: '#374151' }}>#</th>
@@ -126,8 +126,8 @@ export default function UltimosLogins() {
       ) : usuariosFiltrados.length === 0 ? (
         <div className="vazio">Nenhum acesso encontrado.</div>
       ) : (
-        <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
-          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
+        <div className="card" style={{ padding: 0, overflowX: 'auto' }}>
+          <table className="logins-tabela" style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
             <thead>
               <tr style={{ background: '#f9fafb', borderBottom: '1px solid #e5e7eb' }}>
                 <th style={{ padding: '10px 16px', textAlign: 'left', fontWeight: 600, color: '#374151' }}>#</th>

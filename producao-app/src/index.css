@@ -567,6 +567,101 @@ body {
   }
 }
 
+/* Novo/Editar Lançamento no celular */
+@media (max-width: 768px) {
+  /* span 2 numa grade de 1 coluna cria uma 2ª coluna implícita e estica o formulário */
+  .campos-grid > * {
+    grid-column: auto !important;
+  }
+
+  /* 16px evita o zoom automático do iOS ao focar nos campos */
+  .form-lancamento .campo-input,
+  .form-lancamento .campo-select {
+    font-size: 16px;
+  }
+
+  .atividade-item {
+    padding: 12px;
+  }
+
+  .atividade-totais {
+    flex-wrap: wrap;
+    justify-content: flex-start !important;
+    gap: 4px 16px !important;
+  }
+
+  /* Linha de colaborador: nome em cima; equipe do dia e remover embaixo */
+  .colab-linha {
+    flex-wrap: wrap;
+  }
+
+  .colab-linha > span:first-child {
+    flex: 1 1 100% !important;
+    white-space: normal !important;
+  }
+
+  .colab-linha .campo-select {
+    flex: 1 1 140px !important;
+    width: auto !important;
+    min-width: 0;
+    padding: 8px !important;
+  }
+
+  .colab-linha .btn {
+    padding: 8px 12px !important;
+  }
+
+  /* Campo de busca em cima, botão Adicionar embaixo em largura total */
+  .colab-add {
+    flex-direction: column;
+    align-items: stretch !important;
+  }
+
+  .colab-add > div {
+    flex: none !important;
+  }
+
+  .colab-add > .btn {
+    width: 100%;
+    justify-content: center;
+    padding: 10px 16px;
+  }
+
+  /* Rodapé fixo na base da tela, botões em largura total */
+  .form-rodape {
+    position: sticky;
+    bottom: 0;
+    z-index: 10;
+    background: var(--cor-fundo, #fff);
+    margin: 24px -16px 0;
+    padding: 12px 16px;
+  }
+
+  .form-rodape .btn {
+    flex: 1;
+    justify-content: center;
+    padding: 11px 16px;
+  }
+}
+
+/* Configurações → Últimos Logins: cabe na tela do celular sem rolar para o lado */
+@media (max-width: 768px) {
+  .logins-tabela {
+    font-size: 12px !important;
+  }
+
+  .logins-tabela th,
+  .logins-tabela td {
+    padding: 8px 10px !important;
+    overflow-wrap: anywhere;
+  }
+
+  .logins-tabela th:first-child,
+  .logins-tabela td:first-child {
+    display: none;
+  }
+}
+
 /* Vazio */
 .vazio {
   text-align: center;
