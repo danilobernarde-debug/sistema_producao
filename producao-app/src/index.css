@@ -574,6 +574,33 @@ body {
     grid-column: auto !important;
   }
 
+  /* Campos da atividade: duas colunas iguais; Atividade, mensagens de erro e campos longos ocupam a linha toda */
+  .atividade-item .campos-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 12px;
+  }
+
+  .atividade-item .campos-grid > :first-child,
+  .atividade-item .campos-grid > .campo-erro-msg,
+  .atividade-item .campos-grid > :has(textarea, select) {
+    grid-column: 1 / -1 !important;
+  }
+
+  .atividade-item .campo-label {
+    font-size: 13px;
+  }
+
+  /* Rótulo que quebra em 2 linhas não empurra o campo: o rótulo ocupa a folga e os campos da linha ficam alinhados embaixo */
+  .atividade-item .campos-grid > .campo-grupo {
+    display: flex;
+    flex-direction: column;
+    margin-bottom: 0;
+  }
+
+  .atividade-item .campos-grid > .campo-grupo > .campo-label {
+    flex: 1 1 auto;
+  }
+
   /* 16px evita o zoom automático do iOS ao focar nos campos */
   .form-lancamento .campo-input,
   .form-lancamento .campo-select {
