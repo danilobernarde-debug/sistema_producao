@@ -34,7 +34,6 @@ import Feriados from './pages/Configuracoes/Feriados'
 import Atualizacoes from './pages/Configuracoes/Atualizacoes'
 import ReajustePrecoFixa from './pages/Configuracoes/ReajustePrecoFixa'
 import DisponibilidadeEquipe from './pages/Configuracoes/DisponibilidadeEquipe'
-import Disponibilidade from './pages/Producao/Disponibilidade'
 import Planejamento from './pages/Planejamento'
 
 function RotaProtegida() {
@@ -120,7 +119,8 @@ export default function App() {
           <Route path="/producao" element={<ListaRegistros />} />
           <Route path="/producao/novo" element={<NovoRegistro />} />
           <Route path="/producao/:id/editar" element={<EditarRegistro />} />
-          <Route path="/producao/disponibilidade" element={<Disponibilidade />} />
+          {/* Lançamento por Disponibilidade desativado por enquanto: pages/Producao/Disponibilidade.jsx segue no código */}
+          <Route path="/producao/disponibilidade" element={<Navigate to="/producao" replace />} />
 
           <Route path="/aprovacao-campo" element={<RotaAprovador><AprovacaoCampo /></RotaAprovador>} />
 

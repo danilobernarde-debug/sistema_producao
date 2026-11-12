@@ -260,7 +260,7 @@ export default function EditarRegistro() {
     const { data: te } = await supabase
       .from('d_tipo_equipe').select('grupo_atividades').eq('id', reg.tipo_equipe_id).single()
     const grupoAtiv = te?.grupo_atividades
-    const campos = 'id, codigo_op, descricao, unidade, tipo_preco, upe, tipo_lm_lv, comprimento_lagura'
+    const campos = 'id, codigo_op, descricao, unidade, tipo_preco, upe, tipo_lm_lv, comprimento_lagura, is_disponibilidade'
 
     // contrato_id = reg.contrato_id  OU  contrato_id IS NULL (aparecem para todos)
     let qAtiv = supabase.from('d_atividades').select(campos)
@@ -400,7 +400,9 @@ export default function EditarRegistro() {
   }, [metaRegistro.subestacao_id])
 
   function alterarItemAtividade(idx, campo, valor) {
-    setItens(prev => prev.map((it, i) => i === idx ? { ...it, [campo]: valor } : it))
+    // Disponibilidade: o banco grava sempre quantidade 1 (o dia vale pela data da produção)
+    const ehDisp = campo === 'atividade_id' && atividades.find(a => String(a.id) === String(valor))?.is_disponibilidade
+    setItens(prev => prev.map((it, i) => i === idx ? { ...it, [campo]: valor, ...(ehDisp ? { quantidade: '1' } : {}) } : it))
   }
 
   function alterarMetaAtividade(idx, nome, valor) {
@@ -605,8 +607,43 @@ export default function EditarRegistro() {
     }
   }
 
+  // Atividade "paga por disponibilidade": o valor do dia vem do cadastro mensal da equipe (valor mensal ÷ dias de disponibilidade)
+  const temDisponibilidade = itens.some(it => atividades.find(a => String(a.id) === String(it.atividade_id))?.is_disponibilidade)
+  const [dispMes, setDispMes] = useState(null)
+  useEffect(() => {
+    if (!temDisponibilidade || !equipeId || !dataProducao) { setDispMes(null); return }
+    let cancelado = false
+    setDispMes(null)
+    supabase.from('d_equipes_disponibilidade').select('dias_disponibilidade, valor_mensal')
+      .eq('equipe_id', Number(equipeId)).eq('mes', `${dataProducao.slice(0, 7)}-01`).maybeSingle()
+      .then(({ data }) => { if (!cancelado) setDispMes(data || { semCadastro: true }) })
+    return () => { cancelado = true }
+  }, [temDisponibilidade, equipeId, dataProducao])
+
   if (carregando) {
     return <div className="loading" style={{ height: '60vh' }}><div className="spinner" /> Carregando registro...</div>
+  }
+
+  function blocoDisponibilidade() {
+    const estilo = { display: 'flex', justifyContent: 'flex-end', flexWrap: 'wrap', gap: '4px 20px', fontSize: 13, color: '#374151', marginTop: 6, paddingTop: 6, borderTop: '1px solid #e5e7eb' }
+    const brl = v => 'R$ ' + v.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+    if (!equipeId) return <div style={estilo}><span>Selecione a equipe para ver o valor da disponibilidade.</span></div>
+    if (!dispMes) return <div style={estilo}><span>Carregando valor da disponibilidade...</span></div>
+    if (dispMes.semCadastro) return (
+      <div style={{ ...estilo, color: '#c2410c' }}>
+        <span>⚠ Esta equipe não tem disponibilidade cadastrada para este mês (Configurações → Atividades → Disponibilidade).</span>
+      </div>
+    )
+    const dias = Number(dispMes.dias_disponibilidade)
+    const mensal = Number(dispMes.valor_mensal)
+    const valorDia = dias > 0 ? Math.round((mensal / dias) * 100) / 100 : 0
+    return (
+      <div style={estilo}>
+        <span>Valor mensal: <strong>{brl(mensal)}</strong></span>
+        <span>Dias de disponibilidade: <strong>{dias.toLocaleString('pt-BR', { maximumFractionDigits: 1 })}</strong></span>
+        <span>Valor do dia: <strong>{brl(valorDia)}</strong></span>
+      </div>
+    )
   }
 
   const logicaContrato = contrato?.logica_contrato
@@ -1105,6 +1142,8 @@ export default function EditarRegistro() {
                           <label className="campo-label">Quantidade <span className="obrigatorio">*</span></label>
                           <input type="number" step="0.000001" min="0"
                             className={`campo-input${errosCampos[`at_${idx}_qtd`] ? ' erro' : ''}`}
+                          readOnly={!!atvSel?.is_disponibilidade}
+                          title={atvSel?.is_disponibilidade ? 'Disponibilidade vale 1 dia: o dia é a data da produção' : undefined}
                             value={item.quantidade} onChange={e => alterarItemAtividade(idx, 'quantidade', e.target.value)} />
                           {errosCampos[`at_${idx}_qtd`] && <div className="campo-erro-msg">{errosCampos[`at_${idx}_qtd`]}</div>}
                         </div>
@@ -1142,7 +1181,8 @@ export default function EditarRegistro() {
                       )
                     })()}
                     {(() => {
-                      const vals = calcularValores(item)
+                      if (atividades.find(x => String(x.id) === String(item.atividade_id))?.is_disponibilidade) return blocoDisponibilidade()
+                    const vals = calcularValores(item)
                       return vals !== null ? (
                         <div className="atividade-totais" style={{ display: 'flex', justifyContent: 'flex-end', gap: 20, fontSize: 13, color: '#374151', marginTop: 6, paddingTop: 6, borderTop: '1px solid #e5e7eb' }}>
                           <span>UPE: <strong>{vals.upe.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 6 })}</strong></span>

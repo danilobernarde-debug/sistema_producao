@@ -422,9 +422,7 @@ export default function ListaRegistros() {
       <div className="pagina-header">
         <h1 className="pagina-titulo">Registros de Produção</h1>
         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-          <button className="btn btn-secundario" onClick={() => navegar('/producao/disponibilidade')}>
-            🗓 Disponibilidade
-          </button>
+          {/* Botão "🗓 Disponibilidade" retirado por enquanto (rota /producao/disponibilidade redireciona para cá). */}
           <button className="btn btn-primario" onClick={() => navegar('/producao/novo')}>
             + Novo Lançamento
           </button>
