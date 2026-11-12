@@ -4,6 +4,15 @@ import { useNavigate } from 'react-router-dom'
 // Ao fazer uma mudança relevante no sistema, adicionar uma entrada nova aqui.
 const VERSOES = [
   {
+    versao: '81d4574',
+    data: '2026-11-12',
+    resumo: 'Disponibilidade: bloqueio de 2 lançamentos no mesmo dia para a mesma equipe',
+    itens: [
+      'Novo/Editar Lançamento: se a equipe já tem atividade de Disponibilidade (ex.: Recolha, Mato Grosso) na data, o sistema avisa e não salva. Antes o 2º lançamento era aceito, mas valia R$ 0',
+      'Bloqueio só na tela (nada no banco): não vale para importação/API; nesses casos o 2º lançamento do dia continua valendo R$ 0. Para desfazer, apagar src/utils/disponibilidade.js e os blocos "BLOQUEIO DISPONIBILIDADE DIA ÚNICO" em NovoRegistro.jsx e EditarRegistro.jsx',
+    ],
+  },
+  {
     versao: 'bdbe5f5',
     data: '2026-11-11',
     resumo: 'Celular, Disponibilidade no lançamento, UPE nas Atividades e aviso de reajuste',
