@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo, useRef } from 'react'
 import { listarAnexosRegistro, enviarAnexoRegistro, excluirAnexo, tipoAnexo, MAX_ARQUIVO } from '../utils/anexosFotos'
 import VisualizadorAnexos from './VisualizadorAnexos'
 
-// Anexos de um lançamento. Foto e PDF abrem no visualizador em tela cheia (← →, Esc); os outros tipos só baixam.
+// Anexos de um lançamento. Todos abrem no visualizador em tela cheia (← →, Esc): foto e PDF são exibidos; os outros tipos mostram o botão Baixar.
 // Com editavel, também adiciona e remove anexos.
 export default function GaleriaFotos({ registroId, editavel = false }) {
   const [anexos, setAnexos] = useState(null) // null = carregando
@@ -22,8 +22,8 @@ export default function GaleriaFotos({ registroId, editavel = false }) {
     return () => { cancelado = true }
   }, [registroId, recarga])
 
-  // imagem e PDF com link abrem no visualizador
-  const visiveis = useMemo(() => (anexos || []).filter(a => a.url && tipoAnexo(a) !== 'outro'), [anexos])
+  // todo anexo com link abre no visualizador; os tipos sem visualização mostram a opção de baixar
+  const visiveis = useMemo(() => (anexos || []).filter(a => a.url), [anexos])
   const indiceDe = id => visiveis.findIndex(v => v.id === id)
 
   async function adicionar(e) {
@@ -69,7 +69,7 @@ export default function GaleriaFotos({ registroId, editavel = false }) {
           </button>
           <input ref={entrada} type="file" multiple hidden onChange={adicionar} />
           <span style={{ marginLeft: 10, fontSize: 12, color: '#6b7280' }}>
-            Fotos e PDF abrem no visualizador; outros tipos só baixam. Máx. {MAX_ARQUIVO / 1024 / 1024} MB por arquivo.
+            Clique no anexo para abrir; fotos e PDF são exibidos e os outros tipos têm o botão Baixar. Máx. {MAX_ARQUIVO / 1024 / 1024} MB por arquivo.
           </span>
         </div>
       )}
@@ -107,9 +107,9 @@ export default function GaleriaFotos({ registroId, editavel = false }) {
               )
             } else {
               conteudo = (
-                <a href={a.url} target="_blank" rel="noopener noreferrer" download={a.nome} title="Clique para baixar" style={{ textDecoration: 'none', display: 'block', width: '100%' }}>
-                  <div style={cartao}><span style={{ fontSize: 30 }}>📎</span><span style={legenda}>{a.nome}</span><span style={{ fontSize: 11, color: '#1d4ed8' }}>⬇ baixar</span></div>
-                </a>
+                <button type="button" onClick={() => setAberto(indiceDe(a.id))} title="Clique para abrir e baixar" style={{ padding: 0, border: 'none', background: 'none', cursor: 'pointer', width: '100%' }}>
+                  <div style={cartao}><span style={{ fontSize: 30 }}>📎</span><span style={legenda}>{a.nome}</span></div>
+                </button>
               )
             }
             return <div key={a.id} style={{ position: 'relative' }}>{conteudo}{botaoRemover(a)}</div>

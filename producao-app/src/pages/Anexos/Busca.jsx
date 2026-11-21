@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { supabase } from '../../supabaseClient'
 import SelectPesquisavel from '../../components/SelectPesquisavel'
 import VisualizadorAnexos from '../../components/VisualizadorAnexos'
-import { tipoAnexo, linksDosArquivos, tamanhoBr, dataHoraBr } from '../../utils/anexosFotos'
+import { linksDosArquivos, tamanhoBr, dataHoraBr } from '../../utils/anexosFotos'
 import { COLUNAS_ANEXO, EMBED_REGISTRO_INNER, dataBr, Miniatura, paraItemVisualizador, botaoPaginacao } from './comum'
 
 const POR_PAGINA = 30
@@ -115,12 +115,11 @@ export default function Busca({ cad }) {
 
   const totalPaginas = Math.ceil(total / POR_PAGINA)
   const filtrosAtivos = filtros.filter(f => f.valor !== '').length
-  const visiveis = linhas.filter(l => links.get(l.id) && tipoAnexo(l) !== 'outro')
+  const visiveis = linhas.filter(l => links.get(l.id)) // todo anexo com link abre no visualizador (os sem visualização mostram Baixar)
   const subtitulo = l => `lançamento #${l.registro_id} · ${cad.nomeContrato(l.registro.contrato_id)}${l.registro.equipe_id ? ' · ' + cad.nomeEquipe(l.registro.equipe_id) : ''} · ${dataBr(l.registro.data_producao)}`
   function abrirArquivo(l) {
     const url = links.get(l.id)
     if (!url) return
-    if (tipoAnexo(l) === 'outro') { window.open(url, '_blank', 'noopener'); return }
     setAberto(visiveis.findIndex(v => v.id === l.id))
   }
 

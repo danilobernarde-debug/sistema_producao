@@ -78,8 +78,9 @@ export default function VisualizadorAnexos({ itens, indice, onMudar, onFechar })
       {tipo === 'pdf' && <QuadroPdf key={item.id} url={item.url} nome={item.nome} />}
       {tipo === 'outro' && (
         <div style={{ color: 'white', textAlign: 'center' }}>
-          <div style={{ fontSize: 48 }}>📄</div>
-          <div style={{ margin: '8px 0 16px' }}>Este tipo de arquivo não tem visualização.</div>
+          <div style={{ fontSize: 56 }}>📎</div>
+          <div style={{ marginTop: 8, fontSize: 16 }}>{item.nome}</div>
+          <div style={{ margin: '4px 0 16px', opacity: 0.75 }}>Este tipo de arquivo não tem visualização. Baixe para abrir no seu computador.</div>
           <a className="btn btn-primario" href={item.url} target="_blank" rel="noopener noreferrer" download={item.nome}>⬇ Baixar {item.nome}</a>
         </div>
       )}

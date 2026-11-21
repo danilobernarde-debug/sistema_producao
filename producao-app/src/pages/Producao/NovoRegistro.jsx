@@ -77,8 +77,8 @@ export default function NovoRegistro() {
     const novos = []
     for (const f of escolhidos.slice(0, Math.max(0, vagas))) {
       if (f.size > MAX_ARQUIVO) { setErro(`"${f.name}" passa de ${MAX_ARQUIVO / 1024 / 1024} MB.`); continue }
-      // prévia local para foto e PDF (abrem no visualizador); os outros tipos não têm prévia
-      novos.push({ chave: crypto.randomUUID(), arquivo: f, url: tipoAnexo({ tipo: f.type, nome: f.name }) !== 'outro' ? URL.createObjectURL(f) : null })
+      // link local para abrir no visualizador (foto/PDF são exibidos; os outros tipos mostram o botão Baixar)
+      novos.push({ chave: crypto.randomUUID(), arquivo: f, url: URL.createObjectURL(f) })
     }
     setAnexos(atual => [...atual, ...novos])
   }
@@ -1013,7 +1013,7 @@ export default function NovoRegistro() {
             <input type="file" multiple hidden onChange={adicionarAnexos} disabled={anexos.length >= MAX_ANEXOS} />
           </label>
           <span style={{ marginLeft: 10, fontSize: 12, color: '#6b7280' }}>
-            {anexos.length}/{MAX_ANEXOS} — enviados ao salvar. Fotos e PDF abrem no visualizador; outros tipos só baixam.
+            {anexos.length}/{MAX_ANEXOS} — enviados ao salvar. Clique no anexo para abrir; fotos e PDF são exibidos e os outros tipos têm o botão Baixar.
           </span>
           {anexos.length > 0 && (
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginTop: 12 }}>
@@ -1026,7 +1026,7 @@ export default function NovoRegistro() {
                         <img src={a.url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: 6, display: 'block' }} />
                       ) : (
                         <div style={{ width: '100%', height: '100%', borderRadius: 6, border: '1px solid #e5e7eb', background: '#f9fafb', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 4, padding: 4, boxSizing: 'border-box' }}>
-                          <span style={{ fontSize: 28 }}>📄</span>
+                          <span style={{ fontSize: 28 }}>{tipoAnexo({ tipo: a.arquivo.type, nome: a.arquivo.name }) === 'pdf' ? '📄' : '📎'}</span>
                           <span style={{ fontSize: 10, color: '#374151', maxWidth: '100%', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{a.arquivo.name}</span>
                         </div>
                       )}
