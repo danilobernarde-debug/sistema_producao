@@ -8,6 +8,7 @@ import BotaoCoordsMap from '../../components/BotaoCoordsMap'
 import SelectPesquisavel from '../../components/SelectPesquisavel'
 import { verificarDiaDisponibilidade } from '../../utils/disponibilidade'
 import { enviarAnexoRegistro, tipoAnexo, MAX_ARQUIVO } from '../../utils/anexosFotos'
+import VisualizadorAnexos from '../../components/VisualizadorAnexos'
 
 const MAX_ANEXOS = 10
 
@@ -63,8 +64,10 @@ export default function NovoRegistro() {
   const [dialogTroca, setDialogTroca] = useState(null) // { colabId, novaEquipeId, nomeColab, nomeEquipe }
 
   const [salvando, setSalvando] = useState(false)
-  const [anexos, setAnexos] = useState([]) // [{ chave, arquivo, url? }] — vão para o SharePoint ao salvar
+  const [anexos, setAnexos] = useState([]) // [{ chave, arquivo, url? }] — vão para o SharePoint ao salvar (url = prévia local de foto/PDF)
+  const [anexoAberto, setAnexoAberto] = useState(null) // índice em anexosVisiveis
   const [erro, setErro] = useState('')
+  const anexosVisiveis = anexos.filter(a => a.url)
 
   function adicionarAnexos(e) {
     const escolhidos = Array.from(e.target.files || [])
@@ -74,7 +77,8 @@ export default function NovoRegistro() {
     const novos = []
     for (const f of escolhidos.slice(0, Math.max(0, vagas))) {
       if (f.size > MAX_ARQUIVO) { setErro(`"${f.name}" passa de ${MAX_ARQUIVO / 1024 / 1024} MB.`); continue }
-      novos.push({ chave: crypto.randomUUID(), arquivo: f, url: tipoAnexo({ tipo: f.type, nome: f.name }) === 'imagem' ? URL.createObjectURL(f) : null })
+      // prévia local para foto e PDF (abrem no visualizador); os outros tipos não têm prévia
+      novos.push({ chave: crypto.randomUUID(), arquivo: f, url: tipoAnexo({ tipo: f.type, nome: f.name }) !== 'outro' ? URL.createObjectURL(f) : null })
     }
     setAnexos(atual => [...atual, ...novos])
   }
@@ -1016,10 +1020,20 @@ export default function NovoRegistro() {
               {anexos.map(a => (
                 <div key={a.chave} style={{ position: 'relative', width: 96, height: 96 }} title={a.arquivo.name}>
                   {a.url ? (
-                    <img src={a.url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: 6 }} />
+                    <button type="button" onClick={() => setAnexoAberto(anexosVisiveis.findIndex(v => v.chave === a.chave))} title="Clique para ampliar"
+                      style={{ padding: 0, border: 'none', background: 'none', width: '100%', height: '100%', cursor: 'zoom-in' }}>
+                      {tipoAnexo({ tipo: a.arquivo.type, nome: a.arquivo.name }) === 'imagem' ? (
+                        <img src={a.url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: 6, display: 'block' }} />
+                      ) : (
+                        <div style={{ width: '100%', height: '100%', borderRadius: 6, border: '1px solid #e5e7eb', background: '#f9fafb', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 4, padding: 4, boxSizing: 'border-box' }}>
+                          <span style={{ fontSize: 28 }}>📄</span>
+                          <span style={{ fontSize: 10, color: '#374151', maxWidth: '100%', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{a.arquivo.name}</span>
+                        </div>
+                      )}
+                    </button>
                   ) : (
                     <div style={{ width: '100%', height: '100%', borderRadius: 6, border: '1px solid #e5e7eb', background: '#f9fafb', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 4, padding: 4, boxSizing: 'border-box' }}>
-                      <span style={{ fontSize: 28 }}>{tipoAnexo({ tipo: a.arquivo.type, nome: a.arquivo.name }) === 'pdf' ? '📄' : '📎'}</span>
+                      <span style={{ fontSize: 28 }}>📎</span>
                       <span style={{ fontSize: 10, color: '#374151', maxWidth: '100%', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{a.arquivo.name}</span>
                     </div>
                   )}
@@ -1030,6 +1044,13 @@ export default function NovoRegistro() {
             </div>
           )}
         </div>
+
+        {anexoAberto !== null && anexosVisiveis[anexoAberto] && (
+          <VisualizadorAnexos
+            itens={anexosVisiveis.map(a => ({ id: a.chave, nome: a.arquivo.name, tipo: a.arquivo.type, url: a.url }))}
+            indice={anexoAberto} onMudar={setAnexoAberto} onFechar={() => setAnexoAberto(null)}
+          />
+        )}
 
         <div className="form-rodape">
           <button type="button" className="btn btn-secundario" onClick={() => navegar('/producao')}>Cancelar</button>
