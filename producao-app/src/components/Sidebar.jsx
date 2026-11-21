@@ -8,6 +8,7 @@ const itensMenu = [
   { caminho: '/',             icone: '📊', label: 'Dashboard' },
   { caminho: '/producao',     icone: '📋', label: 'Produção' },
   { caminho: '/aprovacao-campo', icone: '✅', label: 'Aprovação Campo', aprovador: true, contador: true },
+  { caminho: '/anexos',      icone: '📎', label: 'Anexos' },
   { caminho: '/relatorios',  icone: '📈', label: 'Relatórios' },
   { secao: 'PLANEJAMENTO' },
   { caminho: '/planejamento', icone: '🗺️', label: 'Planejamento' },

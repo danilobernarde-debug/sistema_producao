@@ -9,6 +9,7 @@ import ListaRegistros from './pages/Producao/ListaRegistros'
 import NovoRegistro from './pages/Producao/NovoRegistro'
 import EditarRegistro from './pages/Producao/EditarRegistro'
 import AprovacaoCampo from './pages/Producao/AprovacaoCampo'
+import Anexos from './pages/Anexos'
 import Relatorios from './pages/Relatorios/index'
 import Exportacao from './pages/Relatorios/Exportacao'
 import Bonificacoes from './pages/Relatorios/Bonificacoes'
@@ -123,6 +124,8 @@ export default function App() {
           <Route path="/producao/disponibilidade" element={<Navigate to="/producao" replace />} />
 
           <Route path="/aprovacao-campo" element={<RotaAprovador><AprovacaoCampo /></RotaAprovador>} />
+
+          <Route path="/anexos" element={<Anexos />} />
 
           <Route path="/relatorios" element={<Relatorios />} />
           <Route path="/relatorios/exportacao" element={<Exportacao />} />

@@ -1,6 +1,8 @@
-// Lista os anexos de um registro de produção para o visualizador de fotos.
+// Links de leitura dos anexos (visualizador, pastas e busca de Anexos).
 //
-//   GET /api/anexos-fotos?registro=<id>  ->  [{ id, nome, tipo, url, link, quando }]
+//   GET /api/anexos-fotos?registro=<id>          -> anexos de um lançamento
+//   GET /api/anexos-fotos?arquivos=<id,id,...>   -> anexos pelo id em f_prod_arquivos (até 60)
+//   resposta: [{ id, nome, tipo, url, link, quando }]
 //
 // Anexos do SharePoint (fullpath 'sharepoint/...') recebem em "url" um link temporário de leitura
 // (@microsoft.graph.downloadUrl, vale ~1 h), que abre direto numa <img> sem login.
@@ -15,6 +17,7 @@ const PRODUCAO_ANON = process.env.SUPABASE_ANON_KEY
 const { MS_TENANT_ID, MS_CLIENT_ID, MS_CLIENT_SECRET } = process.env
 const SITE_HOST = process.env.MS_SITE_HOST || 'redeforteconstrutora.sharepoint.com'
 const SITE_PATH = (process.env.MS_SITE_PATH || '').replace(/\/+$/, '')
+const MAX_IDS = 60
 
 let tokenGraph = null // { token, expira }
 
@@ -51,6 +54,15 @@ async function usuarioAutorizado(req) {
   return linhas.length === 1 && linhas[0].ativo !== false ? { token } : null
 }
 
+// consulta o Supabase com o token do usuário (vale a RLS dele)
+async function supa(usuario, caminho) {
+  const r = await fetch(`${PRODUCAO_URL}/rest/v1/${caminho}`, {
+    headers: { apikey: PRODUCAO_ANON, Authorization: `Bearer ${usuario.token}` },
+  })
+  if (!r.ok) throw new Error(`consulta falhou (${r.status}): ${caminho.split('?')[0]}`)
+  return r.json()
+}
+
 // anexo do SharePoint = fullpath começa com 'sharepoint/' (a coluna url é gerada e só vale para o Storage antigo)
 const eSharePoint = a => (a.fullpath || '').startsWith('sharepoint/')
 
@@ -58,7 +70,10 @@ async function linkTemporario(graphToken, caminho) {
   const cam = caminho.split('/').map(encodeURIComponent).join('/')
   const base = `https://graph.microsoft.com/v1.0/sites/${SITE_HOST}${SITE_PATH ? ':' + SITE_PATH + ':' : ''}/drive/root:/${cam}`
   const r = await fetch(base, { headers: { Authorization: `Bearer ${graphToken}` } })
-  if (!r.ok) return null
+  if (!r.ok) {
+    console.error('anexos-fotos graph:', r.status, caminho)
+    return null
+  }
   const item = await r.json()
   return item['@microsoft.graph.downloadUrl'] || null
 }
@@ -70,22 +85,28 @@ module.exports = async function handler(req, res) {
     const usuario = await usuarioAutorizado(req)
     if (!usuario) return res.status(401).json({ erro: 'Não autorizado' })
 
-    const registroId = req.query.registro
-    if (!/^\d+$/.test(registroId || '')) return res.status(400).json({ erro: 'Informe registro (número)' })
+    const { registro, arquivos: idsParam } = req.query
+    const colunas = 'id,registro_id,name,type,url,path,fullpath,data_cadastro'
+    let arquivos
+    if (registro !== undefined) {
+      if (!/^\d+$/.test(registro)) return res.status(400).json({ erro: 'Informe registro (número)' })
+      arquivos = await supa(usuario, `f_prod_arquivos?select=${colunas}&registro_id=eq.${registro}&order=data_cadastro,id`)
+    } else if (idsParam !== undefined) {
+      const ids = String(idsParam).split(',').filter(Boolean)
+      if (!ids.length || ids.length > MAX_IDS || !ids.every(i => /^\d+$/.test(i))) {
+        return res.status(400).json({ erro: `Informe arquivos (até ${MAX_IDS} ids numéricos)` })
+      }
+      arquivos = await supa(usuario, `f_prod_arquivos?select=${colunas}&id=in.(${ids.join(',')})&order=id`)
+    } else {
+      return res.status(400).json({ erro: 'Informe registro ou arquivos' })
+    }
 
-    // com o token do usuário: só vê anexo de registro que a RLS dele deixa ver
-    const rReg = await fetch(`${PRODUCAO_URL}/rest/v1/f_prod_registro?select=id&id=eq.${registroId}`, {
-      headers: { apikey: PRODUCAO_ANON, Authorization: `Bearer ${usuario.token}` },
-    })
-    if (!rReg.ok) throw new Error(`consulta do registro falhou (${rReg.status})`)
-    if (!(await rReg.json()).length) return res.status(404).json({ erro: 'Registro não encontrado' })
-
-    const rArq = await fetch(
-      `${PRODUCAO_URL}/rest/v1/f_prod_arquivos?select=id,name,type,url,path,fullpath,data_cadastro&registro_id=eq.${registroId}&order=data_cadastro,id`,
-      { headers: { apikey: PRODUCAO_ANON, Authorization: `Bearer ${usuario.token}` } },
-    )
-    if (!rArq.ok) throw new Error(`consulta dos anexos falhou (${rArq.status})`)
-    const arquivos = await rArq.json()
+    // só vale anexo de registro que a RLS do usuário deixa ver
+    const regIds = [...new Set(arquivos.map(a => a.registro_id))]
+    if (regIds.length) {
+      const visiveis = new Set((await supa(usuario, `f_prod_registro?select=id&id=in.(${regIds.join(',')})`)).map(r => r.id))
+      arquivos = arquivos.filter(a => visiveis.has(a.registro_id))
+    }
 
     const temSharePoint = arquivos.some(eSharePoint)
     const graphToken = temSharePoint && MS_TENANT_ID && MS_CLIENT_ID && MS_CLIENT_SECRET ? await obterTokenGraph() : null
@@ -98,6 +119,6 @@ module.exports = async function handler(req, res) {
     return res.status(200).json(saida)
   } catch (e) {
     console.error('anexos-fotos:', e.message)
-    return res.status(502).json({ erro: 'Falha ao carregar as fotos' })
+    return res.status(502).json({ erro: 'Falha ao carregar os anexos' })
   }
 }
