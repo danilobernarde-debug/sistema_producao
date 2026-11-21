@@ -7,6 +7,9 @@ import CampoDinamico from '../../components/CampoDinamico'
 import BotaoCoordsMap from '../../components/BotaoCoordsMap'
 import SelectPesquisavel from '../../components/SelectPesquisavel'
 import { verificarDiaDisponibilidade } from '../../utils/disponibilidade'
+import { reduzirFoto, enviarFotoRegistro } from '../../utils/anexosFotos'
+
+const MAX_FOTOS = 10
 
 const IDS_FAIXA_TO = new Set([17, 18, 19])
 function contratoParaEquipes(cid) { return IDS_FAIXA_TO.has(Number(cid)) ? 17 : Number(cid) }
@@ -60,7 +63,30 @@ export default function NovoRegistro() {
   const [dialogTroca, setDialogTroca] = useState(null) // { colabId, novaEquipeId, nomeColab, nomeEquipe }
 
   const [salvando, setSalvando] = useState(false)
+  const [fotos, setFotos] = useState([]) // [{ chave, blob, url }] — vão para o SharePoint ao salvar
   const [erro, setErro] = useState('')
+
+  async function adicionarFotos(e) {
+    const arquivos = Array.from(e.target.files || []).filter(f => f.type.startsWith('image/'))
+    e.target.value = ''
+    const vagas = MAX_FOTOS - fotos.length
+    if (arquivos.length > vagas) setErro(`Máximo de ${MAX_FOTOS} fotos por lançamento.`)
+    const novas = []
+    for (const f of arquivos.slice(0, Math.max(0, vagas))) {
+      try {
+        const blob = await reduzirFoto(f)
+        novas.push({ chave: crypto.randomUUID(), blob, url: URL.createObjectURL(blob) })
+      } catch { setErro(`Não foi possível ler a foto "${f.name}".`) }
+    }
+    setFotos(atual => [...atual, ...novas])
+  }
+  function removerFoto(chave) {
+    setFotos(atual => {
+      const f = atual.find(x => x.chave === chave)
+      if (f) URL.revokeObjectURL(f.url)
+      return atual.filter(x => x.chave !== chave)
+    })
+  }
   const [errosCampos, setErrosCampos] = useState({})
   // No celular uma aba por vez (Identificação / Atividades / Colaboradores); no computador o CSS mostra tudo
   const [aba, setAba] = useState('identificacao')
@@ -446,6 +472,15 @@ export default function NovoRegistro() {
       if (presenca.length > 0) {
         const { error: erColabs } = await supabase.from('f_prod_colaboradores').insert(presenca)
         if (erColabs) throw erColabs
+      }
+
+      // fotos (opcionais) vão para o SharePoint; o registro já está salvo, então falha aqui só avisa
+      let fotosComErro = 0
+      for (const f of fotos) {
+        try { await enviarFotoRegistro(reg.id, f.blob) } catch { fotosComErro++ }
+      }
+      if (fotosComErro > 0) {
+        window.alert(`Lançamento salvo, mas ${fotosComErro} de ${fotos.length} foto(s) não puderam ser enviadas. Avise o administrador.`)
       }
 
       navegar('/producao')
@@ -967,6 +1002,27 @@ export default function NovoRegistro() {
             )}
           </div>
         )}
+
+        {/* Fotos (opcional) — guardadas no SharePoint */}
+        <div className="card sec-colaboradores">
+          <div className="card-titulo">Fotos (opcional)</div>
+          <label className="btn btn-secundario" style={{ display: 'inline-block', cursor: 'pointer' }}>
+            📷 Adicionar fotos
+            <input type="file" accept="image/*" multiple hidden onChange={adicionarFotos} disabled={fotos.length >= MAX_FOTOS} />
+          </label>
+          <span style={{ marginLeft: 10, fontSize: 12, color: '#6b7280' }}>{fotos.length}/{MAX_FOTOS} — enviadas ao salvar o lançamento</span>
+          {fotos.length > 0 && (
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginTop: 12 }}>
+              {fotos.map(f => (
+                <div key={f.chave} style={{ position: 'relative', width: 96, height: 96 }}>
+                  <img src={f.url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: 6 }} />
+                  <button type="button" onClick={() => removerFoto(f.chave)} aria-label="Remover foto"
+                    style={{ position: 'absolute', top: 2, right: 2, width: 22, height: 22, borderRadius: '50%', border: 'none', background: 'rgba(0,0,0,.65)', color: '#fff', cursor: 'pointer', lineHeight: 1 }}>×</button>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
 
         <div className="form-rodape">
           <button type="button" className="btn btn-secundario" onClick={() => navegar('/producao')}>Cancelar</button>
