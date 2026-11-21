@@ -7,6 +7,7 @@ import { useCamposDinamicos } from '../../hooks/useCamposDinamicos'
 import CampoDinamico from '../../components/CampoDinamico'
 import BotaoCoordsMap from '../../components/BotaoCoordsMap'
 import SelectPesquisavel from '../../components/SelectPesquisavel'
+import GaleriaFotos from '../../components/GaleriaFotos'
 import { verificarDiaDisponibilidade } from '../../utils/disponibilidade'
 
 function fmtDataBR(iso) {
@@ -1349,6 +1350,12 @@ export default function EditarRegistro() {
             )}
           </div>
         )}
+
+        {/* Fotos do lançamento (SharePoint) */}
+        <div className="card sec-colaboradores">
+          <div className="card-titulo">Fotos</div>
+          <GaleriaFotos registroId={id} />
+        </div>
 
         {!soLeitura && (
           <div className="form-rodape">

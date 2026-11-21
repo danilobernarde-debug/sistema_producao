@@ -136,8 +136,10 @@ module.exports = async function handler(req, res) {
     }
     const item = await up.json()
 
-    // f_prod_arquivos já guardava os anexos do Supabase Storage; os do SharePoint entram na mesma tabela,
-    // com url = link do SharePoint (os antigos têm url de storage/v1/object/public/...)
+    // f_prod_arquivos já guardava os anexos do Supabase Storage; os do SharePoint entram na mesma tabela.
+    // A coluna url é GERADA pelo banco (url pública do Storage + fullpath), então não dá para gravar o link
+    // do SharePoint nela: o anexo do SharePoint é marcado por fullpath = 'sharepoint/<path>' (os antigos
+    // começam com 'f_prod_storage/') e o link de leitura é gerado na hora por api/anexos-fotos.js.
     const caminhoSp = pasta.join('/') + '/' + item.name
     const ins = await supa(usuario, 'f_prod_arquivos', {
       method: 'POST',
@@ -145,11 +147,10 @@ module.exports = async function handler(req, res) {
       body: JSON.stringify({
         registro_id: reg.id,
         path: caminhoSp,
-        fullpath: caminhoSp,
+        fullpath: 'sharepoint/' + caminhoSp,
         name: item.name,
         size: corpo.length,
         type: 'image/jpeg',
-        url: item.webUrl,
         last_modified: item.lastModifiedDateTime ?? new Date().toISOString(),
       }),
     })

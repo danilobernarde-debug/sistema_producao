@@ -18,6 +18,19 @@ export async function reduzirFoto(arquivo) {
   return blob
 }
 
+// anexos do registro, com link de leitura de cada um: [{ id, nome, tipo, url, link, quando }]
+export async function listarAnexosRegistro(registroId) {
+  const { data: { session } } = await supabase.auth.getSession()
+  const r = await fetch(`/api/anexos-fotos?registro=${registroId}`, {
+    headers: { Authorization: `Bearer ${session?.access_token}` },
+  })
+  if (!r.ok) {
+    const j = await r.json().catch(() => ({}))
+    throw new Error(j.erro || `Falha ao carregar as fotos (${r.status})`)
+  }
+  return r.json()
+}
+
 export async function enviarFotoRegistro(registroId, blob) {
   const { data: { session } } = await supabase.auth.getSession()
   const r = await fetch(`/api/anexos-upload?registro=${registroId}`, {
