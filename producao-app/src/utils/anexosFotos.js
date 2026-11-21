@@ -137,6 +137,11 @@ export async function enviarAnexoRegistro(registroId, arquivo) {
   return chamarUpload(`${base.replace(/nome=[^&]*/, `nome=${encodeURIComponent(item.name)}`)}&concluir=1&tipo=${encodeURIComponent(tipo)}`, { method: 'POST' })
 }
 
+// Aprovação do app de campo: copia uma foto de campo-fotos (Supabase) para o SharePoint, ligada ao lançamento criado.
+export function copiarFotoCampo(registroId, fotoId) {
+  return chamarUpload(`/api/anexos-upload?registro=${registroId}&campofoto=${fotoId}`, { method: 'POST' })
+}
+
 // apaga o anexo (arquivo no SharePoint + linha em f_prod_arquivos)
 export function excluirAnexo(arquivoId) {
   return chamarUpload(`/api/anexos-upload?arquivo=${arquivoId}`, { method: 'DELETE' })

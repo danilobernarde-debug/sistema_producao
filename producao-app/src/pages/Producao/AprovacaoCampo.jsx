@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
 import { supabase } from '../../supabaseClient'
+import { copiarFotoCampo } from '../../utils/anexosFotos'
 
 // Fila de aprovação da produção lançada pelo app de campo (app_campo).
 // O encarregado grava em campo_registros_producao (+ filhas); aqui o escritório confere e
@@ -285,6 +286,7 @@ function Detalhe({ registro: r, camposLabel, onFechar, onConcluir }) {
   const [modo, setModo] = useState('ver') // ver | rejeitar
   const [motivo, setMotivo] = useState('')
   const [salvando, setSalvando] = useState(false)
+  const [progresso, setProgresso] = useState('') // texto enquanto as fotos são copiadas ao aprovar
   const [erro, setErro] = useState('')
 
   useEffect(() => {
@@ -343,9 +345,18 @@ function Detalhe({ registro: r, camposLabel, onFechar, onConcluir }) {
     )) return
     setSalvando(true); setErro('')
     const { data, error } = await supabase.rpc('fn_prod_aprovar_registro_campo', { p_id: r.id })
+    if (error) { setSalvando(false); setErro(mensagemErro(error)); return }
+
+    // as fotos de campo vão para o SharePoint, ligadas ao lançamento criado (a aprovação já valeu; falha só avisa)
+    let falhas = 0
+    for (let i = 0; i < fotos.length; i++) {
+      setProgresso(`Copiando fotos para o SharePoint (${i + 1} de ${fotos.length})...`)
+      try { await copiarFotoCampo(data, fotos[i].id) } catch { falhas++ }
+    }
+    setProgresso('')
     setSalvando(false)
-    if (error) { setErro(mensagemErro(error)); return }
-    onConcluir(`Registro aprovado e lançado em Produção (nº ${data}).`)
+    const aviso = falhas > 0 ? ` Atenção: ${falhas} de ${fotos.length} foto(s) não foram copiadas para o SharePoint; elas continuam no app de campo.` : ''
+    onConcluir(`Registro aprovado e lançado em Produção (nº ${data}).${aviso}`)
   }
 
   async function rejeitar() {
@@ -530,7 +541,7 @@ function Detalhe({ registro: r, camposLabel, onFechar, onConcluir }) {
                   Rejeitar
                 </button>
                 <button className="btn btn-sucesso" disabled={salvando || carregando || atividades.length === 0} onClick={aprovar}>
-                  {salvando ? 'Aprovando...' : '✓ Aprovar e lançar em Produção'}
+                  {salvando ? (progresso || 'Aprovando...') : '✓ Aprovar e lançar em Produção'}
                 </button>
               </>
             ) : (

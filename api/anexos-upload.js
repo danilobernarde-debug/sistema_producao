@@ -10,6 +10,8 @@
 //            o navegador envia em partes direto ao uploadUrl, que já vem autorizado)
 //   POST   /api/anexos-upload?registro=<id>&nome=<nome no SharePoint>&concluir=1&tipo=<mime>
 //            confere o arquivo enviado em partes e grava a linha em f_prod_arquivos
+//   POST   /api/anexos-upload?registro=<id do f_prod_registro>&campofoto=<uuid de campo_registro_fotos>
+//            ao aprovar um registro do app de campo: copia a foto do bucket campo-fotos para o SharePoint
 //   DELETE /api/anexos-upload?arquivo=<id de f_prod_arquivos>              apaga do SharePoint e da tabela
 //
 // Variáveis da Vercel: MS_TENANT_ID, MS_CLIENT_ID, MS_CLIENT_SECRET (obrigatórias)
@@ -235,6 +237,46 @@ module.exports = async function handler(req, res) {
       if (!item.size || item.size > LIMITE_ARQUIVO) return res.status(400).json({ erro: 'Arquivo inválido' })
       const ok = await gravarLinha(usuario, reg.id, `${caminhoPasta}/${item.name}`, item.name, item.size, mimeValido(req.query.tipo), item.lastModifiedDateTime)
       return ok ? res.status(200).json({ nome: item.name }) : res.status(500).json({ erro: 'Arquivo enviado, mas não foi possível registrar' })
+    }
+
+    // --- foto do app de campo: copia do bucket campo-fotos (Supabase) para o SharePoint, ao aprovar ---
+    // Uma foto por chamada (a tela de aprovação repete para cada foto). Só vale se o registro de campo
+    // está aprovado e aponta para este lançamento. Repetir a chamada não duplica (nome fixo por foto).
+    if (req.query.campofoto) {
+      if (!/^[0-9a-f-]{36}$/i.test(req.query.campofoto)) return res.status(400).json({ erro: 'Foto inválida' })
+      const [foto] = await supaJson(usuario, `campo_registro_fotos?select=id,registro_id,storage_path&id=eq.${req.query.campofoto}`)
+      if (!foto) return res.status(404).json({ erro: 'Foto não encontrada' })
+      const [campo] = await supaJson(usuario, `campo_registros_producao?select=id,status,f_prod_registro_id&id=eq.${foto.registro_id}`)
+      if (!campo || campo.status !== 'aprovado' || String(campo.f_prod_registro_id) !== String(reg.id)) {
+        return res.status(400).json({ erro: 'A foto não pertence a este lançamento' })
+      }
+      const extFoto = (foto.storage_path.match(/\.([A-Za-z0-9]{1,5})$/) || [])[1]?.toLowerCase() || 'jpg'
+      const nomeFoto = `campo_${foto.id.slice(0, 8)}.${extFoto}`
+      const jaTem = await supaJson(usuario, `f_prod_arquivos?select=id&registro_id=eq.${reg.id}&name=eq.${encodeURIComponent(nomeFoto)}`)
+      if (jaTem.length) return res.status(200).json({ nome: nomeFoto, jaEnviada: true })
+
+      const dl = await fetch(`${PRODUCAO_URL}/storage/v1/object/campo-fotos/${foto.storage_path.split('/').map(encodeURIComponent).join('/')}`, {
+        headers: { apikey: PRODUCAO_ANON, Authorization: `Bearer ${usuario.token}` },
+      })
+      if (!dl.ok) {
+        console.error('anexos-upload campofoto download:', dl.status, foto.storage_path)
+        return res.status(502).json({ erro: 'Foto do app de campo não encontrada no armazenamento' })
+      }
+      const buf = Buffer.from(await dl.arrayBuffer())
+      if (!buf.length || buf.length > LIMITE_ARQUIVO) return res.status(413).json({ erro: 'Foto vazia ou grande demais' })
+      let tipoFoto = mimeValido((dl.headers.get('content-type') || '').split(';')[0].trim())
+      if (tipoFoto === 'application/octet-stream' && /^jpe?g$/.test(extFoto)) tipoFoto = 'image/jpeg'
+
+      const upF = await fetch(`${baseDrive()}/${codificar([...pasta, nomeFoto])}:/content?@microsoft.graph.conflictBehavior=rename`, {
+        method: 'PUT', headers: { Authorization: `Bearer ${token}`, 'Content-Type': tipoFoto }, body: buf,
+      })
+      if (!upF.ok) {
+        console.error('anexos-upload campofoto graph:', upF.status, (await upF.text()).slice(0, 300))
+        return res.status(502).json({ erro: 'Falha ao gravar no SharePoint' })
+      }
+      const itemF = await upF.json()
+      const okF = await gravarLinha(usuario, reg.id, `${caminhoPasta}/${itemF.name}`, itemF.name, buf.length, tipoFoto, itemF.lastModifiedDateTime)
+      return okF ? res.status(200).json({ nome: itemF.name }) : res.status(500).json({ erro: 'Foto enviada, mas não foi possível registrar' })
     }
 
     // --- arquivo pequeno: o próprio corpo da requisição ---
