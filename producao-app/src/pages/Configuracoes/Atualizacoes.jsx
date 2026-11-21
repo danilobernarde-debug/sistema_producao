@@ -4,6 +4,16 @@ import { useNavigate } from 'react-router-dom'
 // Ao fazer uma mudança relevante no sistema, adicionar uma entrada nova aqui.
 const VERSOES = [
   {
+    versao: 'dd5e32c',
+    data: '2026-11-21',
+    resumo: 'Aprovação Campo: as fotos do app de campo passam a ir para o SharePoint ao aprovar',
+    itens: [
+      'Ao clicar em "Aprovar e lançar em Produção", depois de criar o lançamento o sistema copia cada foto do app de campo (bucket campo-fotos do Supabase) para o SharePoint, na pasta Anexos Produção/<Contrato>/<Equipe>/<data>/, e liga ao lançamento em f_prod_arquivos. Elas aparecem em Editar/Visualizar e na aba Anexos. O botão mostra o andamento ("Copiando fotos... 2 de 5")',
+      'Se alguma foto falhar, a aprovação continua valendo e a mensagem final avisa quantas não foram copiadas; as originais seguem no app de campo (nada é apagado). Repetir a cópia não duplica (nome fixo por foto: campo_<id>.jpg)',
+      'Antes desta versão a aprovação não levava as fotos para o lançamento. O único registro já aprovado (lançamento 23638, 1 foto) não foi copiado; se precisar, a foto pode ser anexada em Editar',
+    ],
+  },
+  {
     versao: '9f26ec9',
     data: '2026-11-21',
     resumo: 'Anexos dos lançamentos no SharePoint, visualizador em tela cheia e nova aba Anexos',
