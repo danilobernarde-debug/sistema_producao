@@ -1351,10 +1351,10 @@ export default function EditarRegistro() {
           </div>
         )}
 
-        {/* Fotos do lançamento (SharePoint) */}
-        <div className="card sec-colaboradores">
-          <div className="card-titulo">Fotos</div>
-          <GaleriaFotos registroId={id} />
+        {/* Anexos do lançamento (SharePoint). O card reabilita cliques (pointer-events) mesmo no modo Visualizar. */}
+        <div className="card sec-colaboradores" style={{ pointerEvents: 'auto' }}>
+          <div className="card-titulo">Anexos</div>
+          <GaleriaFotos registroId={id} editavel={!soLeitura} />
         </div>
 
         {!soLeitura && (

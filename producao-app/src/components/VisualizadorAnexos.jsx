@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
+import { createPortal } from 'react-dom'
 import { tipoAnexo, dataHoraBr } from '../utils/anexosFotos'
 
 // Visualizador em tela cheia de anexos: imagem e PDF, com setas (← →), Esc, deslizar no celular,
@@ -44,7 +45,8 @@ export default function VisualizadorAnexos({ itens, indice, onMudar, onFechar })
 
   const seta = { position: 'absolute', top: '50%', transform: 'translateY(-50%)', background: 'rgba(255,255,255,0.18)', color: 'white', border: 'none', borderRadius: '50%', width: 48, height: 48, fontSize: 28, cursor: 'pointer', lineHeight: 1, zIndex: 2 }
 
-  return (
+  // no body: assim não herda opacity/pointer-events do formulário (modo Visualizar)
+  return createPortal(
     <div
       ref={raiz}
       style={{ position: 'fixed', inset: 0, zIndex: 2100, background: 'rgba(0,0,0,0.9)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
@@ -83,7 +85,8 @@ export default function VisualizadorAnexos({ itens, indice, onMudar, onFechar })
       )}
 
       {proxima !== null && <button type="button" style={{ ...seta, right: 16 }} onClick={() => onMudar(proxima)} aria-label="Próximo">›</button>}
-    </div>
+    </div>,
+    document.body,
   )
 }
 

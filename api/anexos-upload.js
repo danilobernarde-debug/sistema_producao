@@ -1,17 +1,26 @@
-// Envia a foto de um registro de produção para o SharePoint (OneDrive corporativo).
+// Anexos de um registro de produção no SharePoint (OneDrive corporativo): enviar e excluir.
 //
-// O navegador nunca fala com o Microsoft Graph: ele manda a foto (já reduzida, JPEG) para cá,
-// com o token da Produção. Esta função confere o login, descobre contrato/equipe/data do registro,
-// grava em  <MS_PASTA_RAIZ>/<Contrato>/<Equipe>/<AAAA-MM-DD>/  na biblioteca do site e guarda o
-// link em f_prod_arquivos (com o token do usuário, então vale a RLS).
+// O navegador nunca fala com o Microsoft Graph com credencial: ele chama esta função com o token da
+// Produção. Ela confere o login, descobre contrato/equipe/data do registro, grava em
+//   <MS_PASTA_RAIZ>/<Contrato>/<Equipe>/<AAAA-MM-DD>/   na biblioteca do site
+// e guarda uma linha em f_prod_arquivos (com o token do usuário, então vale a RLS).
 //
-//   POST /api/anexos-upload?registro=<id>   corpo = bytes da imagem (image/jpeg), até 4 MB
+//   POST   /api/anexos-upload?registro=<id>&nome=<arquivo>                 corpo = bytes (até 4 MB)
+//   POST   /api/anexos-upload?registro=<id>&nome=<arquivo>&sessao=1        -> { uploadUrl } (arquivo > 4 MB:
+//            o navegador envia em partes direto ao uploadUrl, que já vem autorizado)
+//   POST   /api/anexos-upload?registro=<id>&nome=<nome no SharePoint>&concluir=1&tipo=<mime>
+//            confere o arquivo enviado em partes e grava a linha em f_prod_arquivos
+//   DELETE /api/anexos-upload?arquivo=<id de f_prod_arquivos>              apaga do SharePoint e da tabela
 //
 // Variáveis da Vercel: MS_TENANT_ID, MS_CLIENT_ID, MS_CLIENT_SECRET (obrigatórias)
 //   MS_SITE_HOST   (padrão redeforteconstrutora.sharepoint.com)
 //   MS_SITE_PATH   (opcional, ex.: /sites/Producao; vazio = site raiz)
 //   MS_PASTA_RAIZ  (padrão "Anexos Produção")
 // Registro no Azure: app com permissão Graph de aplicativo Sites.Selected (liberada para este site).
+//
+// f_prod_arquivos: a coluna url é GERADA pelo banco (url pública do Storage + fullpath), então o anexo do
+// SharePoint é marcado por fullpath = 'sharepoint/<path>' (os antigos começam com 'f_prod_storage/') e o
+// link de leitura é gerado na hora por api/anexos-fotos.js.
 
 const PRODUCAO_URL = process.env.SUPABASE_URL || 'https://giendnvcmkaqdminmeyz.supabase.co'
 // chave anon é pública (também vai no bundle do app)
@@ -23,6 +32,9 @@ const SITE_HOST = process.env.MS_SITE_HOST || 'redeforteconstrutora.sharepoint.c
 const SITE_PATH = (process.env.MS_SITE_PATH || '').replace(/\/+$/, '')
 const PASTA_RAIZ = process.env.MS_PASTA_RAIZ || 'Anexos Produção'
 const LIMITE_BYTES = 4 * 1024 * 1024 // a Vercel recusa corpo acima de ~4,5 MB
+const LIMITE_ARQUIVO = 50 * 1024 * 1024
+// executáveis/scripts não entram como anexo
+const EXTENSOES_BLOQUEADAS = new Set(['exe', 'bat', 'cmd', 'com', 'msi', 'scr', 'js', 'vbs', 'ps1', 'sh', 'jar', 'dll', 'apk', 'lnk', 'reg'])
 
 let tokenGraph = null // { token, expira }
 
@@ -59,12 +71,18 @@ async function usuarioAutorizado(req) {
   return linhas.length === 1 && linhas[0].ativo !== false ? { id, token } : null
 }
 
-// consulta o Supabase com o token do usuário (vale a RLS dele)
+// consulta o Supabase com o token do usuário (vale a RLS dele); devolve a Response
 function supa(usuario, caminho, opcoes = {}) {
   return fetch(`${PRODUCAO_URL}/rest/v1/${caminho}`, {
     ...opcoes,
     headers: { apikey: PRODUCAO_ANON, Authorization: `Bearer ${usuario.token}`, 'Content-Type': 'application/json', ...opcoes.headers },
   })
+}
+
+async function supaJson(usuario, caminho) {
+  const r = await supa(usuario, caminho)
+  if (!r.ok) throw new Error(`consulta falhou (${r.status}): ${caminho.split('?')[0]}`)
+  return r.json()
 }
 
 async function lerCorpo(req) {
@@ -84,11 +102,93 @@ function limpar(nome, padrao) {
   return (s || padrao).slice(0, 80)
 }
 
-const eJpeg = b => b.length > 3 && b[0] === 0xff && b[1] === 0xd8 && b[2] === 0xff
+// nome do arquivo: limpa e mantém a extensão
+function limparNomeArquivo(nome) {
+  const bruto = String(nome ?? '').split(/[\\/]/).pop()
+  const i = bruto.lastIndexOf('.')
+  const ext = i > 0 ? bruto.slice(i + 1).replace(/[^A-Za-z0-9]/g, '').slice(0, 8).toLowerCase() : ''
+  const base = limpar(i > 0 ? bruto.slice(0, i) : bruto, 'arquivo').slice(0, 100)
+  return { nome: ext ? `${base}.${ext}` : base, ext }
+}
+
+const mimeValido = t => (/^[\w.+-]+\/[\w.+-]+$/.test(t || '') ? t : 'application/octet-stream')
+
+// confere o conteúdo quando o tipo declarado tem assinatura conhecida
+function conteudoConfere(tipo, b) {
+  if (tipo === 'image/jpeg') return b.length > 3 && b[0] === 0xff && b[1] === 0xd8 && b[2] === 0xff
+  if (tipo === 'application/pdf') return b.length > 4 && b.subarray(0, 5).toString('latin1') === '%PDF-'
+  return true
+}
+
+// registro visível ao usuário (RLS) e a pasta dele no SharePoint
+async function contextoRegistro(usuario, registroId) {
+  const [reg] = await supaJson(usuario, `f_prod_registro?select=id,data_producao,contrato_id,equipe_id&id=eq.${registroId}`)
+  if (!reg) return null
+  const [contrato, equipe] = await Promise.all([
+    supaJson(usuario, `d_contratos?select=descricao&id=eq.${reg.contrato_id}`),
+    reg.equipe_id ? supaJson(usuario, `d_equipes?select=equipe&id=eq.${reg.equipe_id}`) : [],
+  ])
+  const pasta = [
+    limpar(PASTA_RAIZ, 'Anexos'),
+    limpar(contrato[0]?.descricao, `Contrato ${reg.contrato_id}`),
+    limpar(equipe[0]?.equipe, 'Sem equipe'),
+    reg.data_producao, // AAAA-MM-DD
+  ]
+  return { reg, pasta }
+}
+
+const baseDrive = () => `https://graph.microsoft.com/v1.0/sites/${SITE_HOST}${SITE_PATH ? ':' + SITE_PATH + ':' : ''}/drive/root:`
+const codificar = partes => partes.map(encodeURIComponent).join('/')
+
+async function gravarLinha(usuario, regId, caminhoSp, nome, tamanho, tipo, modificado) {
+  const ins = await supa(usuario, 'f_prod_arquivos', {
+    method: 'POST',
+    headers: { Prefer: 'return=minimal' },
+    body: JSON.stringify({
+      registro_id: regId,
+      path: caminhoSp,
+      fullpath: 'sharepoint/' + caminhoSp,
+      name: nome,
+      size: tamanho,
+      type: tipo,
+      last_modified: modificado ?? new Date().toISOString(),
+    }),
+  })
+  if (!ins.ok) console.error('anexos-upload insert:', ins.status, (await ins.text()).slice(0, 300))
+  return ins.ok
+}
+
+async function excluir(usuario, arquivoId, res) {
+  const [a] = await supaJson(usuario, `f_prod_arquivos?select=id,registro_id,path,fullpath&id=eq.${arquivoId}`)
+  if (!a) return res.status(404).json({ erro: 'Arquivo não encontrado' })
+  // só mexe em anexo de registro que o usuário enxerga
+  const reg = await supaJson(usuario, `f_prod_registro?select=id&id=eq.${a.registro_id}`)
+  if (!reg.length) return res.status(404).json({ erro: 'Arquivo não encontrado' })
+
+  if ((a.fullpath || '').startsWith('sharepoint/')) {
+    const token = await obterTokenGraph()
+    const d = await fetch(`${baseDrive()}/${codificar(a.path.split('/'))}`, { method: 'DELETE', headers: { Authorization: `Bearer ${token}` } })
+    if (!d.ok && d.status !== 404) {
+      console.error('anexos-upload delete graph:', d.status)
+      return res.status(502).json({ erro: 'Falha ao apagar no SharePoint' })
+    }
+  } else if (a.fullpath) {
+    // anexo antigo (Storage do Supabase): tenta apagar o arquivo; se a policy não deixar, só a linha some
+    await fetch(`${PRODUCAO_URL}/storage/v1/object/${a.fullpath.split('/').map(encodeURIComponent).join('/')}`, {
+      method: 'DELETE', headers: { apikey: PRODUCAO_ANON, Authorization: `Bearer ${usuario.token}` },
+    }).catch(() => {})
+  }
+  const del = await supa(usuario, `f_prod_arquivos?id=eq.${a.id}`, { method: 'DELETE', headers: { Prefer: 'return=minimal' } })
+  if (!del.ok) {
+    console.error('anexos-upload delete linha:', del.status)
+    return res.status(500).json({ erro: 'Não foi possível remover o anexo' })
+  }
+  return res.status(200).json({ ok: true })
+}
 
 module.exports = async function handler(req, res) {
   res.setHeader('Cache-Control', 'no-store')
-  if (req.method !== 'POST') return res.status(405).json({ erro: 'Método não permitido' })
+  if (req.method !== 'POST' && req.method !== 'DELETE') return res.status(405).json({ erro: 'Método não permitido' })
   if (!MS_TENANT_ID || !MS_CLIENT_ID || !MS_CLIENT_SECRET) {
     return res.status(503).json({ erro: 'Integração com o SharePoint não configurada' })
   }
@@ -96,38 +196,57 @@ module.exports = async function handler(req, res) {
     const usuario = await usuarioAutorizado(req)
     if (!usuario) return res.status(401).json({ erro: 'Não autorizado' })
 
+    if (req.method === 'DELETE') {
+      if (!/^\d+$/.test(req.query.arquivo || '')) return res.status(400).json({ erro: 'Informe arquivo (número)' })
+      return await excluir(usuario, req.query.arquivo, res)
+    }
+
     const registroId = req.query.registro
     if (!/^\d+$/.test(registroId || '')) return res.status(400).json({ erro: 'Informe registro (número)' })
+    const { nome, ext } = limparNomeArquivo(req.query.nome)
+    if (EXTENSOES_BLOQUEADAS.has(ext)) return res.status(400).json({ erro: 'Este tipo de arquivo não é permitido' })
 
-    const corpo = await lerCorpo(req)
-    if (!corpo) return res.status(413).json({ erro: 'Foto grande demais (máx. 4 MB)' })
-    if (!eJpeg(corpo)) return res.status(400).json({ erro: 'Envie a foto em JPEG' })
-
-    // o registro precisa ser visível para o usuário (RLS) — define também a pasta
-    const rReg = await supa(usuario, `f_prod_registro?select=id,data_producao,contrato_id,equipe_id&id=eq.${registroId}`)
-    if (!rReg.ok) throw new Error(`consulta do registro falhou (${rReg.status})`)
-    const [reg] = await rReg.json()
-    if (!reg) return res.status(404).json({ erro: 'Registro não encontrado' })
-
-    const [contrato, equipe] = await Promise.all([
-      supa(usuario, `d_contratos?select=descricao&id=eq.${reg.contrato_id}`).then(r => r.ok ? r.json() : []),
-      reg.equipe_id ? supa(usuario, `d_equipes?select=equipe&id=eq.${reg.equipe_id}`).then(r => r.ok ? r.json() : []) : [],
-    ])
-    const pasta = [
-      limpar(PASTA_RAIZ, 'Anexos'),
-      limpar(contrato[0]?.descricao, `Contrato ${reg.contrato_id}`),
-      limpar(equipe[0]?.equipe, 'Sem equipe'),
-      reg.data_producao, // AAAA-MM-DD
-    ]
-    const hora = new Date().toLocaleTimeString('sv-SE', { timeZone: 'America/Sao_Paulo' }).replace(/:/g, '')
-    const nome = `reg${reg.id}_${hora}_${Math.random().toString(36).slice(2, 7)}.jpg`
-    const caminho = [...pasta, nome].map(encodeURIComponent).join('/')
-
+    const ctx = await contextoRegistro(usuario, registroId)
+    if (!ctx) return res.status(404).json({ erro: 'Registro não encontrado' })
+    const { reg, pasta } = ctx
     const token = await obterTokenGraph()
-    const base = `https://graph.microsoft.com/v1.0/sites/${SITE_HOST}${SITE_PATH ? ':' + SITE_PATH + ':' : ''}/drive/root:/${caminho}:/content`
-    const up = await fetch(`${base}?@microsoft.graph.conflictBehavior=rename`, {
+    const caminhoPasta = pasta.join('/')
+
+    // --- arquivo grande: abre a sessão de envio em partes ---
+    if (req.query.sessao) {
+      const s = await fetch(`${baseDrive()}/${codificar([...pasta, nome])}:/createUploadSession`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ item: { '@microsoft.graph.conflictBehavior': 'rename' } }),
+      })
+      if (!s.ok) {
+        console.error('anexos-upload sessao:', s.status, (await s.text()).slice(0, 300))
+        return res.status(502).json({ erro: 'Falha ao iniciar o envio no SharePoint' })
+      }
+      const { uploadUrl } = await s.json()
+      return res.status(200).json({ uploadUrl, limite: LIMITE_ARQUIVO })
+    }
+
+    // --- arquivo grande: conferir o que foi enviado em partes e gravar a linha ---
+    if (req.query.concluir) {
+      const g = await fetch(`${baseDrive()}/${codificar([...pasta, nome])}`, { headers: { Authorization: `Bearer ${token}` } })
+      if (!g.ok) return res.status(404).json({ erro: 'Arquivo não encontrado no SharePoint' })
+      const item = await g.json()
+      if (!item.size || item.size > LIMITE_ARQUIVO) return res.status(400).json({ erro: 'Arquivo inválido' })
+      const ok = await gravarLinha(usuario, reg.id, `${caminhoPasta}/${item.name}`, item.name, item.size, mimeValido(req.query.tipo), item.lastModifiedDateTime)
+      return ok ? res.status(200).json({ nome: item.name }) : res.status(500).json({ erro: 'Arquivo enviado, mas não foi possível registrar' })
+    }
+
+    // --- arquivo pequeno: o próprio corpo da requisição ---
+    const tipo = mimeValido((req.headers['content-type'] || '').split(';')[0].trim())
+    const corpo = await lerCorpo(req)
+    if (!corpo) return res.status(413).json({ erro: 'Arquivo grande demais para envio direto (máx. 4 MB)' })
+    if (!corpo.length) return res.status(400).json({ erro: 'Arquivo vazio' })
+    if (!conteudoConfere(tipo, corpo)) return res.status(400).json({ erro: 'O conteúdo não corresponde ao tipo do arquivo' })
+
+    const up = await fetch(`${baseDrive()}/${codificar([...pasta, nome])}:/content?@microsoft.graph.conflictBehavior=rename`, {
       method: 'PUT',
-      headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'image/jpeg' },
+      headers: { Authorization: `Bearer ${token}`, 'Content-Type': tipo },
       body: corpo,
     })
     if (!up.ok) {
@@ -135,32 +254,10 @@ module.exports = async function handler(req, res) {
       return res.status(502).json({ erro: 'Falha ao gravar no SharePoint' })
     }
     const item = await up.json()
-
-    // f_prod_arquivos já guardava os anexos do Supabase Storage; os do SharePoint entram na mesma tabela.
-    // A coluna url é GERADA pelo banco (url pública do Storage + fullpath), então não dá para gravar o link
-    // do SharePoint nela: o anexo do SharePoint é marcado por fullpath = 'sharepoint/<path>' (os antigos
-    // começam com 'f_prod_storage/') e o link de leitura é gerado na hora por api/anexos-fotos.js.
-    const caminhoSp = pasta.join('/') + '/' + item.name
-    const ins = await supa(usuario, 'f_prod_arquivos', {
-      method: 'POST',
-      headers: { Prefer: 'return=minimal' },
-      body: JSON.stringify({
-        registro_id: reg.id,
-        path: caminhoSp,
-        fullpath: 'sharepoint/' + caminhoSp,
-        name: item.name,
-        size: corpo.length,
-        type: 'image/jpeg',
-        last_modified: item.lastModifiedDateTime ?? new Date().toISOString(),
-      }),
-    })
-    if (!ins.ok) {
-      console.error('anexos-upload insert:', ins.status, (await ins.text()).slice(0, 300))
-      return res.status(500).json({ erro: 'Foto enviada, mas não foi possível registrar o link' })
-    }
-    return res.status(200).json({ nome: item.name, web_url: item.webUrl })
+    const ok = await gravarLinha(usuario, reg.id, `${caminhoPasta}/${item.name}`, item.name, corpo.length, tipo, item.lastModifiedDateTime)
+    return ok ? res.status(200).json({ nome: item.name }) : res.status(500).json({ erro: 'Arquivo enviado, mas não foi possível registrar' })
   } catch (e) {
     console.error('anexos-upload:', e.message)
-    return res.status(502).json({ erro: 'Falha ao enviar a foto' })
+    return res.status(502).json({ erro: 'Falha ao processar o anexo' })
   }
 }

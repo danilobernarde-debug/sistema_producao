@@ -7,9 +7,9 @@ import CampoDinamico from '../../components/CampoDinamico'
 import BotaoCoordsMap from '../../components/BotaoCoordsMap'
 import SelectPesquisavel from '../../components/SelectPesquisavel'
 import { verificarDiaDisponibilidade } from '../../utils/disponibilidade'
-import { reduzirFoto, enviarFotoRegistro } from '../../utils/anexosFotos'
+import { enviarAnexoRegistro, tipoAnexo, MAX_ARQUIVO } from '../../utils/anexosFotos'
 
-const MAX_FOTOS = 10
+const MAX_ANEXOS = 10
 
 const IDS_FAIXA_TO = new Set([17, 18, 19])
 function contratoParaEquipes(cid) { return IDS_FAIXA_TO.has(Number(cid)) ? 17 : Number(cid) }
@@ -63,27 +63,25 @@ export default function NovoRegistro() {
   const [dialogTroca, setDialogTroca] = useState(null) // { colabId, novaEquipeId, nomeColab, nomeEquipe }
 
   const [salvando, setSalvando] = useState(false)
-  const [fotos, setFotos] = useState([]) // [{ chave, blob, url }] — vão para o SharePoint ao salvar
+  const [anexos, setAnexos] = useState([]) // [{ chave, arquivo, url? }] — vão para o SharePoint ao salvar
   const [erro, setErro] = useState('')
 
-  async function adicionarFotos(e) {
-    const arquivos = Array.from(e.target.files || []).filter(f => f.type.startsWith('image/'))
+  function adicionarAnexos(e) {
+    const escolhidos = Array.from(e.target.files || [])
     e.target.value = ''
-    const vagas = MAX_FOTOS - fotos.length
-    if (arquivos.length > vagas) setErro(`Máximo de ${MAX_FOTOS} fotos por lançamento.`)
-    const novas = []
-    for (const f of arquivos.slice(0, Math.max(0, vagas))) {
-      try {
-        const blob = await reduzirFoto(f)
-        novas.push({ chave: crypto.randomUUID(), blob, url: URL.createObjectURL(blob) })
-      } catch { setErro(`Não foi possível ler a foto "${f.name}".`) }
+    const vagas = MAX_ANEXOS - anexos.length
+    if (escolhidos.length > vagas) setErro(`Máximo de ${MAX_ANEXOS} anexos por lançamento.`)
+    const novos = []
+    for (const f of escolhidos.slice(0, Math.max(0, vagas))) {
+      if (f.size > MAX_ARQUIVO) { setErro(`"${f.name}" passa de ${MAX_ARQUIVO / 1024 / 1024} MB.`); continue }
+      novos.push({ chave: crypto.randomUUID(), arquivo: f, url: tipoAnexo({ tipo: f.type, nome: f.name }) === 'imagem' ? URL.createObjectURL(f) : null })
     }
-    setFotos(atual => [...atual, ...novas])
+    setAnexos(atual => [...atual, ...novos])
   }
-  function removerFoto(chave) {
-    setFotos(atual => {
-      const f = atual.find(x => x.chave === chave)
-      if (f) URL.revokeObjectURL(f.url)
+  function removerAnexo(chave) {
+    setAnexos(atual => {
+      const a = atual.find(x => x.chave === chave)
+      if (a?.url) URL.revokeObjectURL(a.url)
       return atual.filter(x => x.chave !== chave)
     })
   }
@@ -474,13 +472,13 @@ export default function NovoRegistro() {
         if (erColabs) throw erColabs
       }
 
-      // fotos (opcionais) vão para o SharePoint; o registro já está salvo, então falha aqui só avisa
-      let fotosComErro = 0
-      for (const f of fotos) {
-        try { await enviarFotoRegistro(reg.id, f.blob) } catch { fotosComErro++ }
+      // anexos (opcionais) vão para o SharePoint; o registro já está salvo, então falha aqui só avisa
+      const falhas = []
+      for (const a of anexos) {
+        try { await enviarAnexoRegistro(reg.id, a.arquivo) } catch (er) { falhas.push(`${a.arquivo.name}: ${er.message}`) }
       }
-      if (fotosComErro > 0) {
-        window.alert(`Lançamento salvo, mas ${fotosComErro} de ${fotos.length} foto(s) não puderam ser enviadas. Avise o administrador.`)
+      if (falhas.length > 0) {
+        window.alert(`Lançamento salvo, mas ${falhas.length} de ${anexos.length} anexo(s) não puderam ser enviados:\n\n${falhas.join('\n')}\n\nVocê pode adicioná-los de novo em Editar.`)
       }
 
       navegar('/producao')
@@ -1003,20 +1001,29 @@ export default function NovoRegistro() {
           </div>
         )}
 
-        {/* Fotos (opcional) — guardadas no SharePoint */}
+        {/* Anexos (opcional) — guardados no SharePoint */}
         <div className="card sec-colaboradores">
-          <div className="card-titulo">Fotos (opcional)</div>
+          <div className="card-titulo">Anexos (opcional)</div>
           <label className="btn btn-secundario" style={{ display: 'inline-block', cursor: 'pointer' }}>
-            📷 Adicionar fotos
-            <input type="file" accept="image/*" multiple hidden onChange={adicionarFotos} disabled={fotos.length >= MAX_FOTOS} />
+            📎 Adicionar arquivos
+            <input type="file" multiple hidden onChange={adicionarAnexos} disabled={anexos.length >= MAX_ANEXOS} />
           </label>
-          <span style={{ marginLeft: 10, fontSize: 12, color: '#6b7280' }}>{fotos.length}/{MAX_FOTOS} — enviadas ao salvar o lançamento</span>
-          {fotos.length > 0 && (
+          <span style={{ marginLeft: 10, fontSize: 12, color: '#6b7280' }}>
+            {anexos.length}/{MAX_ANEXOS} — enviados ao salvar. Fotos e PDF abrem no visualizador; outros tipos só baixam.
+          </span>
+          {anexos.length > 0 && (
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginTop: 12 }}>
-              {fotos.map(f => (
-                <div key={f.chave} style={{ position: 'relative', width: 96, height: 96 }}>
-                  <img src={f.url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: 6 }} />
-                  <button type="button" onClick={() => removerFoto(f.chave)} aria-label="Remover foto"
+              {anexos.map(a => (
+                <div key={a.chave} style={{ position: 'relative', width: 96, height: 96 }} title={a.arquivo.name}>
+                  {a.url ? (
+                    <img src={a.url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: 6 }} />
+                  ) : (
+                    <div style={{ width: '100%', height: '100%', borderRadius: 6, border: '1px solid #e5e7eb', background: '#f9fafb', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 4, padding: 4, boxSizing: 'border-box' }}>
+                      <span style={{ fontSize: 28 }}>{tipoAnexo({ tipo: a.arquivo.type, nome: a.arquivo.name }) === 'pdf' ? '📄' : '📎'}</span>
+                      <span style={{ fontSize: 10, color: '#374151', maxWidth: '100%', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{a.arquivo.name}</span>
+                    </div>
+                  )}
+                  <button type="button" onClick={() => removerAnexo(a.chave)} aria-label="Remover anexo"
                     style={{ position: 'absolute', top: 2, right: 2, width: 22, height: 22, borderRadius: '50%', border: 'none', background: 'rgba(0,0,0,.65)', color: '#fff', cursor: 'pointer', lineHeight: 1 }}>×</button>
                 </div>
               ))}

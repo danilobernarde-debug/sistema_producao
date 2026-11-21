@@ -85,16 +85,59 @@ export async function linksDosArquivos(linhas) {
   return mapa
 }
 
-export async function enviarFotoRegistro(registroId, blob) {
+export const MAX_ARQUIVO = 50 * 1024 * 1024
+const MAX_ENVIO_DIRETO = 4 * 1024 * 1024 - 1024 // a função da Vercel aceita corpo de até ~4,5 MB
+const TAM_PARTE = 320 * 1024 * 12 // partes do upload grande: múltiplo de 320 KiB (exigência do SharePoint)
+const TIPOS_REDUZIVEIS = ['image/jpeg', 'image/png', 'image/webp', 'image/bmp']
+
+async function chamarUpload(caminho, opcoes = {}) {
   const { data: { session } } = await supabase.auth.getSession()
-  const r = await fetch(`/api/anexos-upload?registro=${registroId}`, {
-    method: 'POST',
-    headers: { Authorization: `Bearer ${session?.access_token}`, 'Content-Type': 'image/jpeg' },
-    body: blob,
-  })
+  const r = await fetch(caminho, { ...opcoes, headers: { Authorization: `Bearer ${session?.access_token}`, ...opcoes.headers } })
   if (!r.ok) {
     const j = await r.json().catch(() => ({}))
-    throw new Error(j.erro || `Falha ao enviar a foto (${r.status})`)
+    throw new Error(j.erro || `Falha no envio (${r.status})`)
   }
   return r.json()
+}
+
+// Envia um anexo (foto, PDF, planilha...) do lançamento para o SharePoint e registra em f_prod_arquivos.
+// Foto é reduzida para JPEG antes; arquivo acima de ~4 MB vai em partes, direto ao SharePoint.
+export async function enviarAnexoRegistro(registroId, arquivo) {
+  let corpo = arquivo
+  let nome = arquivo.name || 'arquivo'
+  let tipo = arquivo.type || 'application/octet-stream'
+  if (TIPOS_REDUZIVEIS.includes(tipo)) {
+    try {
+      corpo = await reduzirFoto(arquivo)
+      nome = nome.replace(/\.[^.]+$/, '') + '.jpg'
+      tipo = 'image/jpeg'
+    } catch { /* não deu para reduzir: envia o original */ }
+  }
+  if (corpo.size > MAX_ARQUIVO) throw new Error(`"${arquivo.name}" passa de ${MAX_ARQUIVO / 1024 / 1024} MB`)
+
+  const base = `/api/anexos-upload?registro=${registroId}&nome=${encodeURIComponent(nome)}`
+  if (corpo.size <= MAX_ENVIO_DIRETO) {
+    return chamarUpload(base, { method: 'POST', headers: { 'Content-Type': tipo }, body: corpo })
+  }
+
+  const { uploadUrl } = await chamarUpload(`${base}&sessao=1`, { method: 'POST' })
+  let item = null
+  for (let de = 0; de < corpo.size; de += TAM_PARTE) {
+    const parte = corpo.slice(de, Math.min(de + TAM_PARTE, corpo.size))
+    // o uploadUrl já vem autorizado: não leva o token da Produção
+    const r = await fetch(uploadUrl, {
+      method: 'PUT',
+      headers: { 'Content-Range': `bytes ${de}-${de + parte.size - 1}/${corpo.size}` },
+      body: parte,
+    })
+    if (!r.ok && r.status !== 202) throw new Error(`Falha ao enviar "${nome}" ao SharePoint (${r.status})`)
+    if (r.status === 200 || r.status === 201) item = await r.json()
+  }
+  if (!item?.name) throw new Error(`O envio de "${nome}" não foi concluído`)
+  return chamarUpload(`${base.replace(/nome=[^&]*/, `nome=${encodeURIComponent(item.name)}`)}&concluir=1&tipo=${encodeURIComponent(tipo)}`, { method: 'POST' })
+}
+
+// apaga o anexo (arquivo no SharePoint + linha em f_prod_arquivos)
+export function excluirAnexo(arquivoId) {
+  return chamarUpload(`/api/anexos-upload?arquivo=${arquivoId}`, { method: 'DELETE' })
 }
