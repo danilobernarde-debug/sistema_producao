@@ -938,10 +938,6 @@ export default function EditarRegistro() {
         <div className="card sec-identificacao">
           <div className="card-titulo" style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
             Identificação
-            <button type="button" title="Ver metadados brutos" onClick={() => setModalMeta('registro')}
-              style={{ background: 'none', border: '1px solid #d1d5db', borderRadius: 5, padding: '1px 7px', fontSize: 11, color: '#6b7280', cursor: 'pointer', fontFamily: 'monospace', lineHeight: 1.6 }}>
-              {'{ }'}
-            </button>
           </div>
           <div className="campos-grid">
             <div className="campo-grupo">
@@ -1025,10 +1021,6 @@ export default function EditarRegistro() {
         <div className="card sec-atividades">
           <div className="card-titulo" style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
             Atividades Executadas
-            <button type="button" title="Ver metadados brutos" onClick={() => setModalMeta('atividades')}
-              style={{ background: 'none', border: '1px solid #d1d5db', borderRadius: 5, padding: '1px 7px', fontSize: 11, color: '#6b7280', cursor: 'pointer', fontFamily: 'monospace', lineHeight: 1.6 }}>
-              {'{ }'}
-            </button>
           </div>
           {soLeitura ? (
             <div className="tabela-container" style={{ marginTop: 8 }}>

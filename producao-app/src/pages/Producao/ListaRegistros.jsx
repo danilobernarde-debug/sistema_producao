@@ -3,6 +3,8 @@ import { createPortal } from 'react-dom'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../../supabaseClient'
 import SelectPesquisavel from '../../components/SelectPesquisavel'
+import FiltroRapidoColuna from '../../components/FiltroRapidoColuna'
+import MenuCelula from '../../components/MenuCelula'
 
 const POR_PAGINA = 30
 const FILTROS_KEY = 'lista-registros-filtros-v4'
@@ -91,6 +93,25 @@ const OPERADORES_DATA = [
   { value: 'menor', label: 'Menor que' },
 ]
 
+// Botão direito no título da coluna: filtro rápido (campo de CAMPOS_DEF) e ordenação no servidor (ordem = coluna do PostgREST).
+// Colunas fora desta lista (ex.: Valor Total, calculado em outra tabela) não têm o menu.
+const R_TEXTO = ['Crescente (A → Z)', 'Decrescente (Z → A)']
+const R_DATA = ['Crescente (mais antigas primeiro)', 'Decrescente (mais recentes primeiro)']
+const R_NUM = ['Crescente (menor → maior)', 'Decrescente (maior → menor)']
+const R_COD = ['Crescente', 'Decrescente']
+const MENU_COLUNAS = {
+  id:            { campo: 'id',             ordem: 'id',                              rotulos: R_NUM },
+  data_producao: { campo: 'data_producao',  ordem: 'data_producao',                   rotulos: R_DATA },
+  contrato:      { campo: 'contrato_id',    ordem: 'contrato_id',                     rotulos: R_COD },
+  tipo_equipe:   { campo: 'tipo_equipe_id', ordem: 'tipo_equipe_id',                  rotulos: R_COD },
+  equipe:        { campo: 'equipe_id',      ordem: 'equipe_id',                       rotulos: R_COD },
+  observacoes:   { campo: 'obs',            ordem: 'metadata_registro->>observacoes', rotulos: R_TEXTO },
+  criado_em:     { campo: 'criado_em',      ordem: 'criado_em',                       rotulos: R_DATA },
+  encarregado:   { campo: 'encarregado_id', ordem: 'encarregado_id',                  rotulos: R_COD },
+  obra:          { campo: 'obra_id',        ordem: 'obra_id',                         rotulos: R_TEXTO },
+  criado_por:    { campo: 'criado_por',     ordem: null,                              rotulos: null }, // só filtra (a coluna do banco é um UUID)
+}
+
 function operadoresDoCampo(tipo) {
   if (tipo.startsWith('sel_')) return OPERADORES_EXATO
   if (tipo === 'data') return OPERADORES_DATA
@@ -124,6 +145,10 @@ export default function ListaRegistros() {
   const [pagina, setPagina]                 = useState(1)
 
   const [filtros, setFiltros] = useState(lerFiltrosSalvos)
+  const [ordem, setOrdem] = useState(null) // { ordem: coluna, asc } | null = padrão (data mais recente primeiro)
+  const [menuCol, setMenuCol] = useState(null) // coluna cujo filtro rápido/ordenação está aberto
+  const [disparo, setDisparo] = useState(0)
+  const [menuCelula, setMenuCelula] = useState(null) // { x, y, campo, valor, texto } do botão direito numa célula
 
   const [contratos, setContratos]       = useState([])
   const [tiposEquipe, setTiposEquipe]   = useState([])
@@ -192,6 +217,7 @@ export default function ListaRegistros() {
   }, [])
 
   useEffect(() => { buscar(pagina) }, [pagina])
+  useEffect(() => { if (disparo > 0) buscar(1) }, [disparo]) // busca após filtro/ordem rápidos, já com o estado novo
 
   useEffect(() => {
     sessionStorage.setItem(FILTROS_KEY, JSON.stringify(filtros))
@@ -268,7 +294,9 @@ export default function ListaRegistros() {
 
     let baseQ = supabase.from('f_prod_registro')
       .select('id, data_producao, contrato_id, tipo_equipe_id, equipe_id, encarregado_id, obra_id, metadata_registro, criado_em, criado_por_id', { count: 'exact' })
-      .order('data_producao', { ascending: false })
+
+    if (ordem) baseQ = baseQ.order(ordem.ordem, { ascending: ordem.asc })
+    baseQ = baseQ.order('data_producao', { ascending: false })
       .order('id', { ascending: false })
       .range(from, to)
 
@@ -332,6 +360,45 @@ export default function ListaRegistros() {
     setRegistrosRaw(prev => prev.filter(r => r.id !== id))
     setTotal(prev => prev - 1)
     setConfirmarExcluir(null)
+  }
+
+  // Janela do botão direito no título da coluna: aplica filtro rápido + ordenação
+  function aplicarColuna(campo, operador, valor, ord) {
+    setFiltros(prev => [...prev.filter(f => f.campo !== campo), ...(valor !== '' ? [{ _id: Date.now() + Math.random(), campo, operador, valor }] : [])])
+    setOrdem(ord); setMenuCol(null)
+    if (pagina === 1) setDisparo(d => d + 1); else setPagina(1)
+  }
+
+  // Valor que a célula oferece para "filtrar por este valor" (null = sem filtro possível: Valor Total, Equipe sem equipe única)
+  function valorFiltravel(chave, r) {
+    const dia = iso => (iso ? new Date(iso).toLocaleDateString('en-CA') : null)
+    switch (chave) {
+      case 'id':            return { valor: r.id, texto: `#${r.id}` }
+      case 'data_producao': return { valor: r.data_producao, texto: formatarData(r.data_producao) }
+      case 'contrato':      return { valor: r.contrato_id, texto: contratoMap[r.contrato_id] }
+      case 'tipo_equipe':   return { valor: r.tipo_equipe_id, texto: tipoEquipeMap[r.tipo_equipe_id] }
+      case 'equipe':        return { valor: r.equipe_id, texto: r.descricao_equipe }
+      case 'observacoes':   return { valor: r.metadata_registro?.observacoes, texto: r.metadata_registro?.observacoes }
+      case 'criado_em':     return { valor: dia(r.criado_em), texto: dia(r.criado_em) && formatarData(dia(r.criado_em)) }
+      case 'encarregado':   return { valor: r.encarregado_id, texto: r._encarregado_nome }
+      case 'obra':          return { valor: r.obra_id, texto: r.obra_id }
+      case 'criado_por':    return { valor: r._criado_por_nome, texto: r._criado_por_nome }
+      default:              return null
+    }
+  }
+
+  // Entrada do filtro rápido conforme o tipo do campo
+  function propsEntrada(def) {
+    const exato = OPERADORES_EXATO.slice(0, 1)
+    switch (def.tipo) {
+      case 'sel_contrato': return { tipo: 'lista', ops: exato, opcoes: contratos.map(c => ({ valor: c.id, label: c.descricao })) }
+      case 'sel_tequipe':  return { tipo: 'lista', ops: exato, opcoes: tiposEquipe.map(t => ({ valor: t.id, label: t.descricao })) }
+      case 'sel_equipe':   return { tipo: 'lista', ops: exato, opcoes: equipes.map(e => ({ valor: e.id, label: e.equipe })), textoTodos: 'Todas' }
+      case 'sel_enc':      return { tipo: 'pesquisavel', ops: exato, opcoes: encarregados, placeholder: 'Pesquisar encarregado...' }
+      case 'data':         return { tipo: 'data', ops: OPERADORES_DATA }
+      case 'sel_num':      return { tipo: 'numero', ops: exato }
+      default:             return { tipo: 'texto', ops: OPERADORES_TEXTO }
+    }
   }
 
   function filtrar() {
@@ -566,8 +633,14 @@ export default function ListaRegistros() {
               <table style={{ minWidth: 'max-content', width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
                 <thead>
                   <tr style={{ background: '#f9fafb' }}>
-                    {colunasAtivas.map(col => (
+                    {colunasAtivas.map(col => {
+                      const m = MENU_COLUNAS[col.key]
+                      const ordenada = m?.ordem && ordem?.ordem === m.ordem
+                      const filtrada = m && filtros.some(f => f.campo === m.campo && f.valor !== '')
+                      return (
                       <th key={col.key}
+                        title={m ? 'Botão direito: filtro rápido e ordenação' : undefined}
+                        onContextMenu={m ? e => { e.preventDefault(); setMenuCol({ ...m, titulo: col.label }) } : undefined}
                         draggable
                         onDragStart={() => onDragStart(col.key)}
                         onDragOver={e => onDragOver(e, col.key)}
@@ -583,8 +656,11 @@ export default function ListaRegistros() {
                           transition: 'background 0.15s',
                         }}>
                         {col.label}
+                        {ordenada && <span style={{ color: '#1a56db', marginLeft: 4 }}>{ordem.asc ? '▲' : '▼'}</span>}
+                        {filtrada && <span style={{ color: '#1a56db', marginLeft: 4 }} title="Filtro ativo">●</span>}
                       </th>
-                    ))}
+                      )
+                    })}
                     <th style={{
                       position: 'sticky', top: 0, right: 0, background: '#f9fafb', zIndex: 2,
                       padding: '10px 12px', fontWeight: 600, fontSize: 12, color: '#374151',
@@ -602,7 +678,14 @@ export default function ListaRegistros() {
                       onMouseLeave={e => { e.currentTarget.style.background = ''; e.currentTarget.querySelector('td.acoes-sticky').style.background = 'white' }}
                     >
                       {colunasAtivas.map(col => (
-                        <td key={col.key} style={{
+                        <td key={col.key}
+                          onContextMenu={(() => {
+                            const m = MENU_COLUNAS[col.key]
+                            const v = m && valorFiltravel(col.key, r)
+                            if (!v || v.valor == null || v.valor === '') return undefined
+                            return e => { e.preventDefault(); setMenuCelula({ x: e.clientX, y: e.clientY, campo: m.campo, valor: String(v.valor), texto: String(v.texto ?? v.valor), titulo: col.label }) }
+                          })()}
+                          style={{
                           padding: '8px 12px',
                           borderBottom: '1px solid #f3f4f6',
                           whiteSpace: 'nowrap',
@@ -648,6 +731,28 @@ export default function ListaRegistros() {
         )}
 
       </div>
+
+      {menuCelula && (
+        <MenuCelula
+          x={menuCelula.x} y={menuCelula.y} rotulo={menuCelula.titulo} texto={menuCelula.texto} comFiltro
+          ativo={filtros.some(f => f.campo === menuCelula.campo && f.valor !== '')}
+          onFiltrar={() => { const m = menuCelula; setMenuCelula(null); aplicarColuna(m.campo, 'igual', m.valor, ordem) }}
+          onRemover={() => { const m = menuCelula; setMenuCelula(null); aplicarColuna(m.campo, 'igual', '', ordem) }}
+          onFechar={() => setMenuCelula(null)}
+        />
+      )}
+
+      {menuCol && (
+        <FiltroRapidoColuna
+          key={menuCol.campo} titulo={menuCol.titulo}
+          {...propsEntrada(CAMPOS_DEF.find(c => c.key === menuCol.campo))}
+          rotulos={menuCol.rotulos}
+          filtroAtual={filtros.find(f => f.campo === menuCol.campo && f.valor !== '')}
+          ordemAtual={ordem && ordem.ordem === menuCol.ordem ? (ordem.asc ? 'asc' : 'desc') : 'atual'}
+          onOk={(op, valor, dir) => aplicarColuna(menuCol.campo, op, valor, dir === 'atual' || !menuCol.ordem ? null : { ordem: menuCol.ordem, asc: dir === 'asc' })}
+          onCancelar={() => setMenuCol(null)}
+        />
+      )}
 
       {/* Modal confirmação de exclusão */}
       {confirmarExcluir !== null && (

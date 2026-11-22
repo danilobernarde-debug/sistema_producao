@@ -3,6 +3,8 @@ import { useNavigate } from 'react-router-dom'
 import { supabase } from '../../supabaseClient'
 import SelectPesquisavel from '../../components/SelectPesquisavel'
 import VisualizadorAnexos from '../../components/VisualizadorAnexos'
+import FiltroRapidoColuna from '../../components/FiltroRapidoColuna'
+import MenuCelula from '../../components/MenuCelula'
 import { linksDosArquivos, tamanhoBr, dataHoraBr } from '../../utils/anexosFotos'
 import { COLUNAS_ANEXO, EMBED_REGISTRO_INNER, dataBr, Miniatura, paraItemVisualizador, botaoPaginacao } from './comum'
 
@@ -22,12 +24,29 @@ const CAMPOS_DEF = [
   { key: 'nome',           label: 'Nome do Arquivo',  tipo: 'texto',        col: 'name' },
   { key: 'tipo_arquivo',   label: 'Tipo de Arquivo',  tipo: 'sel_tipo',     col: 'type' },
   { key: 'data_cadastro',  label: 'Enviado em',       tipo: 'data',         col: 'data_cadastro' }, // cobre o dia inteiro
+  { key: 'tamanho',        label: 'Tamanho (KB)',     tipo: 'tamanho',      col: 'size' },
+]
+
+// Colunas da tabela: filtro rápido (campo de CAMPOS_DEF) e ordenação no servidor (ordem = coluna do PostgREST).
+//   rotulos = [crescente, decrescente] mostrados na janela do botão direito
+const R_TEXTO = ['Crescente (A → Z)', 'Decrescente (Z → A)']
+const R_DATA = ['Crescente (mais antigas primeiro)', 'Decrescente (mais recentes primeiro)']
+const R_NUM = ['Crescente (menor → maior)', 'Decrescente (maior → menor)']
+const COLUNAS_TABELA = [
+  { titulo: '' },
+  { titulo: 'Nome',             campo: 'nome',          ordem: 'name',                    rotulos: R_TEXTO },
+  { titulo: 'Lançamento',       campo: 'registro_id',   ordem: 'registro_id',             rotulos: R_NUM },
+  { titulo: 'Data da Produção', campo: 'data_producao', ordem: 'registro(data_producao)', rotulos: R_DATA },
+  { titulo: 'Contrato',         campo: 'contrato_id',   ordem: 'registro(contrato_id)',   rotulos: ['Crescente', 'Decrescente'] },
+  { titulo: 'Equipe',           campo: 'equipe_id',     ordem: 'registro(equipe_id)',     rotulos: ['Crescente', 'Decrescente'] },
+  { titulo: 'Enviado em',       campo: 'data_cadastro', ordem: 'data_cadastro',           rotulos: R_DATA },
+  { titulo: 'Tamanho',          campo: 'tamanho',       ordem: 'size',                    rotulos: R_NUM, direita: true },
 ]
 const OPERADORES_TEXTO = [{ value: 'contem', label: 'Contém' }, { value: 'nao_contem', label: 'Não Contém' }, { value: 'igual', label: 'Igual a' }]
 const OPERADORES_EXATO = [{ value: 'igual', label: 'Selecionado' }, { value: 'diferente', label: 'Não Selecionado' }]
 const OPERADORES_DATA = [{ value: 'igual', label: 'Igual a' }, { value: 'maior', label: 'Maior que' }, { value: 'menor', label: 'Menor que' }]
 
-const operadoresDoCampo = tipo => tipo.startsWith('sel_') ? OPERADORES_EXATO : tipo === 'data' ? OPERADORES_DATA : OPERADORES_TEXTO
+const operadoresDoCampo = tipo => tipo.startsWith('sel_') ? OPERADORES_EXATO : (tipo === 'data' || tipo === 'tamanho') ? OPERADORES_DATA : OPERADORES_TEXTO
 
 function filtroNovo(campo = 'data_producao') {
   const def = CAMPOS_DEF.find(c => c.key === campo) || CAMPOS_DEF[0]
@@ -51,6 +70,16 @@ function filtroTipo(q, valor, negar) {
   return q
 }
 
+// Entrada do filtro rápido (janela do botão direito no título) conforme o tipo do campo
+function propsEntrada(def, cad) {
+  if (def.tipo === 'sel_contrato') return { tipo: 'lista', ops: OPERADORES_EXATO, opcoes: cad.contratos.map(c => ({ valor: c.id, label: c.descricao })) }
+  if (def.tipo === 'sel_equipe') return { tipo: 'lista', ops: OPERADORES_EXATO, opcoes: cad.equipes.map(e => ({ valor: e.id, label: e.equipe })), textoTodos: 'Todas' }
+  if (def.tipo === 'data') return { tipo: 'data', ops: OPERADORES_DATA }
+  if (def.tipo === 'tamanho') return { tipo: 'numero', ops: OPERADORES_DATA, placeholder: 'Em KB...' }
+  if (def.tipo === 'sel_num') return { tipo: 'numero', ops: OPERADORES_EXATO.slice(0, 1) }
+  return { tipo: 'texto', ops: OPERADORES_TEXTO }
+}
+
 export default function Busca({ cad }) {
   const navegar = useNavigate()
   const [filtros, setFiltros] = useState(lerFiltrosSalvos)
@@ -61,6 +90,9 @@ export default function Busca({ cad }) {
   const [erro, setErro] = useState('')
   const [links, setLinks] = useState(new Map())
   const [aberto, setAberto] = useState(null)
+  const [ordem, setOrdem] = useState(null) // { ordem: coluna, asc } | null = padrão (mais recentes primeiro)
+  const [menuCelula, setMenuCelula] = useState(null) // { x, y, campo, valor, texto } do botão direito numa célula
+  const [menu, setMenu] = useState(null) // coluna cujo filtro rápido/ordenação está aberto (botão direito no título)
 
   useEffect(() => { sessionStorage.setItem(FILTROS_KEY, JSON.stringify(filtros)) }, [filtros])
   useEffect(() => { buscar(pagina) }, [pagina])
@@ -73,6 +105,13 @@ export default function Busca({ cad }) {
       const col = def.col
       const numerico = def.tipo === 'sel_num' || def.tipo === 'sel_contrato' || def.tipo === 'sel_equipe' || def.tipo === 'sel_enc'
       if (def.tipo === 'sel_tipo') { q = filtroTipo(q, valor, operador === 'diferente'); continue }
+      if (def.tipo === 'tamanho') { // digitado em KB; "igual" = faixa do KB arredondado exibido na tabela
+        const kb = Number(valor)
+        if (operador === 'igual') q = q.gte(col, Math.round(kb * 1024 - 512)).lt(col, Math.round(kb * 1024 + 512))
+        else if (operador === 'maior') q = q.gt(col, kb * 1024)
+        else if (operador === 'menor') q = q.lt(col, kb * 1024)
+        continue
+      }
       if (campo === 'data_cadastro') {
         if (operador === 'igual') q = q.gte(col, `${valor}T00:00:00-03:00`).lte(col, `${valor}T23:59:59-03:00`)
         else if (operador === 'maior') q = q.gt(col, `${valor}T23:59:59-03:00`)
@@ -87,12 +126,13 @@ export default function Busca({ cad }) {
     return q
   }
 
-  async function buscar(pag = 1, lista = filtros) {
+  async function buscar(pag = 1, lista = filtros, ord = ordem) {
     setCarregando(true); setErro('')
     const de = (pag - 1) * POR_PAGINA
-    const base = supabase.from('f_prod_arquivos')
+    let base = supabase.from('f_prod_arquivos')
       .select(`${COLUNAS_ANEXO}, ${EMBED_REGISTRO_INNER}`, { count: 'exact' })
-      .order('data_cadastro', { ascending: false }).order('id', { ascending: false })
+    if (ord) base = base.order(ord.ordem, { ascending: ord.asc })
+    base = base.order('data_cadastro', { ascending: false }).order('id', { ascending: false })
       .range(de, de + POR_PAGINA - 1)
     const { data, count, error } = await aplicarFiltros(base, lista)
     if (error) { setErro(error.message); setLinhas([]); setTotal(0); setCarregando(false); return }
@@ -113,6 +153,13 @@ export default function Busca({ cad }) {
     return { ...f, campo: v, operador: operadoresDoCampo(def.tipo)[0].value, valor: '' }
   }))
 
+  // Janela do botão direito no título da coluna (filtro rápido + ordenação), aplicada no Ok
+  function aplicarColuna(campo, operador, valor, ord) {
+    const nova = [...filtros.filter(f => f.campo !== campo), ...(valor !== '' ? [{ _id: Date.now() + Math.random(), campo, operador, valor }] : [])]
+    setFiltros(nova); setOrdem(ord); setMenu(null)
+    if (pagina === 1) buscar(1, nova, ord); else setPagina(1) // o efeito de pagina busca com o estado novo
+  }
+
   const totalPaginas = Math.ceil(total / POR_PAGINA)
   const filtrosAtivos = filtros.filter(f => f.valor !== '').length
   const visiveis = linhas.filter(l => links.get(l.id)) // todo anexo com link abre no visualizador (os sem visualização mostram Baixar)
@@ -125,6 +172,11 @@ export default function Busca({ cad }) {
 
   const inputStyle = { padding: '6px 10px', border: '1px solid #d1d5db', borderRadius: 6, fontSize: 13, background: 'white', color: '#1e2a3b', height: 34 }
   const celula = { padding: '6px 12px', borderBottom: '1px solid #f3f4f6', whiteSpace: 'nowrap' }
+  // botão direito numa célula: filtrar pelo valor dela (se tiver), abrir o arquivo e abrir o registro
+  const ctx = (l, campo, valor, texto) => ({
+    onContextMenu: e => { e.preventDefault(); setMenuCelula({ x: e.clientX, y: e.clientY, l, campo, valor: valor == null || valor === '' ? null : String(valor), texto }) },
+  })
+  const diaBrt = iso => new Date(new Date(iso).getTime() - 3 * 3600 * 1000).toISOString().slice(0, 10) // dia em horário de Brasília
 
   return (
     <>
@@ -172,7 +224,7 @@ export default function Busca({ cad }) {
                   </select>
                 ) : def.tipo === 'data' ? (
                   <input type="date" value={f.valor} onChange={e => alterarFiltro(idx, 'valor', e.target.value)} style={{ ...inputStyle, minWidth: 160 }} />
-                ) : def.tipo === 'sel_num' ? (
+                ) : def.tipo === 'sel_num' || def.tipo === 'tamanho' ? (
                   <input type="number" value={f.valor} onChange={e => alterarFiltro(idx, 'valor', e.target.value)} style={{ ...inputStyle, minWidth: 120 }} placeholder="Digite..." />
                 ) : (
                   <input type="text" value={f.valor} onChange={e => alterarFiltro(idx, 'valor', e.target.value)} onKeyDown={e => e.key === 'Enter' && pesquisar()} style={{ ...inputStyle, minWidth: 220 }} placeholder="Digite..." />
@@ -211,31 +263,41 @@ export default function Busca({ cad }) {
             <table style={{ minWidth: 'max-content', width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
               <thead>
                 <tr style={{ background: '#f9fafb', textAlign: 'left', fontSize: 12, color: '#374151' }}>
-                  {['', 'Nome', 'Lançamento', 'Data da Produção', 'Contrato', 'Equipe', 'Enviado em', 'Tamanho'].map((t, i) => (
-                    <th key={i} style={{ padding: '10px 12px', borderBottom: '2px solid #e5e7eb', whiteSpace: 'nowrap', textAlign: t === 'Tamanho' ? 'right' : 'left' }}>{t}</th>
-                  ))}
+                  {COLUNAS_TABELA.map((c, i) => {
+                    const ordenada = ordem && ordem.ordem === c.ordem
+                    const filtrada = c.campo && filtros.some(f => f.campo === c.campo && f.valor !== '')
+                    return (
+                      <th key={i} title={c.campo ? 'Botão direito: filtro rápido e ordenação' : undefined}
+                        onContextMenu={c.campo ? e => { e.preventDefault(); setMenu(c) } : undefined}
+                        style={{ padding: '10px 12px', borderBottom: '2px solid #e5e7eb', whiteSpace: 'nowrap', textAlign: c.direita ? 'right' : 'left', userSelect: 'none', cursor: c.campo ? 'pointer' : 'default' }}>
+                        {c.titulo}
+                        {ordenada && <span style={{ color: '#1a56db', marginLeft: 4 }}>{ordem.asc ? '▲' : '▼'}</span>}
+                        {filtrada && <span style={{ color: '#1a56db', marginLeft: 4 }} title="Filtro ativo">●</span>}
+                      </th>
+                    )
+                  })}
                 </tr>
               </thead>
               <tbody>
                 {linhas.map(l => (
                   <tr key={l.id} onMouseEnter={e => { e.currentTarget.style.background = '#eff6ff' }} onMouseLeave={e => { e.currentTarget.style.background = '' }}>
-                    <td style={{ ...celula, width: 56 }}>
+                    <td style={{ ...celula, width: 56 }} {...ctx(l, null, null, null)}>
                       <button type="button" onClick={() => abrirArquivo(l)} style={{ padding: 0, border: 'none', background: 'none', cursor: links.get(l.id) ? 'zoom-in' : 'default' }}>
                         <Miniatura anexo={l} url={links.get(l.id)} />
                       </button>
                     </td>
-                    <td style={celula}>
+                    <td style={celula} {...ctx(l, 'nome', l.name, l.name)}>
                       <button type="button" onClick={() => abrirArquivo(l)} style={{ background: 'none', border: 'none', padding: 0, color: '#1d4ed8', cursor: 'pointer', fontSize: 13, textAlign: 'left' }}>{l.name}</button>
                     </td>
-                    <td style={celula}>
+                    <td style={celula} {...ctx(l, 'registro_id', l.registro_id, `#${l.registro_id}`)}>
                       <button type="button" onClick={() => navegar(`/producao/${l.registro_id}/editar?modo=visualizar`)}
                         style={{ background: 'none', border: 'none', padding: 0, color: '#1d4ed8', cursor: 'pointer', fontSize: 13 }}>#{l.registro_id}</button>
                     </td>
-                    <td style={celula}>{dataBr(l.registro.data_producao)}</td>
-                    <td style={celula}>{cad.nomeContrato(l.registro.contrato_id)}</td>
-                    <td style={celula}>{cad.nomeEquipe(l.registro.equipe_id) || '—'}</td>
-                    <td style={celula}>{dataHoraBr(l.data_cadastro)}</td>
-                    <td style={{ ...celula, textAlign: 'right' }}>{tamanhoBr(l.size)}</td>
+                    <td style={celula} {...ctx(l, 'data_producao', l.registro.data_producao, dataBr(l.registro.data_producao))}>{dataBr(l.registro.data_producao)}</td>
+                    <td style={celula} {...ctx(l, 'contrato_id', l.registro.contrato_id, cad.nomeContrato(l.registro.contrato_id))}>{cad.nomeContrato(l.registro.contrato_id)}</td>
+                    <td style={celula} {...ctx(l, 'equipe_id', l.registro.equipe_id, cad.nomeEquipe(l.registro.equipe_id))}>{cad.nomeEquipe(l.registro.equipe_id) || '—'}</td>
+                    <td style={celula} {...ctx(l, 'data_cadastro', l.data_cadastro && diaBrt(l.data_cadastro), l.data_cadastro && dataBr(diaBrt(l.data_cadastro)))}>{dataHoraBr(l.data_cadastro)}</td>
+                    <td style={{ ...celula, textAlign: 'right' }} {...ctx(l, 'tamanho', l.size != null && Math.round(l.size / 1024), l.size != null && `${Math.round(l.size / 1024)} KB`)}>{tamanhoBr(l.size)}</td>
                   </tr>
                 ))}
               </tbody>
@@ -254,6 +316,35 @@ export default function Busca({ cad }) {
           </div>
         )}
       </div>
+
+      {menuCelula && (
+        <MenuCelula
+          x={menuCelula.x} y={menuCelula.y}
+          rotulo={CAMPOS_DEF.find(c => c.key === menuCelula.campo)?.label}
+          texto={menuCelula.texto}
+          comFiltro={menuCelula.valor != null}
+          ativo={filtros.some(f => f.campo === menuCelula.campo && f.valor !== '')}
+          acoes={[
+            { label: '📄 Abrir arquivo', desabilitada: !links.get(menuCelula.l.id), onClick: () => { const l = menuCelula.l; setMenuCelula(null); abrirArquivo(l) } },
+            { label: '📋 Abrir registro', onClick: () => { const l = menuCelula.l; setMenuCelula(null); navegar(`/producao/${l.registro_id}/editar?modo=visualizar`) } },
+          ]}
+          onFiltrar={() => { const m = menuCelula; setMenuCelula(null); aplicarColuna(m.campo, 'igual', m.valor, ordem) }}
+          onRemover={() => { const m = menuCelula; setMenuCelula(null); aplicarColuna(m.campo, 'igual', '', ordem) }}
+          onFechar={() => setMenuCelula(null)}
+        />
+      )}
+
+      {menu && (
+        <FiltroRapidoColuna
+          key={menu.campo} titulo={menu.titulo}
+          {...propsEntrada(CAMPOS_DEF.find(c => c.key === menu.campo), cad)}
+          rotulos={menu.rotulos}
+          filtroAtual={filtros.find(f => f.campo === menu.campo && f.valor !== '')}
+          ordemAtual={ordem && ordem.ordem === menu.ordem ? (ordem.asc ? 'asc' : 'desc') : 'atual'}
+          onOk={(op, valor, dir) => aplicarColuna(menu.campo, op, valor, dir === 'atual' ? null : { ordem: menu.ordem, asc: dir === 'asc' })}
+          onCancelar={() => setMenu(null)}
+        />
+      )}
 
       {aberto !== null && visiveis[aberto] && (
         <VisualizadorAnexos
