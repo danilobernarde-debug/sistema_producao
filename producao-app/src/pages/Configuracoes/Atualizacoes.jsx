@@ -4,6 +4,16 @@ import { useNavigate } from 'react-router-dom'
 // Ao fazer uma mudança relevante no sistema, adicionar uma entrada nova aqui.
 const VERSOES = [
   {
+    versao: 'e29e8b6',
+    data: '2026-11-22',
+    resumo: 'Aviso aos administradores quando o segredo do SharePoint estiver perto de vencer',
+    itens: [
+      'O segredo do app Azure "Sistema Produção Anexos" (login do sistema no SharePoint) vence em 20/11/2028. A partir de 30 dias antes, os perfis Super Admin e Admin veem um aviso no topo do Dashboard; depois de vencido, o aviso fica vermelho',
+      'Se o segredo já tiver vencido, enviar ou carregar anexos mostra "O segredo do SharePoint expirou: avise o administrador para renová-lo" em vez de erro genérico',
+      'Ao renovar: criar novo segredo no Entra, atualizar MS_CLIENT_SECRET na Vercel (com redeploy) e trocar a data em src/components/AvisoSegredoSharePoint.jsx',
+    ],
+  },
+  {
     versao: 'dd5e32c',
     data: '2026-11-21',
     resumo: 'Aprovação Campo: as fotos do app de campo passam a ir para o SharePoint ao aprovar',
