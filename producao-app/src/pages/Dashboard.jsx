@@ -2,6 +2,7 @@ import { useState, useEffect, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../supabaseClient'
 import { useAuth } from '../hooks/useAuth'
+import AvisoSegredoSharePoint from '../components/AvisoSegredoSharePoint'
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip,
   ResponsiveContainer, Cell,
@@ -151,6 +152,7 @@ export default function Dashboard() {
 
   return (
     <div className="pagina">
+      <AvisoSegredoSharePoint />
       <div className="pagina-header">
         <div>
           <h1 className="pagina-titulo">Dashboard</h1>

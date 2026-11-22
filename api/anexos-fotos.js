@@ -33,7 +33,11 @@ async function obterTokenGraph() {
       grant_type: 'client_credentials',
     }),
   })
-  if (!r.ok) throw new Error(`login Microsoft falhou (${r.status})`)
+  if (!r.ok) {
+    const j = await r.json().catch(() => ({}))
+    // 7000222 = segredo do cliente expirado; 7000215 = segredo inválido
+    throw new Error(`${(j.error_codes || []).some(c => c === 7000222 || c === 7000215) ? 'SEGREDO_INVALIDO' : 'login Microsoft falhou'} (${r.status})`)
+  }
   const j = await r.json()
   tokenGraph = { token: j.access_token, expira: Date.now() + (j.expires_in - 120) * 1000 }
   return tokenGraph.token
@@ -119,6 +123,7 @@ module.exports = async function handler(req, res) {
     return res.status(200).json(saida)
   } catch (e) {
     console.error('anexos-fotos:', e.message)
+    if (e.message.startsWith('SEGREDO_INVALIDO')) return res.status(502).json({ erro: 'O segredo do SharePoint expirou: avise o administrador para renová-lo' })
     return res.status(502).json({ erro: 'Falha ao carregar os anexos' })
   }
 }
