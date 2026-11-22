@@ -4,6 +4,18 @@ import { useNavigate } from 'react-router-dom'
 // Ao fazer uma mudança relevante no sistema, adicionar uma entrada nova aqui.
 const VERSOES = [
   {
+    versao: '7695717',
+    data: '2026-11-22',
+    resumo: 'Menu de botão direito (filtro rápido e ordenação) nos cadastros e nas demais tabelas de dados',
+    itens: [
+      'Mesmo menu de Registros de Produção e Anexos: botão direito no título da coluna abre filtro rápido + ordenação (Crescente, Decrescente ou Manter a ordem atual); botão direito na célula oferece "Filtrar pelo valor". Clicar no título não ordena mais',
+      'Aplicado em todos os cadastros de Configurações (Colaboradores, Obras, Equipes, Contratos, Atividades, Usuários etc.), Preço Fixo por Vigência, Contratos Preço UPE, Disponibilidade Equipe, Feriados, Metas, Reajuste de Preço Fixo, Últimos Logins e na fila de Aprovação Campo',
+      'Colunas calculadas dos cadastros (sem campo no banco) não têm o menu; em listas (Contrato, Equipe etc.) a ordenação é pelo código, não pelo nome',
+      'Ficaram de fora relatórios com totais/PDF e as prévias de exportação/importação',
+      'Código: hook src/hooks/useMenuColunas.jsx e src/utils/filtroColunas.js (usar em toda tabela de dados nova)',
+    ],
+  },
+  {
     versao: 'b14a5a0',
     data: '2026-11-22',
     resumo: 'Filtro rápido e ordenação com o botão direito nas telas Registros de Produção e Anexos',
