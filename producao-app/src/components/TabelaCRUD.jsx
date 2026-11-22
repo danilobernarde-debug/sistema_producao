@@ -1,6 +1,8 @@
 import { useState, useEffect, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../supabaseClient'
+import useMenuColunas from '../hooks/useMenuColunas'
+import { aplicarNoQuery } from '../utils/filtroColunas'
 
 const POR_PAGINA = 30
 
@@ -64,10 +66,18 @@ export default function TabelaCRUD({
   const [opcoesSelect, setOpcoesSelect]   = useState({})
   const [opcoesFiltroDinamico, setOpcoesFiltroDinamico] = useState({})
   const [filtrosAtivos, setFiltrosAtivos] = useState({})
-  const [ordenacaoAtiva, setOrdenacaoAtiva] = useState(null) // null = usa ordenarPor padrão; ou { coluna, direcao }
   const reqId           = useRef(0)
   const filtroTimer     = useRef(null)
   const filtrosPend     = useRef({})
+
+  // Botão direito nas colunas (filtro rápido + ordenação). Colunas calculadas (`exibir`) ficam de fora.
+  const configMenu = {}
+  colunas.filter(c => !c.ocultarLista && !c.exibir).forEach(c => {
+    if (c.tipo === 'checkbox') configMenu[c.nome] = { titulo: c.label, tipo: 'lista', opcoes: [{ valor: 'true', label: 'Sim' }, { valor: 'false', label: 'Não' }] }
+    else if (c.tipo === 'select') configMenu[c.nome] = { titulo: c.label, tipo: c.pesquisavel ? 'pesquisavel' : 'lista', opcoes: opcoesSelect[c.nome] || [] }
+    else configMenu[c.nome] = { titulo: c.label, tipo: c.tipo === 'data' ? 'data' : (c.tipo === 'numero' || c.tipo === 'decimal') ? 'numero' : 'texto' }
+  })
+  const menu = useMenuColunas(configMenu)
 
   // Carrega opções de selects relacionais
   useEffect(() => {
@@ -109,23 +119,30 @@ export default function TabelaCRUD({
       else if (col?.tipo === 'numero') { const n = Number(val); if (!isNaN(n)) q = q.eq(nome, n) }
       else q = q.eq(nome, val)
     }
+    // filtros do botão direito nas colunas
+    for (const [nome, { operador, valor }] of Object.entries(menu.filtros)) {
+      const col = colunas.find(c => c.nome === nome)
+      if (!col) continue
+      q = aplicarNoQuery(q, nome, configMenu[nome]?.tipo === 'pesquisavel' ? 'lista' : configMenu[nome]?.tipo || 'texto', operador, valor,
+        { booleano: col.tipo === 'checkbox', comoTexto: col.tipo === 'texto' || col.tipo === 'alfanumerico' ? !!col.filtroTexto : false })
+    }
     return q
   }
 
-  async function buscar(pag = 1, filtrosOverride = null, buscaOverride = null, ordenacaoOverride = undefined) {
+  async function buscar(pag = 1, filtrosOverride = null, buscaOverride = null) {
     setCarregando(true)
     const meuReq = ++reqId.current
     const from = (pag - 1) * POR_PAGINA
     const to   = from + POR_PAGINA - 1
 
     let q = supabase.from(tabela).select('*', { count: 'exact' }).range(from, to)
-    const ord = ordenacaoOverride !== undefined ? ordenacaoOverride : ordenacaoAtiva
+    const ord = menu.ordem
     if (ord) {
-      q = q.order(ord.coluna, { ascending: ord.direcao === 'asc' })
+      q = q.order(ord.chave, { ascending: ord.asc })
       // Desempate estável: sem isso, empates na coluna ordenada podem sair em
       // ordem diferente a cada página (o banco não garante ordem entre empates),
       // fazendo a lista parecer "desordenar" ao paginar.
-      if (ord.coluna !== chavePrimaria) q = q.order(chavePrimaria, { ascending: true })
+      if (ord.chave !== chavePrimaria) q = q.order(chavePrimaria, { ascending: true })
     } else {
       const ordens = Array.isArray(ordenarPor) ? ordenarPor : [ordenarPor]
       ordens.forEach(col => { q = q.order(col) })
@@ -180,14 +197,12 @@ export default function TabelaCRUD({
     return () => clearTimeout(t)
   }, [busca])  // eslint-disable-line
 
-  function alternarOrdenacao(nome) {
-    const novo = ordenacaoAtiva?.coluna === nome
-      ? { coluna: nome, direcao: ordenacaoAtiva.direcao === 'asc' ? 'desc' : 'asc' }
-      : { coluna: nome, direcao: 'asc' }
-    setOrdenacaoAtiva(novo)
-    setPagina(1)
-    buscar(1, null, null, novo)
-  }
+  // Mudança de filtro/ordem pelo botão direito: refaz a busca já com o estado novo
+  useEffect(() => {
+    if (menu.versao === 0) return
+    if (pagina === 1) buscar(1); else setPagina(1)
+  }, [menu.versao]) // eslint-disable-line
+
 
   function mudarFiltro(nome, valor) {
     const novos = { ...filtrosAtivos, [nome]: valor }
@@ -415,15 +430,14 @@ export default function TabelaCRUD({
                 <thead>
                   <tr>
                     {colunasTabela.map(c => (
-                      <th key={c.nome} onClick={() => alternarOrdenacao(c.nome)}
-                        style={{ cursor: 'pointer', userSelect: 'none', whiteSpace: 'nowrap',
+                      <th key={c.nome} {...menu.thProps(c.nome)}
+                        style={{ cursor: menu.thProps(c.nome).title ? 'pointer' : undefined, userSelect: 'none', whiteSpace: 'nowrap',
                           maxWidth: c.larguraMax, overflow: c.larguraMax ? 'hidden' : undefined,
                           textOverflow: c.larguraMax ? 'ellipsis' : undefined }}
-                        title="Clique para ordenar">
+                        title={menu.thProps(c.nome).title}>
                         {c.label}
-                        <span style={{ marginLeft: 4, fontSize: 10, color: ordenacaoAtiva?.coluna === c.nome ? '#1a56db' : '#d1d5db' }}>
-                          {ordenacaoAtiva?.coluna === c.nome ? (ordenacaoAtiva.direcao === 'asc' ? '▲' : '▼') : '▲▼'}
-                        </span>
+                        {menu.ordem?.chave === c.nome && <span style={{ marginLeft: 4, fontSize: 10, color: '#1a56db' }}>{menu.ordem.asc ? '▲' : '▼'}</span>}
+                        {menu.filtrada(c.nome) && <span style={{ color: '#1a56db', marginLeft: 4 }} title="Filtro ativo">●</span>}
                       </th>
                     ))}
                     <th>Ações</th>
@@ -433,7 +447,7 @@ export default function TabelaCRUD({
                   {registros.map(r => (
                     <tr key={r[chavePrimaria]}>
                       {colunasTabela.map(c => (
-                        <td key={c.nome}
+                        <td key={c.nome} {...menu.tdProps(c.nome, r[c.nome], String(exibirValor(c, r)))}
                           style={c.larguraMax ? {
                             maxWidth: c.larguraMax, overflow: 'hidden',
                             textOverflow: 'ellipsis', whiteSpace: 'nowrap',
@@ -469,6 +483,8 @@ export default function TabelaCRUD({
           </>
         )}
       </div>
+
+      {menu.janelas}
 
       {/* Modal criar/editar */}
       {modal && (

@@ -3,6 +3,8 @@ import { useNavigate } from 'react-router-dom'
 import { supabase } from '../../supabaseClient'
 import { Modal } from '../../components/TabelaCRUD'
 import AbasAtividades from '../../components/AbasAtividades'
+import useMenuColunas from '../../hooks/useMenuColunas'
+import { filtrarEOrdenar } from '../../utils/filtroColunas'
 
 function fmt(n) {
   return Number(n || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 6 })
@@ -13,6 +15,15 @@ function fmtData(v) {
   const [a, m, d] = v.split('-')
   return `${d}/${m}/${a}`
 }
+
+// Botão direito nas colunas (filtro rápido + ordenação); "Valor" e "Vigência" são os do preço vigente
+const COLUNAS_MENU = {
+  codigo_op:  { titulo: 'Código',          tipo: 'texto' },
+  descricao:  { titulo: 'Descrição',       tipo: 'texto' },
+  valor:      { titulo: 'Valor Vigente',   tipo: 'numero' },
+  vigencia:   { titulo: 'Vigência Início', tipo: 'data' },
+}
+const valorMenu = (a, chave) => chave === 'valor' ? a.vigente?.valor : chave === 'vigencia' ? a.vigente?.vigencia_inicio : a[chave]
 
 function hojeISO() {
   return new Date().toISOString().slice(0, 10)
@@ -28,6 +39,8 @@ export default function AtividadesPrecoFixa() {
   const [modalPreco, setModalPreco] = useState(null) // { atividadeId, id, valor, vigencia_inicio }
   const [erroModal, setErroModal]   = useState('')
   const [salvando, setSalvando]     = useState(false)
+  const menu = useMenuColunas(COLUNAS_MENU)
+  const atividadesVisiveis = filtrarEOrdenar(atividades, menu.filtros, menu.ordem, COLUNAS_MENU, valorMenu)
   const [confirmarExcluir, setConfirmarExcluir] = useState(null) // { id }
   const [toast, setToast] = useState(null)
 
@@ -185,21 +198,21 @@ export default function AtividadesPrecoFixa() {
             <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
               <thead>
                 <tr style={{ background: '#f1f5f9' }}>
-                  {['Código', 'Descrição', 'Valor Vigente', 'Vigência Início', 'Ações'].map((h, i) => (
-                    <th key={i} style={{ padding: '8px 12px', fontWeight: 600, color: '#374151',
-                      borderBottom: '2px solid #e2e8f0', whiteSpace: 'nowrap',
-                      textAlign: i === 2 ? 'right' : 'left' }}>{h}</th>
+                  {[['Código', 'codigo_op'], ['Descrição', 'descricao'], ['Valor Vigente', 'valor'], ['Vigência Início', 'vigencia'], ['Ações', null]].map(([h, k], i) => (
+                    <th key={i} {...(k ? menu.thProps(k) : {})} style={{ padding: '8px 12px', fontWeight: 600, color: '#374151',
+                      borderBottom: '2px solid #e2e8f0', whiteSpace: 'nowrap', cursor: k ? 'pointer' : undefined,
+                      textAlign: i === 2 ? 'right' : 'left' }}>{h}{k && menu.marca(k)}</th>
                   ))}
                 </tr>
               </thead>
               <tbody>
-                {atividades.flatMap((a, idx) => {
+                {atividadesVisiveis.flatMap((a, idx) => {
                   const fundo = idx % 2 === 0 ? 'white' : '#fafafa'
                   const linhas = [
                     <tr key={a.id} style={{ borderTop: idx === 0 ? 'none' : '2px solid #e5e7eb', background: fundo }}>
-                      <td style={{ padding: '7px 12px', fontWeight: 600, color: '#1e2a3b', whiteSpace: 'nowrap' }}>{a.codigo_op}</td>
-                      <td style={{ padding: '7px 12px', color: '#374151' }}>{a.descricao}</td>
-                      <td style={{ padding: '7px 12px', textAlign: 'right', whiteSpace: 'nowrap' }}>
+                      <td {...menu.tdProps('codigo_op', a.codigo_op, a.codigo_op)} style={{ padding: '7px 12px', fontWeight: 600, color: '#1e2a3b', whiteSpace: 'nowrap' }}>{a.codigo_op}</td>
+                      <td {...menu.tdProps('descricao', a.descricao, a.descricao)} style={{ padding: '7px 12px', color: '#374151' }}>{a.descricao}</td>
+                      <td {...menu.tdProps('valor', a.vigente?.valor, a.vigente && `R$ ${fmt(a.vigente.valor)}`)} style={{ padding: '7px 12px', textAlign: 'right', whiteSpace: 'nowrap' }}>
                         {a.vigente
                           ? <span style={{ color: '#15803d', fontWeight: 700 }}>R$ {fmt(a.vigente.valor)}</span>
                           : <span style={{ color: '#d1d5db' }}>sem preço</span>}
@@ -209,7 +222,7 @@ export default function AtividadesPrecoFixa() {
                           </div>
                         ))}
                       </td>
-                      <td style={{ padding: '7px 12px', color: '#6b7280', whiteSpace: 'nowrap' }}>
+                      <td {...menu.tdProps('vigencia', a.vigente?.vigencia_inicio, a.vigente && fmtData(a.vigente.vigencia_inicio))} style={{ padding: '7px 12px', color: '#6b7280', whiteSpace: 'nowrap' }}>
                         {a.vigente ? fmtData(a.vigente.vigencia_inicio) : '-'}
                         {a.agendados.map(p => (
                           <div key={p.id} style={{ fontSize: 11, marginTop: 2 }}>{fmtData(p.vigencia_inicio)}</div>
@@ -296,6 +309,7 @@ export default function AtividadesPrecoFixa() {
           </div>
         </Modal>
       )}
+      {menu.janelas}
     </div>
   )
 }

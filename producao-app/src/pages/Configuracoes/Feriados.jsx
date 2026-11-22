@@ -1,6 +1,8 @@
 import { useState, useEffect, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../../supabaseClient'
+import useMenuColunas from '../../hooks/useMenuColunas'
+import { filtrarEOrdenar } from '../../utils/filtroColunas'
 
 function fmtData(d) {
   if (!d) return '—'
@@ -9,6 +11,15 @@ function fmtData(d) {
 }
 
 const DIAS_SEMANA = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb']
+
+// Botão direito nas colunas (filtro rápido + ordenação); "dia" = dia da semana (0 = Dom)
+const COLUNAS_MENU = {
+  data:      { titulo: 'Data',      tipo: 'data' },
+  dia:       { titulo: 'Dia',       tipo: 'lista', opcoes: DIAS_SEMANA.map((l, i) => ({ valor: String(i), label: l })) },
+  descricao: { titulo: 'Descrição', tipo: 'texto' },
+}
+const diaSemana = f => (f.data ? new Date(f.data + 'T12:00:00').getDay() : null)
+const valorMenu = (f, k) => (k === 'dia' ? diaSemana(f) : f[k])
 
 const MODAL_VAZIO = { id: null, data: '', descricao: '' }
 
@@ -22,6 +33,7 @@ export default function Feriados() {
   const [toast, setToast]               = useState(null)
   const [confirmarDel, setConfirmarDel] = useState(null)
   const [anoFiltro, setAnoFiltro]       = useState(String(new Date().getFullYear()))
+  const menu = useMenuColunas(COLUNAS_MENU)
 
   useEffect(() => { carregarDados() }, [])
 
@@ -81,8 +93,8 @@ export default function Feriados() {
   }, [feriados])
 
   const feriadosFiltrados = useMemo(() =>
-    anoFiltro === 'todos' ? feriados : feriados.filter(f => f.data?.startsWith(anoFiltro)),
-    [feriados, anoFiltro]
+    filtrarEOrdenar(anoFiltro === 'todos' ? feriados : feriados.filter(f => f.data?.startsWith(anoFiltro)), menu.filtros, menu.ordem, COLUNAS_MENU, valorMenu),
+    [feriados, anoFiltro, menu.filtros, menu.ordem]
   )
 
   return (
@@ -137,10 +149,10 @@ export default function Feriados() {
           <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
             <thead>
               <tr style={{ background: '#f1f5f9' }}>
-                {['Data', 'Dia', 'Descrição', ''].map((h, i) => (
-                  <th key={i} style={{ padding: '10px 14px', fontWeight: 600, color: '#374151',
-                    borderBottom: '2px solid #e2e8f0', whiteSpace: 'nowrap',
-                    textAlign: i === 3 ? 'right' : 'left' }}>{h}</th>
+                {[['Data', 'data'], ['Dia', 'dia'], ['Descrição', 'descricao'], ['', null]].map(([h, k], i) => (
+                  <th key={i} {...(k ? menu.thProps(k) : {})} style={{ padding: '10px 14px', fontWeight: 600, color: '#374151',
+                    borderBottom: '2px solid #e2e8f0', whiteSpace: 'nowrap', cursor: k ? 'pointer' : undefined,
+                    textAlign: i === 3 ? 'right' : 'left' }}>{h}{k && menu.marca(k)}</th>
                 ))}
               </tr>
             </thead>
@@ -150,14 +162,14 @@ export default function Feriados() {
                 return (
                   <tr key={f.id} style={{ borderBottom: '1px solid #f3f4f6',
                     background: idx % 2 === 0 ? 'white' : '#fafafa' }}>
-                    <td style={{ padding: '10px 14px', fontWeight: 600, color: '#1e2a3b', whiteSpace: 'nowrap' }}>
+                    <td {...menu.tdProps('data', f.data, fmtData(f.data))} style={{ padding: '10px 14px', fontWeight: 600, color: '#1e2a3b', whiteSpace: 'nowrap' }}>
                       {fmtData(f.data)}
                     </td>
-                    <td style={{ padding: '10px 14px', color: dow === 0 || dow === 6 ? '#dc2626' : '#374151',
+                    <td {...menu.tdProps('dia', dow, dow !== null ? DIAS_SEMANA[dow] : null)} style={{ padding: '10px 14px', color: dow === 0 || dow === 6 ? '#dc2626' : '#374151',
                       fontWeight: dow === 0 || dow === 6 ? 600 : 400 }}>
                       {dow !== null ? DIAS_SEMANA[dow] : '—'}
                     </td>
-                    <td style={{ padding: '10px 14px', color: '#374151', whiteSpace: 'nowrap' }}>{f.descricao}</td>
+                    <td {...menu.tdProps('descricao', f.descricao, f.descricao)} style={{ padding: '10px 14px', color: '#374151', whiteSpace: 'nowrap' }}>{f.descricao}</td>
                     <td style={{ padding: '10px 14px', textAlign: 'right', whiteSpace: 'nowrap' }}>
                       <button onClick={() => { setErro(''); setModal({ id: f.id, data: f.data, descricao: f.descricao }) }}
                         style={{ marginRight: 6, padding: '3px 10px', fontSize: 12, borderRadius: 4,
@@ -178,6 +190,8 @@ export default function Feriados() {
           </div>
         )}
       </div>
+
+      {menu.janelas}
 
       {/* Modal */}
       {modal && (

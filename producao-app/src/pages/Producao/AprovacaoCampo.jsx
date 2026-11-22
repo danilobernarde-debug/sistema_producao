@@ -2,6 +2,8 @@ import { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
 import { supabase } from '../../supabaseClient'
 import { copiarFotoCampo } from '../../utils/anexosFotos'
+import useMenuColunas from '../../hooks/useMenuColunas'
+import { filtrarEOrdenar } from '../../utils/filtroColunas'
 
 // Fila de aprovação da produção lançada pelo app de campo (app_campo).
 // O encarregado grava em campo_registros_producao (+ filhas); aqui o escritório confere e
@@ -9,6 +11,23 @@ import { copiarFotoCampo } from '../../utils/anexosFotos'
 // SQL: supabase/aprovacao_producao_campo_04_11_2026.sql
 
 const LIMITE = 100
+
+// Botão direito nas colunas (filtro rápido + ordenação) sobre os registros carregados (até LIMITE por aba)
+const COLUNAS_MENU = {
+  data_producao: { titulo: 'Data',            tipo: 'data' },
+  _contrato:     { titulo: 'Contrato',        tipo: 'texto' },
+  _tipo:         { titulo: 'Tipo de equipe',  tipo: 'texto' },
+  _equipe:       { titulo: 'Equipe',          tipo: 'texto' },
+  _encarregado:  { titulo: 'Encarregado',     tipo: 'texto' },
+  _enviado_por:  { titulo: 'Enviado por',     tipo: 'texto' },
+  recebido_em:   { titulo: 'Recebido em',     tipo: 'data' },
+  _qtd_ativ:     { titulo: 'Ativ.',           tipo: 'numero' },
+  _qtd_colab:    { titulo: 'Colab.',          tipo: 'numero' },
+  _qtd_fotos:    { titulo: 'Fotos',           tipo: 'numero' },
+  _valor:        { titulo: 'Valor estimado',  tipo: 'numero' },
+}
+const brtIso = iso => (iso ? new Date(new Date(iso).getTime() - 3 * 3600 * 1000).toISOString().slice(0, 19) : null)
+const valorMenu = (r, k) => (k === 'recebido_em' ? brtIso(r.recebido_em) : r[k])
 const ABAS = [
   { key: 'pendente',  label: 'Pendentes' },
   { key: 'aprovado',  label: 'Aprovados' },
@@ -61,6 +80,8 @@ export default function AprovacaoCampo() {
   const [aviso, setAviso] = useState('')
   const [aberto, setAberto] = useState(null) // registro exibido no detalhe
   const [camposLabel, setCamposLabel] = useState({})
+  const menu = useMenuColunas(COLUNAS_MENU)
+  const registrosVisiveis = filtrarEOrdenar(registros, menu.filtros, menu.ordem, COLUNAS_MENU, valorMenu)
 
   useEffect(() => {
     supabase.from('config_campos').select('nome, label').then(({ data }) => {
@@ -216,34 +237,28 @@ export default function AprovacaoCampo() {
             <table className="tabela">
               <thead>
                 <tr>
-                  <th>Data</th>
-                  <th>Contrato</th>
-                  <th>Tipo de equipe</th>
-                  <th>Equipe</th>
-                  <th>Encarregado</th>
-                  <th>Enviado por</th>
-                  <th>Recebido em</th>
-                  <th style={{ textAlign: 'right' }}>Ativ.</th>
-                  <th style={{ textAlign: 'right' }}>Colab.</th>
-                  <th style={{ textAlign: 'right' }}>Fotos</th>
-                  <th style={{ textAlign: 'right' }}>Valor estimado</th>
+                  {[['Data', 'data_producao'], ['Contrato', '_contrato'], ['Tipo de equipe', '_tipo'], ['Equipe', '_equipe'], ['Encarregado', '_encarregado'],
+                    ['Enviado por', '_enviado_por'], ['Recebido em', 'recebido_em'], ['Ativ.', '_qtd_ativ'], ['Colab.', '_qtd_colab'], ['Fotos', '_qtd_fotos'],
+                    ['Valor estimado', '_valor']].map(([h, k]) => (
+                    <th key={k} {...menu.thProps(k)} style={{ cursor: 'pointer', textAlign: COLUNAS_MENU[k].tipo === 'numero' ? 'right' : undefined }}>{h}{menu.marca(k)}</th>
+                  ))}
                   <th>Status</th>
                 </tr>
               </thead>
               <tbody>
-                {registros.map(r => (
+                {registrosVisiveis.map(r => (
                   <tr key={r.id} onClick={() => setAberto(r)} style={{ cursor: 'pointer' }}>
-                    <td>{dataBr(r.data_producao)}</td>
-                    <td>{r._contrato}</td>
-                    <td>{r._tipo}</td>
-                    <td>{r._logica ? <span style={{ color: '#6b7280' }}>por colaborador</span> : (r._equipe || '-')}</td>
-                    <td>{r._encarregado || '-'}</td>
-                    <td>{r._enviado_por || '-'}</td>
-                    <td>{dataHoraBr(r.recebido_em)}</td>
-                    <td style={{ textAlign: 'right' }}>{r._qtd_ativ}</td>
-                    <td style={{ textAlign: 'right' }}>{r._qtd_colab}</td>
-                    <td style={{ textAlign: 'right' }}>{r._qtd_fotos}</td>
-                    <td style={{ textAlign: 'right' }}>
+                    <td {...menu.tdProps('data_producao', r.data_producao, dataBr(r.data_producao))}>{dataBr(r.data_producao)}</td>
+                    <td {...menu.tdProps('_contrato', r._contrato, r._contrato)}>{r._contrato}</td>
+                    <td {...menu.tdProps('_tipo', r._tipo, r._tipo)}>{r._tipo}</td>
+                    <td {...menu.tdProps('_equipe', r._equipe, r._equipe)}>{r._logica ? <span style={{ color: '#6b7280' }}>por colaborador</span> : (r._equipe || '-')}</td>
+                    <td {...menu.tdProps('_encarregado', r._encarregado, r._encarregado)}>{r._encarregado || '-'}</td>
+                    <td {...menu.tdProps('_enviado_por', r._enviado_por, r._enviado_por)}>{r._enviado_por || '-'}</td>
+                    <td {...menu.tdProps('recebido_em', brtIso(r.recebido_em)?.slice(0, 10), dataBr(brtIso(r.recebido_em)?.slice(0, 10)))}>{dataHoraBr(r.recebido_em)}</td>
+                    <td {...menu.tdProps('_qtd_ativ', r._qtd_ativ, r._qtd_ativ)} style={{ textAlign: 'right' }}>{r._qtd_ativ}</td>
+                    <td {...menu.tdProps('_qtd_colab', r._qtd_colab, r._qtd_colab)} style={{ textAlign: 'right' }}>{r._qtd_colab}</td>
+                    <td {...menu.tdProps('_qtd_fotos', r._qtd_fotos, r._qtd_fotos)} style={{ textAlign: 'right' }}>{r._qtd_fotos}</td>
+                    <td {...menu.tdProps('_valor', r._valor, reais.format(r._valor))} style={{ textAlign: 'right' }}>
                       {reais.format(r._valor)}
                       {r._sem_preco > 0 && (
                         <span title={`${r._sem_preco} atividade(s) sem preço calculado no celular`} style={{ marginLeft: 6, color: '#b45309' }}>⚠</span>
@@ -262,6 +277,8 @@ export default function AprovacaoCampo() {
           Mostrando {aba === 'pendente' ? `os ${LIMITE} mais antigos` : `os ${LIMITE} mais recentes`} de {contagem[aba]}.
         </div>
       )}
+
+      {menu.janelas}
 
       {aberto && (
         <Detalhe

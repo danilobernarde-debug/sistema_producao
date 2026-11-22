@@ -1,6 +1,8 @@
 import { useState, useEffect, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../../supabaseClient'
+import useMenuColunas from '../../hooks/useMenuColunas'
+import { filtrarEOrdenar } from '../../utils/filtroColunas'
 
 function fmt(n) {
   return Number(n || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
@@ -10,6 +12,9 @@ function fmtData(d) {
   const [a, m, dia] = d.split('-')
   return `${dia}/${m}/${a}`
 }
+
+const mesesDaMeta = m => Math.round((new Date(m.data_fim) - new Date(m.data_inicio)) / (1000 * 60 * 60 * 24 * 30.44)) + 1
+const valorMenu = (m, k) => (k === 'meses' ? mesesDaMeta(m) : m[k])
 
 const MODAL_VAZIO = { id: null, tipo_equipe_id: '', meta_mensal: '', data_inicio: '', data_fim: '' }
 
@@ -25,6 +30,15 @@ export default function Metas() {
   const [confirmarDel, setConfirmarDel] = useState(null)     // id a deletar
   const [tipoFiltro, setTipoFiltro]   = useState('todos')
   const [recalculando, setRecalculando] = useState(false)
+  // Botão direito nas colunas (filtro rápido + ordenação)
+  const colunasMenu = {
+    tipo_equipe_id: { titulo: 'Tipo de Equipe', tipo: 'lista', opcoes: tiposEquipe.map(t => ({ valor: String(t.id), label: t.descricao })) },
+    data_inicio:    { titulo: 'Data Início', tipo: 'data' },
+    data_fim:       { titulo: 'Data Fim', tipo: 'data' },
+    meta_mensal:    { titulo: 'Meta Mensal', tipo: 'numero' },
+    meses:          { titulo: 'Período (meses)', tipo: 'numero' },
+  }
+  const menu = useMenuColunas(colunasMenu)
 
   useEffect(() => {
     carregarDados()
@@ -117,8 +131,8 @@ export default function Metas() {
   }
 
   const metasFiltradas = useMemo(() =>
-    tipoFiltro === 'todos' ? metas : metas.filter(m => String(m.tipo_equipe_id) === tipoFiltro),
-    [metas, tipoFiltro]
+    filtrarEOrdenar(tipoFiltro === 'todos' ? metas : metas.filter(m => String(m.tipo_equipe_id) === tipoFiltro), menu.filtros, menu.ordem, colunasMenu, valorMenu),
+    [metas, tipoFiltro, menu.filtros, menu.ordem, tiposEquipe] // eslint-disable-line
   )
 
   const anoAtual = new Date().getFullYear()
@@ -183,12 +197,12 @@ export default function Metas() {
           <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
             <thead>
               <tr style={{ background: '#f1f5f9' }}>
-                {['Tipo de Equipe', 'Data Início', 'Data Fim', 'Meta Mensal', 'Período', ''].map((h, i) => (
-                  <th key={h} style={{
-                    padding: '10px 14px', fontWeight: 600, color: '#374151',
+                {[['Tipo de Equipe', 'tipo_equipe_id'], ['Data Início', 'data_inicio'], ['Data Fim', 'data_fim'], ['Meta Mensal', 'meta_mensal'], ['Período', 'meses'], ['', null]].map(([h, k], i) => (
+                  <th key={i} {...(k ? menu.thProps(k) : {})} style={{
+                    padding: '10px 14px', fontWeight: 600, color: '#374151', cursor: k ? 'pointer' : undefined,
                     borderBottom: '2px solid #e2e8f0', whiteSpace: 'nowrap',
                     textAlign: i >= 3 ? 'right' : 'left',
-                  }}>{h}</th>
+                  }}>{h}{k && menu.marca(k)}</th>
                 ))}
               </tr>
             </thead>
@@ -203,7 +217,7 @@ export default function Metas() {
                 return (
                   <tr key={m.id} style={{ borderBottom: '1px solid #f3f4f6',
                     background: isAtual ? '#f0f9ff' : (idx % 2 === 0 ? 'white' : '#fafafa') }}>
-                    <td style={{ padding: '10px 14px', fontWeight: 600, color: '#1e2a3b' }}>
+                    <td {...menu.tdProps('tipo_equipe_id', m.tipo_equipe_id, m.d_tipo_equipe?.descricao || `Tipo ${m.tipo_equipe_id}`)} style={{ padding: '10px 14px', fontWeight: 600, color: '#1e2a3b' }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                         {m.d_tipo_equipe?.descricao || `Tipo ${m.tipo_equipe_id}`}
                         {isAtual && (
@@ -214,12 +228,12 @@ export default function Metas() {
                         )}
                       </div>
                     </td>
-                    <td style={{ padding: '10px 14px', color: '#374151' }}>{fmtData(m.data_inicio)}</td>
-                    <td style={{ padding: '10px 14px', color: '#374151' }}>{fmtData(m.data_fim)}</td>
-                    <td style={{ padding: '10px 14px', textAlign: 'right', fontWeight: 600, color: '#1e2a3b' }}>
+                    <td {...menu.tdProps('data_inicio', m.data_inicio, fmtData(m.data_inicio))} style={{ padding: '10px 14px', color: '#374151' }}>{fmtData(m.data_inicio)}</td>
+                    <td {...menu.tdProps('data_fim', m.data_fim, fmtData(m.data_fim))} style={{ padding: '10px 14px', color: '#374151' }}>{fmtData(m.data_fim)}</td>
+                    <td {...menu.tdProps('meta_mensal', m.meta_mensal, `R$ ${fmt(m.meta_mensal)}`)} style={{ padding: '10px 14px', textAlign: 'right', fontWeight: 600, color: '#1e2a3b' }}>
                       R$ {fmt(m.meta_mensal)}
                     </td>
-                    <td style={{ padding: '10px 14px', textAlign: 'right', color: '#6b7280', fontSize: 12 }}>
+                    <td {...menu.tdProps('meses', mesesCobertos, `${mesesCobertos} ${mesesCobertos === 1 ? 'mês' : 'meses'}`)} style={{ padding: '10px 14px', textAlign: 'right', color: '#6b7280', fontSize: 12 }}>
                       {mesesCobertos} {mesesCobertos === 1 ? 'mês' : 'meses'}
                     </td>
                     <td style={{ padding: '10px 14px', textAlign: 'right', whiteSpace: 'nowrap' }}>
@@ -242,6 +256,8 @@ export default function Metas() {
           </div>
         )}
       </div>
+
+      {menu.janelas}
 
       {/* Modal add/edit */}
       {modal && (

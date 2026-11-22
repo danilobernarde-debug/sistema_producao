@@ -1,6 +1,8 @@
 import { useState, useEffect, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../../supabaseClient'
+import useMenuColunas from '../../hooks/useMenuColunas'
+import { filtrarEOrdenar } from '../../utils/filtroColunas'
 
 function fmtDataHora(iso) {
   if (!iso) return '-'
@@ -8,12 +10,29 @@ function fmtDataHora(iso) {
   return d.toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo', day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit', second: '2-digit' })
 }
 
+// Botão direito nas colunas (filtro rápido + ordenação). Datas em horário de Brasília (como exibido).
+const COLUNAS_USUARIOS = {
+  nome:         { titulo: 'Nome',              tipo: 'texto' },
+  email:        { titulo: 'E-mail',            tipo: 'texto' },
+  qtdPaginas:   { titulo: 'Páginas acessadas', tipo: 'numero' },
+  ultimoAcesso: { titulo: 'Último acesso',     tipo: 'data' },
+}
+const COLUNAS_PAGINAS = {
+  caminho:   { titulo: 'Página',      tipo: 'texto' },
+  criado_em: { titulo: 'Data / Hora', tipo: 'data' },
+}
+const brt = iso => (iso ? new Date(new Date(iso).getTime() - 3 * 3600 * 1000).toISOString().slice(0, 19) : null)
+const diaBr = iso => brt(iso)?.slice(0, 10).split('-').reverse().join('/')
+const valorMenu = (l, k) => (k === 'ultimoAcesso' || k === 'criado_em' ? brt(l[k]) : l[k])
+
 export default function UltimosLogins() {
   const navegar = useNavigate()
   const [logs, setLogs] = useState([])
   const [carregando, setCarregando] = useState(true)
   const [busca, setBusca] = useState('')
   const [emailSelecionado, setEmailSelecionado] = useState(null)
+  const menuUsuarios = useMenuColunas(COLUNAS_USUARIOS)
+  const menuPaginas = useMenuColunas(COLUNAS_PAGINAS)
 
   useEffect(() => { carregar() }, [])
 
@@ -43,19 +62,22 @@ export default function UltimosLogins() {
     return [...porEmail.values()].sort((a, b) => (b.ultimoAcesso || '').localeCompare(a.ultimoAcesso || ''))
   }, [logs])
 
-  const usuariosFiltrados = busca.trim()
+  const usuariosBusca = busca.trim()
     ? usuarios.filter(u =>
         (u.nome || '').toLowerCase().includes(busca.toLowerCase()) ||
         (u.email || '').toLowerCase().includes(busca.toLowerCase())
       )
     : usuarios
+  const usuariosFiltrados = filtrarEOrdenar(usuariosBusca, menuUsuarios.filtros, menuUsuarios.ordem, COLUNAS_USUARIOS, valorMenu)
 
   const paginasDoUsuario = useMemo(() => {
     if (!emailSelecionado) return []
-    return logs
-      .filter(l => (l.email || '(sem e-mail)') === emailSelecionado)
-      .sort((a, b) => (b.criado_em || '').localeCompare(a.criado_em || ''))
-  }, [logs, emailSelecionado])
+    return filtrarEOrdenar(
+      logs
+        .filter(l => (l.email || '(sem e-mail)') === emailSelecionado)
+        .sort((a, b) => (b.criado_em || '').localeCompare(a.criado_em || '')),
+      menuPaginas.filtros, menuPaginas.ordem, COLUNAS_PAGINAS, valorMenu)
+  }, [logs, emailSelecionado, menuPaginas.filtros, menuPaginas.ordem])
 
   if (emailSelecionado) {
     const usuario = usuarios.find(u => u.email === emailSelecionado)
@@ -81,22 +103,23 @@ export default function UltimosLogins() {
               <thead>
                 <tr style={{ background: '#f9fafb', borderBottom: '1px solid #e5e7eb' }}>
                   <th style={{ padding: '10px 16px', textAlign: 'left', fontWeight: 600, color: '#374151' }}>#</th>
-                  <th style={{ padding: '10px 16px', textAlign: 'left', fontWeight: 600, color: '#374151' }}>Página</th>
-                  <th style={{ padding: '10px 16px', textAlign: 'left', fontWeight: 600, color: '#374151' }}>Data / Hora</th>
+                  <th {...menuPaginas.thProps('caminho')} style={{ padding: '10px 16px', textAlign: 'left', fontWeight: 600, color: '#374151', cursor: 'pointer' }}>Página{menuPaginas.marca('caminho')}</th>
+                  <th {...menuPaginas.thProps('criado_em')} style={{ padding: '10px 16px', textAlign: 'left', fontWeight: 600, color: '#374151', cursor: 'pointer' }}>Data / Hora{menuPaginas.marca('criado_em')}</th>
                 </tr>
               </thead>
               <tbody>
                 {paginasDoUsuario.map((l, i) => (
                   <tr key={l.id} style={{ borderBottom: '1px solid #f3f4f6', background: i % 2 === 0 ? '#fff' : '#fafafa' }}>
                     <td style={{ padding: '9px 16px', color: '#9ca3af' }}>{i + 1}</td>
-                    <td style={{ padding: '9px 16px', fontWeight: 500, color: '#1e2a3b' }}>{l.caminho}</td>
-                    <td style={{ padding: '9px 16px', color: '#6b7280', whiteSpace: 'nowrap' }}>{fmtDataHora(l.criado_em)}</td>
+                    <td {...menuPaginas.tdProps('caminho', l.caminho, l.caminho)} style={{ padding: '9px 16px', fontWeight: 500, color: '#1e2a3b' }}>{l.caminho}</td>
+                    <td {...menuPaginas.tdProps('criado_em', brt(l.criado_em)?.slice(0, 10), diaBr(l.criado_em))} style={{ padding: '9px 16px', color: '#6b7280', whiteSpace: 'nowrap' }}>{fmtDataHora(l.criado_em)}</td>
                   </tr>
                 ))}
               </tbody>
             </table>
           </div>
         )}
+        {menuPaginas.janelas}
       </div>
     )
   }
@@ -131,10 +154,10 @@ export default function UltimosLogins() {
             <thead>
               <tr style={{ background: '#f9fafb', borderBottom: '1px solid #e5e7eb' }}>
                 <th style={{ padding: '10px 16px', textAlign: 'left', fontWeight: 600, color: '#374151' }}>#</th>
-                <th style={{ padding: '10px 16px', textAlign: 'left', fontWeight: 600, color: '#374151' }}>Nome</th>
-                <th style={{ padding: '10px 16px', textAlign: 'left', fontWeight: 600, color: '#374151' }}>E-mail</th>
-                <th style={{ padding: '10px 16px', textAlign: 'right', fontWeight: 600, color: '#374151' }}>Páginas acessadas</th>
-                <th style={{ padding: '10px 16px', textAlign: 'left', fontWeight: 600, color: '#374151' }}>Último acesso</th>
+                <th {...menuUsuarios.thProps('nome')} style={{ padding: '10px 16px', textAlign: 'left', fontWeight: 600, color: '#374151', cursor: 'pointer' }}>Nome{menuUsuarios.marca('nome')}</th>
+                <th {...menuUsuarios.thProps('email')} style={{ padding: '10px 16px', textAlign: 'left', fontWeight: 600, color: '#374151', cursor: 'pointer' }}>E-mail{menuUsuarios.marca('email')}</th>
+                <th {...menuUsuarios.thProps('qtdPaginas')} style={{ padding: '10px 16px', textAlign: 'right', fontWeight: 600, color: '#374151', cursor: 'pointer' }}>Páginas acessadas{menuUsuarios.marca('qtdPaginas')}</th>
+                <th {...menuUsuarios.thProps('ultimoAcesso')} style={{ padding: '10px 16px', textAlign: 'left', fontWeight: 600, color: '#374151', cursor: 'pointer' }}>Último acesso{menuUsuarios.marca('ultimoAcesso')}</th>
               </tr>
             </thead>
             <tbody>
@@ -142,10 +165,10 @@ export default function UltimosLogins() {
                 <tr key={u.email} onClick={() => setEmailSelecionado(u.email)}
                   style={{ borderBottom: '1px solid #f3f4f6', background: i % 2 === 0 ? '#fff' : '#fafafa', cursor: 'pointer' }}>
                   <td style={{ padding: '9px 16px', color: '#9ca3af' }}>{i + 1}</td>
-                  <td style={{ padding: '9px 16px', fontWeight: 500, color: '#1e2a3b' }}>{u.nome || <span style={{ color: '#9ca3af' }}>—</span>}</td>
-                  <td style={{ padding: '9px 16px', color: '#4b5563' }}>{u.email}</td>
-                  <td style={{ padding: '9px 16px', color: '#4b5563', textAlign: 'right' }}>{u.qtdPaginas}</td>
-                  <td style={{ padding: '9px 16px', color: '#6b7280', whiteSpace: 'nowrap' }}>{fmtDataHora(u.ultimoAcesso)}</td>
+                  <td {...menuUsuarios.tdProps('nome', u.nome, u.nome)} style={{ padding: '9px 16px', fontWeight: 500, color: '#1e2a3b' }}>{u.nome || <span style={{ color: '#9ca3af' }}>—</span>}</td>
+                  <td {...menuUsuarios.tdProps('email', u.email, u.email)} style={{ padding: '9px 16px', color: '#4b5563' }}>{u.email}</td>
+                  <td {...menuUsuarios.tdProps('qtdPaginas', u.qtdPaginas, u.qtdPaginas)} style={{ padding: '9px 16px', color: '#4b5563', textAlign: 'right' }}>{u.qtdPaginas}</td>
+                  <td {...menuUsuarios.tdProps('ultimoAcesso', brt(u.ultimoAcesso)?.slice(0, 10), diaBr(u.ultimoAcesso))} style={{ padding: '9px 16px', color: '#6b7280', whiteSpace: 'nowrap' }}>{fmtDataHora(u.ultimoAcesso)}</td>
                 </tr>
               ))}
             </tbody>
@@ -155,6 +178,7 @@ export default function UltimosLogins() {
           </div>
         </div>
       )}
+      {menuUsuarios.janelas}
     </div>
   )
 }

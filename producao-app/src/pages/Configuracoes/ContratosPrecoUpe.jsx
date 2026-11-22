@@ -3,6 +3,8 @@ import { useNavigate } from 'react-router-dom'
 import { supabase } from '../../supabaseClient'
 import { Modal } from '../../components/TabelaCRUD'
 import AbasAtividades from '../../components/AbasAtividades'
+import useMenuColunas from '../../hooks/useMenuColunas'
+import { filtrarEOrdenar } from '../../utils/filtroColunas'
 
 function fmt(n) {
   return Number(n || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
@@ -13,6 +15,15 @@ function fmtData(v) {
   const [a, m, d] = v.split('-')
   return `${d}/${m}/${a}`
 }
+
+// Botão direito nas colunas (filtro rápido + ordenação); valores e vigência são os do preço vigente
+const COLUNAS_MENU = {
+  descricao: { titulo: 'Contrato',        tipo: 'texto' },
+  upe_lm:    { titulo: 'UPE LM',          tipo: 'numero' },
+  upe_lv:    { titulo: 'UPE LV',          tipo: 'numero' },
+  vigencia:  { titulo: 'Vigência Início', tipo: 'data' },
+}
+const valorMenu = (c, chave) => chave === 'vigencia' ? c.vigente?.vigencia_inicio : chave === 'descricao' ? c.descricao : c.vigente?.[chave]
 
 function hojeISO() {
   return new Date().toISOString().slice(0, 10)
@@ -30,6 +41,7 @@ export default function ContratosPrecoUpe() {
   const [salvando, setSalvando]     = useState(false)
   const [confirmarExcluir, setConfirmarExcluir] = useState(null) // { id }
   const [toast, setToast] = useState(null)
+  const menu = useMenuColunas(COLUNAS_MENU)
 
   useEffect(() => { carregar() }, [])
 
@@ -197,37 +209,36 @@ export default function ContratosPrecoUpe() {
               <thead>
                 <tr style={{ background: '#f1f5f9' }}>
                   {[
-                    { h: 'Contrato', align: 'left' },
-                    { h: 'UPE LM', align: 'right' },
-                    { h: 'UPE LV', align: 'right' },
-                    { h: 'Vigência Início', align: 'left' },
-                    { h: 'Ações', align: 'right' },
+                    { h: 'Contrato', k: 'descricao', align: 'left' },
+                    { h: 'UPE LM', k: 'upe_lm', align: 'right' },
+                    { h: 'UPE LV', k: 'upe_lv', align: 'right' },
+                    { h: 'Vigência Início', k: 'vigencia', align: 'left' },
+                    { h: 'Ações', k: null, align: 'right' },
                   ].map((col, i) => (
-                    <th key={i} style={{ padding: '8px 12px', fontWeight: 600, color: '#374151',
-                      borderBottom: '2px solid #e2e8f0', whiteSpace: 'nowrap',
-                      textAlign: col.align }}>{col.h}</th>
+                    <th key={i} {...(col.k ? menu.thProps(col.k) : {})} style={{ padding: '8px 12px', fontWeight: 600, color: '#374151',
+                      borderBottom: '2px solid #e2e8f0', whiteSpace: 'nowrap', cursor: col.k ? 'pointer' : undefined,
+                      textAlign: col.align }}>{col.h}{col.k && menu.marca(col.k)}</th>
                   ))}
                 </tr>
               </thead>
               <tbody>
-                {contratos
-                  .filter(c => !filtroContratoId || String(c.id) === String(filtroContratoId))
+                {filtrarEOrdenar(contratos.filter(c => !filtroContratoId || String(c.id) === String(filtroContratoId)), menu.filtros, menu.ordem, COLUNAS_MENU, valorMenu)
                   .flatMap((c, idx) => {
                   const fundo = idx % 2 === 0 ? 'white' : '#fafafa'
                   const linhas = [
                     <tr key={c.id} style={{ borderTop: idx === 0 ? 'none' : '2px solid #e5e7eb', background: fundo }}>
-                      <td style={{ padding: '7px 12px', fontWeight: 600, color: '#1e2a3b' }}>{c.descricao}</td>
-                      <td style={{ padding: '7px 12px', textAlign: 'right', whiteSpace: 'nowrap' }}>
+                      <td {...menu.tdProps('descricao', c.descricao, c.descricao)} style={{ padding: '7px 12px', fontWeight: 600, color: '#1e2a3b' }}>{c.descricao}</td>
+                      <td {...menu.tdProps('upe_lm', c.vigente?.upe_lm, c.vigente?.upe_lm != null && `R$ ${fmt(c.vigente.upe_lm)}`)} style={{ padding: '7px 12px', textAlign: 'right', whiteSpace: 'nowrap' }}>
                         {c.vigente?.upe_lm != null
                           ? <span style={{ color: '#15803d', fontWeight: 700 }}>R$ {fmt(c.vigente.upe_lm)}</span>
                           : <span style={{ color: '#d1d5db' }}>-</span>}
                       </td>
-                      <td style={{ padding: '7px 12px', textAlign: 'right', whiteSpace: 'nowrap' }}>
+                      <td {...menu.tdProps('upe_lv', c.vigente?.upe_lv, c.vigente?.upe_lv != null && `R$ ${fmt(c.vigente.upe_lv)}`)} style={{ padding: '7px 12px', textAlign: 'right', whiteSpace: 'nowrap' }}>
                         {c.vigente?.upe_lv != null
                           ? <span style={{ color: '#15803d', fontWeight: 700 }}>R$ {fmt(c.vigente.upe_lv)}</span>
                           : <span style={{ color: '#d1d5db' }}>-</span>}
                       </td>
-                      <td style={{ padding: '7px 12px', color: '#6b7280', whiteSpace: 'nowrap' }}>
+                      <td {...menu.tdProps('vigencia', c.vigente?.vigencia_inicio, c.vigente && fmtData(c.vigente.vigencia_inicio))} style={{ padding: '7px 12px', color: '#6b7280', whiteSpace: 'nowrap' }}>
                         {c.vigente ? fmtData(c.vigente.vigencia_inicio) : '-'}
                         {c.agendados.map(p => (
                           <div key={p.id} style={{ fontSize: 11, marginTop: 2 }}>
@@ -337,6 +348,7 @@ export default function ContratosPrecoUpe() {
           </div>
         </Modal>
       )}
+      {menu.janelas}
     </div>
   )
 }

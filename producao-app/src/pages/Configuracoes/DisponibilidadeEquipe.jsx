@@ -3,6 +3,19 @@ import { useNavigate } from 'react-router-dom'
 import { supabase } from '../../supabaseClient'
 import { Modal } from '../../components/TabelaCRUD'
 import AbasAtividades from '../../components/AbasAtividades'
+import useMenuColunas from '../../hooks/useMenuColunas'
+import { filtrarEOrdenar } from '../../utils/filtroColunas'
+
+// Botão direito nas colunas (filtro rápido + ordenação)
+const COLUNAS_MENU = {
+  equipe:             { titulo: 'Equipe',         tipo: 'texto' },
+  mes:                { titulo: 'Mês',            tipo: 'data' },
+  dias_disponibilidade: { titulo: 'Dias disp.',   tipo: 'numero' },
+  valor_mensal:       { titulo: 'Valor mensal',   tipo: 'numero' },
+  valor_dia:          { titulo: 'Valor do dia',   tipo: 'numero' },
+  dias_lancados:      { titulo: 'Dias lançados',  tipo: 'numero' },
+  valor_faturado:     { titulo: 'Faturamento',    tipo: 'numero' },
+}
 
 function fmt(n) {
   return Number(n || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
@@ -45,6 +58,7 @@ export default function DisponibilidadeEquipe() {
   const [salvando, setSalvando]     = useState(false)
   const [confirmarExcluir, setConfirmarExcluir] = useState(null) // { id }
   const [toast, setToast]           = useState(null)
+  const menu = useMenuColunas(COLUNAS_MENU)
 
   useEffect(() => { carregar() }, [])
 
@@ -168,7 +182,7 @@ export default function DisponibilidadeEquipe() {
   const valor = lerNumero(modal?.valor ?? '')
   const valorDia = dias > 0 && !Number.isNaN(valor) ? valor / dias : null
 
-  const visiveis = linhas.filter(l => !filtroEquipeId || String(l.equipe_id) === String(filtroEquipeId))
+  const visiveis = filtrarEOrdenar(linhas.filter(l => !filtroEquipeId || String(l.equipe_id) === String(filtroEquipeId)), menu.filtros, menu.ordem, COLUNAS_MENU, (l, k) => (l.sem_cadastro && ['dias_disponibilidade', 'valor_mensal', 'valor_dia'].includes(k) ? null : l[k]))
 
   return (
     <div className="pagina">
@@ -235,17 +249,17 @@ export default function DisponibilidadeEquipe() {
               <thead>
                 <tr style={{ background: '#f1f5f9' }}>
                   {[
-                    { h: 'Equipe', align: 'left' },
-                    { h: 'Mês', align: 'left' },
-                    { h: 'Dias disp.', align: 'right' },
-                    { h: 'Valor mensal', align: 'right' },
-                    { h: 'Valor do dia', align: 'right' },
-                    { h: 'Dias lançados', align: 'right' },
-                    { h: 'Faturamento', align: 'right' },
-                    { h: 'Ações', align: 'right' },
+                    { h: 'Equipe', k: 'equipe', align: 'left' },
+                    { h: 'Mês', k: 'mes', align: 'left' },
+                    { h: 'Dias disp.', k: 'dias_disponibilidade', align: 'right' },
+                    { h: 'Valor mensal', k: 'valor_mensal', align: 'right' },
+                    { h: 'Valor do dia', k: 'valor_dia', align: 'right' },
+                    { h: 'Dias lançados', k: 'dias_lancados', align: 'right' },
+                    { h: 'Faturamento', k: 'valor_faturado', align: 'right' },
+                    { h: 'Ações', k: null, align: 'right' },
                   ].map((col, i) => (
-                    <th key={i} style={{ padding: '8px 12px', fontWeight: 600, color: '#374151',
-                      borderBottom: '2px solid #e2e8f0', whiteSpace: 'nowrap', textAlign: col.align }}>{col.h}</th>
+                    <th key={i} {...(col.k ? menu.thProps(col.k) : {})} style={{ padding: '8px 12px', fontWeight: 600, color: '#374151',
+                      borderBottom: '2px solid #e2e8f0', whiteSpace: 'nowrap', cursor: col.k ? 'pointer' : undefined, textAlign: col.align }}>{col.h}{col.k && menu.marca(col.k)}</th>
                   ))}
                 </tr>
               </thead>
@@ -254,8 +268,8 @@ export default function DisponibilidadeEquipe() {
                   const excedeu = !l.sem_cadastro && Number(l.dias_lancados) > Number(l.dias_disponibilidade)
                   return (
                     <tr key={`${l.equipe_id}-${l.mes}`} style={{ borderTop: '1px solid #f1f5f9', background: idx % 2 === 0 ? 'white' : '#fafafa' }}>
-                      <td style={{ padding: '7px 12px', fontWeight: 600, color: '#1e2a3b', whiteSpace: 'nowrap' }}>{l.equipe}</td>
-                      <td style={{ padding: '7px 12px', color: '#374151', whiteSpace: 'nowrap' }}>{fmtMes(l.mes)}</td>
+                      <td {...menu.tdProps('equipe', l.equipe, l.equipe)} style={{ padding: '7px 12px', fontWeight: 600, color: '#1e2a3b', whiteSpace: 'nowrap' }}>{l.equipe}</td>
+                      <td {...menu.tdProps('mes', l.mes && String(l.mes).slice(0, 10), fmtMes(l.mes))} style={{ padding: '7px 12px', color: '#374151', whiteSpace: 'nowrap' }}>{fmtMes(l.mes)}</td>
                       {l.sem_cadastro ? (
                         <td colSpan={3} style={{ padding: '7px 12px', textAlign: 'right' }}>
                           <span style={{ background: '#fef3c7', color: '#92400e', fontSize: 11, fontWeight: 600, padding: '2px 8px', borderRadius: 10 }}>
@@ -264,17 +278,17 @@ export default function DisponibilidadeEquipe() {
                         </td>
                       ) : (
                         <>
-                          <td style={{ padding: '7px 12px', textAlign: 'right' }}>{fmtDias(l.dias_disponibilidade)}</td>
-                          <td style={{ padding: '7px 12px', textAlign: 'right', whiteSpace: 'nowrap' }}>R$ {fmt(l.valor_mensal)}</td>
-                          <td style={{ padding: '7px 12px', textAlign: 'right', whiteSpace: 'nowrap', color: '#6b7280' }}>R$ {fmt(l.valor_dia)}</td>
+                          <td {...menu.tdProps('dias_disponibilidade', l.dias_disponibilidade, fmtDias(l.dias_disponibilidade))} style={{ padding: '7px 12px', textAlign: 'right' }}>{fmtDias(l.dias_disponibilidade)}</td>
+                          <td {...menu.tdProps('valor_mensal', l.valor_mensal, `R$ ${fmt(l.valor_mensal)}`)} style={{ padding: '7px 12px', textAlign: 'right', whiteSpace: 'nowrap' }}>R$ {fmt(l.valor_mensal)}</td>
+                          <td {...menu.tdProps('valor_dia', l.valor_dia, `R$ ${fmt(l.valor_dia)}`)} style={{ padding: '7px 12px', textAlign: 'right', whiteSpace: 'nowrap', color: '#6b7280' }}>R$ {fmt(l.valor_dia)}</td>
                         </>
                       )}
-                      <td style={{ padding: '7px 12px', textAlign: 'right', whiteSpace: 'nowrap' }}>
+                      <td {...menu.tdProps('dias_lancados', l.dias_lancados, l.dias_lancados)} style={{ padding: '7px 12px', textAlign: 'right', whiteSpace: 'nowrap' }}>
                         {excedeu
                           ? <span style={{ color: '#c2410c', fontWeight: 700 }} title="Mais dias lançados que os dias de disponibilidade do mês">⚠ {l.dias_lancados}</span>
                           : l.dias_lancados}
                       </td>
-                      <td style={{ padding: '7px 12px', textAlign: 'right', whiteSpace: 'nowrap' }}>
+                      <td {...menu.tdProps('valor_faturado', l.valor_faturado, `R$ ${fmt(l.valor_faturado)}`)} style={{ padding: '7px 12px', textAlign: 'right', whiteSpace: 'nowrap' }}>
                         <span style={{ color: '#15803d', fontWeight: 700 }}>R$ {fmt(l.valor_faturado)}</span>
                       </td>
                       <td style={{ padding: '7px 12px', whiteSpace: 'nowrap' }}>
@@ -363,6 +377,7 @@ export default function DisponibilidadeEquipe() {
           </div>
         </Modal>
       )}
+      {menu.janelas}
     </div>
   )
 }

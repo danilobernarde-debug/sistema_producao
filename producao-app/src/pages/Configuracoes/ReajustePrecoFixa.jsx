@@ -1,10 +1,25 @@
 import { useState, useEffect, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../../supabaseClient'
+import useMenuColunas from '../../hooks/useMenuColunas'
+import { filtrarEOrdenar } from '../../utils/filtroColunas'
 
 function fmt(n) {
   return Number(n || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
 }
+
+// Botão direito nas colunas (filtro rápido + ordenação). "Novo Valor" é campo de digitação e fica de fora.
+const COLUNAS_MENU = {
+  codigo_op:  { titulo: 'Código',      tipo: 'texto' },
+  descricao:  { titulo: 'Descrição',   tipo: 'texto' },
+  valorAtual: { titulo: 'Valor Atual', tipo: 'numero' },
+  variacao:   { titulo: 'Variação (%)', tipo: 'numero' },
+}
+function variacaoDe(l) {
+  const novo = l.novoValor !== '' ? Number(String(l.novoValor).replace(',', '.')) : null
+  return novo != null && l.valorAtual ? ((novo - l.valorAtual) / l.valorAtual) * 100 : null
+}
+const valorMenu = (l, k) => (k === 'variacao' ? variacaoDe(l) : l[k])
 
 function arredondar(n) {
   return Math.round(Number(n) * 100) / 100
@@ -47,6 +62,7 @@ export default function ReajustePrecoFixa() {
   const [erro, setErro] = useState('')
   const [toast, setToast] = useState(null)
   const [painelInfo, setPainelInfo] = useState(false)
+  const menu = useMenuColunas(COLUNAS_MENU)
 
   useEffect(() => {
     supabase.from('d_contratos').select('id, descricao').order('descricao').then(({ data }) => setContratos(data || []))
@@ -230,24 +246,24 @@ export default function ReajustePrecoFixa() {
             <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
               <thead>
                 <tr style={{ background: '#f1f5f9' }}>
-                  {['Código', 'Descrição', 'Valor Atual', 'Novo Valor', 'Variação'].map((h, i) => (
-                    <th key={i} style={{ padding: '10px 14px', fontWeight: 600, color: '#374151',
-                      borderBottom: '2px solid #e2e8f0', whiteSpace: 'nowrap',
-                      textAlign: i >= 2 ? 'right' : 'left' }}>{h}</th>
+                  {[['Código', 'codigo_op'], ['Descrição', 'descricao'], ['Valor Atual', 'valorAtual'], ['Novo Valor', null], ['Variação', 'variacao']].map(([h, k], i) => (
+                    <th key={i} {...(k ? menu.thProps(k) : {})} style={{ padding: '10px 14px', fontWeight: 600, color: '#374151',
+                      borderBottom: '2px solid #e2e8f0', whiteSpace: 'nowrap', cursor: k ? 'pointer' : undefined,
+                      textAlign: i >= 2 ? 'right' : 'left' }}>{h}{k && menu.marca(k)}</th>
                   ))}
                 </tr>
               </thead>
               <tbody>
-                {linhas.map((l, idx) => {
+                {filtrarEOrdenar(linhas, menu.filtros, menu.ordem, COLUNAS_MENU, valorMenu).map((l, idx) => {
                   const novo = l.novoValor !== '' ? Number(String(l.novoValor).replace(',', '.')) : null
                   const variacao = novo != null && l.valorAtual ? ((novo - l.valorAtual) / l.valorAtual) * 100 : null
                   const alterada = linhasAlteradas.some(a => a.atividade_id === l.atividade_id)
                   return (
                     <tr key={l.atividade_id} style={{ borderBottom: '1px solid #f3f4f6',
                       background: alterada ? '#fefce8' : idx % 2 === 0 ? 'white' : '#fafafa' }}>
-                      <td style={{ padding: '10px 14px', fontWeight: 600, color: '#1e2a3b', whiteSpace: 'nowrap' }}>{l.codigo_op}</td>
-                      <td style={{ padding: '10px 14px', color: '#374151' }}>{l.descricao}</td>
-                      <td style={{ padding: '10px 14px', textAlign: 'right', color: '#6b7280', whiteSpace: 'nowrap' }}>
+                      <td {...menu.tdProps('codigo_op', l.codigo_op, l.codigo_op)} style={{ padding: '10px 14px', fontWeight: 600, color: '#1e2a3b', whiteSpace: 'nowrap' }}>{l.codigo_op}</td>
+                      <td {...menu.tdProps('descricao', l.descricao, l.descricao)} style={{ padding: '10px 14px', color: '#374151' }}>{l.descricao}</td>
+                      <td {...menu.tdProps('valorAtual', l.valorAtual, l.valorAtual != null && `R$ ${fmt(l.valorAtual)}`)} style={{ padding: '10px 14px', textAlign: 'right', color: '#6b7280', whiteSpace: 'nowrap' }}>
                         {l.valorAtual != null ? `R$ ${fmt(l.valorAtual)}` : <span style={{ color: '#d1d5db' }}>sem preço</span>}
                       </td>
                       <td style={{ padding: '8px 14px', textAlign: 'right' }}>
@@ -275,6 +291,7 @@ export default function ReajustePrecoFixa() {
           </button>
         </div>
       )}
+      {menu.janelas}
     </div>
   )
 }
