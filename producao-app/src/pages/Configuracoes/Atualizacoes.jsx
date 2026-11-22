@@ -4,6 +4,18 @@ import { useNavigate } from 'react-router-dom'
 // Ao fazer uma mudança relevante no sistema, adicionar uma entrada nova aqui.
 const VERSOES = [
   {
+    versao: 'b14a5a0',
+    data: '2026-11-22',
+    resumo: 'Filtro rápido e ordenação com o botão direito nas telas Registros de Produção e Anexos',
+    itens: [
+      'Botão direito no título de uma coluna abre "Filtro rápido para [coluna]": campo de filtro (texto, número, data ou lista, conforme a coluna), "Classificar os dados em ordem" (Crescente, Decrescente ou Manter a ordem atual, já marcado) e Ok/Cancelar. A coluna mostra ▲/▼ quando ordenada e ● quando filtrada. O filtro entra no painel FILTROS',
+      'Botão direito numa célula oferece "Filtrar [coluna]: [valor]" (e remover o filtro). Em Anexos também tem "Abrir arquivo" e "Abrir registro"',
+      'Em Registros de Produção, Valor Total não tem o menu (calculado em outra tabela) e Criado por só filtra. Contrato, Tipo Equipe, Equipe e Encarregado ordenam pelo código, não pelo nome',
+      'Lançamento (Editar/Visualizar): removidos os botões { } de metadados brutos das seções Identificação e Atividades Executadas',
+      'Código: componentes compartilhados src/components/FiltroRapidoColuna.jsx e MenuCelula.jsx',
+    ],
+  },
+  {
     versao: 'e29e8b6',
     data: '2026-11-22',
     resumo: 'Aviso aos administradores quando o segredo do SharePoint estiver perto de vencer',
